@@ -1,0 +1,111 @@
+# ---------------------------------------------------------------------------
+# macOS
+# ---------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+.TemporaryItems
+.apdisk
+.DocumentRevisions-V100
+.VolumeIcon.icns
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+
+# Xcode / Finder build products
+xcuserdata/
+DerivedData/
+*.xcuserstate
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+ENV/
+.env
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.benchmarks/
+.ipynb_checkpoints/
+
+# ---------------------------------------------------------------------------
+# Editors / IDEs
+# ---------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---------------------------------------------------------------------------
+# Project data and generated output
+#
+# Recreate these from the game package with the commands in README.md:
+#   python3 -m gta6x catalog --db gta6.db ...
+#   python3 -m gta6x browse  --db gta6.db --out ./site ...
+# ---------------------------------------------------------------------------
+
+# SQLite catalogue (and any WAL/journal sidecars)
+gta6.db
+gta6.db-shm
+gta6.db-wal
+gta6.db-journal
+
+# Carved / extracted package data (large, derived, not source)
+recovered/defs/
+recovered/xml/
+recovered/context_*.txt
+site/
+
+# Optional SixNG backend work/build trees
+.sixng-work/
+work/
+.cargo-home/
+.cargo-target/
+
+# Command output directories
+movies/
+audio/
+carved/
+one/
+textures/
+models/
+shaders/
+structured/
+embedded/
+
+# Command output files
+gta6-catalog.json
+gta6-catalog.html
+extract-index.json
+manifest.sha256
+report.md
+report.html
+*.log
+
+# Carved media carriers
+*.bk2
+*.bik
