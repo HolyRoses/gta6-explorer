@@ -1351,6 +1351,51 @@ def cmd_textures(args) -> int:
     return 0
 
 
+def cmd_world(args) -> int:
+    """Extract world/map data through the optional SixNG backend."""
+    from . import models as models_mod
+    from . import world as world_mod
+
+    backend = models_mod.find_backend(args.backend)
+    if not backend:
+        eprint("no sixng backend found; build it (see README) or pass --backend")
+        return 2
+    filters = {"name": args.name, "exclude_name": args.exclude_name,
+               "min_size": args.min_size, "limit": args.limit,
+               "bbox": args.bbox}
+    options = {"dump": args.dump, "roads_only": args.roads_only,
+               "batches": args.batches, "batches_only": args.batches_only}
+    try:
+        archive_label, result = world_mod.run(
+            backend, args.root, os.path.abspath(args.work), args.kind,
+            args.archive, args.out, filters=filters, options=options,
+            navmeshes=args.navmeshes)
+    except (RuntimeError, OSError) as exc:
+        eprint(str(exc))
+        return 1
+    if args.json:
+        print(json.dumps({"kind": args.kind, "archive": archive_label,
+                          "result": result}, indent=2))
+        return 0
+    stats = result.get("stats") if isinstance(result.get("stats"), dict) else {}
+    destination = (result.get("index") or result.get("file")
+                   or stats.get("out") or args.out)
+    print(f"{args.kind}: {archive_label} -> {destination}")
+    for key, value in {**result, **stats}.items():
+        if key in ("ok", "archive", "seconds", "stats", "out", "index", "file"):
+            continue
+        if isinstance(value, (int, float, str, bool)):
+            print(f"  {key}: {value}")
+    if "seconds" in result:
+        print(f"  seconds: {result['seconds']:.2f}")
+    files = sum(len(names) for _root, _dirs, names in os.walk(args.out))
+    print(f"  files written: {files:,}")
+    if args.kind == "all":
+        print("  steps: placements, batches, collision, navmesh, paths, lights, "
+              "interiors, surfaces")
+    return 0
+
+
 def cmd_selftest(args) -> int:
     """Parser self-checks against synthetic structures -- no game data needed."""
     import struct as _s
@@ -1749,6 +1794,27 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--dump", type=int, default=0, help="dump N records at the best stride")
     p.set_defaults(func=cmd_hunt, spread=0, quiet=False, no_padding=False,
                    no_align=False, align=0x1000)
+
+    p = sub.add_parser("world", help="extract world/map data (SixNG backend)")
+    p.add_argument("--kind", required=True, choices=sorted([
+        "all", "collision", "handling", "interiors", "lights", "meta",
+        "navmesh", "paths", "pso", "placements", "shaders", "surfaces",
+        "vehicles"]), help="world data step")
+    p.add_argument("--archive", help="RPF archive fragment (kind-specific default)")
+    p.add_argument("--out", required=True, help="output directory")
+    p.add_argument("--name", default="", help="regex on recovered names")
+    p.add_argument("--exclude-name", default="", help="regex of names to skip")
+    p.add_argument("--min-size", type=int, default=0, help="minimum entry size")
+    p.add_argument("--limit", type=int, default=0, help="maximum entries")
+    p.add_argument("--bbox", default="", help="world region minx,miny,maxx,maxy")
+    p.add_argument("--dump", action="store_true", help="full meta dumps")
+    p.add_argument("--roads-only", action="store_true", help="navmesh roads only")
+    p.add_argument("--batches", action="store_true", help="placements: batches too")
+    p.add_argument("--batches-only", action="store_true", help="placements: batches only")
+    p.add_argument("--navmeshes", default="navmeshes", help="surfaces: navmesh archive")
+    p.add_argument("--backend", default=None, help="path to the sixng executable")
+    p.add_argument("--work", default=".sixng-work", help="backend work/index directory")
+    p.set_defaults(func=cmd_world)
 
     p = sub.add_parser("models", help="list/extract drawables via the SixNG backend")
     p.add_argument("action", choices=["info", "index", "list", "extract"])

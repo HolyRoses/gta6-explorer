@@ -96,6 +96,7 @@ models/
 shaders/
 structured/
 embedded/
+world/
 
 # Command output files
 gta6-catalog.json

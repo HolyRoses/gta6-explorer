@@ -32,6 +32,7 @@ covers the structural rules without game data.
 | AWC audio | 238 containers in the first 48 MiB; per-stream Opus metadata, native payloads and Ogg remux | `awc`, `scan` |
 | DXBC shaders | **9,089** validated in the first 64 MiB of `shaders.rpf` | `shaders` |
 | Models | `packs.rpf`: 80,424 entries, **75,135 model resources**, 27,288 named → glTF/GLB | `models` (SixNG backend) |
+| World data | placements, collision, navmesh, paths, lights, interiors, vehicles, meta/PSO, shader census | `world` (SixNG backend) |
 
 The catalogue sweep is not exhaustive: per-archive limits vary, and only
 `common.rpf`, `script.rpf`, `textures.rpf`, `shaders.rpf` and the smaller archives
@@ -187,8 +188,9 @@ smaller mips and is tiled in 16×16-element blocks.
   is not implemented in `gta6x`.
 * **Shader semantics.** Extraction stops at valid DXBC containers; there is no
   disassembly or translation.
-* **World data.** Placements, collision, navmesh, lights, interiors, meta/PSO
-  and vehicles are not decoded here (SixNG-only).
+* **World data.** Placements, collision, navmesh, paths, lights, interiors,
+  meta/PSO and vehicles are decoded by the SixNG backend and exposed through
+  `gta6x world`; no native decoder for these formats is included.
 
 ## Reproduce
 
@@ -205,6 +207,8 @@ python3 -m gta6x --root <pkg> awc --archive audio --limit 64 --ogg-out ./audio
 python3 -m gta6x --root <pkg> catalog --db gta6.db --limit 64
 python3 -m gta6x --root <pkg> models index --archive packs
 python3 -m gta6x --root <pkg> models extract --archive packs --name '^ankle' --max 1 --out ./models
+python3 -m gta6x --root <pkg> world --kind vehicles --archive packs --out ./world
+python3 -m gta6x --root <pkg> world --kind placements --limit 2000 --out ./world
 ```
 
 ## Provenance

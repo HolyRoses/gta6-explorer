@@ -34,6 +34,7 @@ to directories you name.
 | Recover complete **XML/PSIN** resources split across zlib pages | **yes**, 259 XML / 1,048 PSIN in 16 MiB samples |
 | Carve zlib streams; catalogue; browser; reports; TUI | **yes** |
 | List/extract **models** to glTF/GLB | **yes**, via optional SixNG backend |
+| Extract **world/map data** (placements, collision, navmesh, paths, lights, interiors, vehicles, meta/PSO) | **yes**, via optional SixNG backend |
 | Decrypt the RPF9 index | **no** — the AES key is not in the package |
 | Decode BCPack texture payloads | **no** — no public decoder |
 | Transcode Opus/XMA2 audio to WAV | **no** — Opus is remuxed to Ogg, not decoded |
@@ -325,7 +326,7 @@ git clone https://github.com/holdmysocks/SixNG && cd SixNG
 cargo build --release -p sixng-cli
 export GTA6X_SIXNG=$PWD/target/release/sixng    # or pass --backend PATH
 
-# index one archive (resumable; ~1 min for packs.rpf)
+# index one archive (resumable; typically 1–3 min for packs.rpf)
 python3 -m gta6x --root <pkg> models index --archive packs
 
 # list and export
@@ -340,6 +341,50 @@ Output per model: `<out>/models/<archive>/<name>_<offset>/model.glb`, plus
 in `--work` (default `.sixng-work`, gitignored) and are tied to the package
 contents; delete them after a game update. Without a backend the command prints
 the build instructions instead of guessing.
+
+## World and map data (SixNG backend)
+
+SixNG also decodes the world resources. `world` exposes those readers through a
+single, read-only command; outputs are derived files under `--out`, never
+changes to the package.
+
+| `--kind` | Default archive | Output |
+|---|---|---|
+| `placements` | `levels` | per-map entity JSON + `index.jsonl`; `--batches` adds instanced batches |
+| `collision` | `levels` | collision GLB + surface census |
+| `navmesh` | `navmeshes` | walkable-surface GLB; `--roads-only` for road polygons |
+| `paths` | `levels` | `paths/<archive>/graph.json` (nodes, lane links, speed limits) |
+| `lights` | `levels` | world-space light emitters |
+| `interiors` | `levels` | MLO instances and their entity lists |
+| `vehicles` | `packs` | `vehicles/vehicles.json` (models, configurations, palettes) |
+| `handling` | `data` | `pso/handling.json` (mass, drag, engine, suspension, …) |
+| `meta` | `data` | meta schema index; `--dump` for full JSON |
+| `pso` | `data` | decoded PSO resource JSON |
+| `shaders` | `levels` | shader census (hash, usage, parameters, formats) |
+| `surfaces` | `levels` | surface categories (needs collision/paths output) |
+| `all` | — | the standard world pipeline in order |
+
+Indexing is required once per archive:
+
+```bash
+# build the backend once (see Models above)
+python3 -m gta6x --root <pkg> models index --archive levels
+python3 -m gta6x --root <pkg> models index --archive navmeshes
+python3 -m gta6x --root <pkg> models index --archive packs
+
+# examples
+python3 -m gta6x --root <pkg> world --kind vehicles --archive packs --out ./world
+python3 -m gta6x --root <pkg> world --kind placements --limit 2000 --out ./world
+python3 -m gta6x --root <pkg> world --kind collision --limit 100 \
+        --bbox -1000,-1000,1000,1000 --out ./world
+python3 -m gta6x --root <pkg> world --kind navmesh --roads-only --out ./world
+python3 -m gta6x --root <pkg> world --kind all --out ./world-all
+```
+
+Filters: `--name`/`--exclude-name` (regex), `--min-size`, `--limit`, and
+`--bbox minx,miny,maxx,maxy` for region-limited geometry and placements. Without
+an index the backend reports which archive to index; without a backend the
+command prints the build instructions.
 
 ## Payload carving, catalogue and browser
 
@@ -393,7 +438,7 @@ above. These are observations, not format guarantees.
 | `shaders` | 9,089 validated DXBC shaders in the first 64 MiB of `shaders.rpf`; 2,174 in the first 16 MiB |
 | `structured` | `common.rpf`: 259 complete XML (79 joined); 16 MiB of `data.rpf`: 1,048 complete PSIN (28 joined) |
 | `textures --embedded` | native: 1,345 txd dictionaries / 3,155 textures in `textures.rpf`; sample dictionary 7 textures; backend: 7 DDS with 3–4 mips |
-| `selftest` | 42 checks, all passing (AWC, Ogg, RDS5, PSIN, XML, gfx10, DDS, PNG, shaders, txd) |
+| `selftest` | 42 checks, all passing (AWC, Ogg, RDS5, PSIN, XML, gfx10, DDS, PNG, shaders, txd); backend features are not self-tested |
 
 The local SQLite catalogue used during development holds 176,971 checksum-
 verified assets across 20 archives; that file is generated output, not part of
