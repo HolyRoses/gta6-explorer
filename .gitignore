@@ -107,6 +107,9 @@ report.md
 report.html
 *.log
 
+# Local notes / planning
+TODO.md
+
 # Carved media carriers
 *.bk2
 *.bik
