@@ -9,5 +9,5 @@ Deliberately dependency-free: standard library only.
 
 __version__ = "1.0.0"
 __all__ = ["rpf", "rds5", "gfx10", "texture", "psin", "media", "shaders",
-           "structured", "embedded", "models", "world", "inventory", "report",
-           "cli", "tui"]
+           "structured", "embedded", "models", "world", "names", "inventory",
+           "report", "cli", "tui"]

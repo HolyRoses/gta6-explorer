@@ -288,6 +288,118 @@ def _scan_targets(args) -> list[str]:
     return archives
 
 
+def cmd_movies(args) -> int:
+    """List Bink2 movie metadata and optionally extract the selected payloads."""
+    if not args.archive:
+        args.archive = ["movies"]
+    targets = _scan_targets(args)
+    if not targets:
+        eprint("no archive matched")
+        return 1
+    limit = None if args.full else args.limit * 1024 * 1024
+    hits: list[media.Hit] = []
+    for path in targets:
+        try:
+            found = _collect(path, ("bink2",), limit, args)
+        except OSError as exc:
+            eprint(f"skip {path}: {exc}")
+            continue
+        hits.extend(found)
+        if found:
+            eprint(f"{os.path.basename(path):24s} {len(found):5d} movie(s)")
+
+    records: list[dict] = []
+    for hit in hits:
+        meta = hit.meta or {}
+        fps = meta.get("fps") or 0
+        frames = meta.get("frames") or 0
+        duration = frames / fps if fps else 0.0
+        width, height = meta.get("width") or 0, meta.get("height") or 0
+        size = hit.size or 0
+        if duration < args.min_duration or (
+                args.max_duration and duration > args.max_duration):
+            continue
+        if width < args.min_width or height < args.min_height:
+            continue
+        if size < args.min_size:
+            continue
+        records.append({
+            "kind": hit.kind,
+            "archive": hit.archive,
+            "offset": hit.offset,
+            "offset_hex": f"0x{hit.offset:09x}",
+            "bytes": size,
+            "width": width,
+            "height": height,
+            "fps": fps,
+            "frames": frames,
+            "duration": round(duration, 3),
+            "largest_frame": meta.get("largest_frame"),
+            "version": meta.get("version"),
+            "bitrate_mbps": round(size * 8 / duration / 1_000_000, 2) if duration else 0,
+        })
+    if args.sort == "size":
+        records.sort(key=lambda r: -r["bytes"])
+    elif args.sort == "duration":
+        records.sort(key=lambda r: -r["duration"])
+    elif args.sort == "resolution":
+        records.sort(key=lambda r: -(r["width"] * r["height"]))
+    else:
+        records.sort(key=lambda r: (r["archive"], r["offset"]))
+
+    written: list[dict] = []
+    if args.out and records:
+        selected = [h for h in hits if any(
+            h.offset == r["offset"] and h.archive == r["archive"] for r in records)]
+        written = media.extract_hits(selected, args.out, source_root=args.root)
+        by_key = {(r["archive"], r["offset"]): r for r in records}
+        for item in written:
+            record = by_key.get((item["archive"], item["offset"]), {})
+            item.update({k: record.get(k) for k in
+                         ("width", "height", "fps", "frames", "duration",
+                          "largest_frame", "version", "bitrate_mbps")})
+        manifest = args.manifest or os.path.join(args.out, "movies.json")
+        os.makedirs(os.path.dirname(os.path.abspath(manifest)), exist_ok=True)
+        with open(manifest, "w", encoding="utf-8") as fh:
+            json.dump(written, fh, indent=1)
+        if args.json:
+            print(json.dumps(written, indent=2))
+            return 0
+        total = sum(w["bytes"] for w in written)
+        print(f"extracted {len(written)} movie(s), {total / (1024 * 1024):.1f} MiB "
+              f"-> {os.path.abspath(args.out)}")
+        print(f"manifest: {manifest}")
+        for item in written[:10]:
+            print(f"  {os.path.basename(item['file']):40s} {item['width']}x{item['height']} "
+                  f"@{item['fps']}fps  {item['bytes']:,} B")
+        return 0
+
+    if args.json:
+        print(json.dumps(records, indent=2))
+        return 0
+    if not records:
+        print("no matching Bink2 movies")
+        return 0
+    rows = []
+    for record in records[:None if args.all else args.max]:
+        rows.append([record["archive"][:18], record["offset_hex"],
+                     f"{record['bytes']:,}",
+                     f"{record['width']}x{record['height']}",
+                     f"{record['fps']}",
+                     f"{record['frames']}",
+                     f"{record['duration']:.2f}s",
+                     f"{record['bitrate_mbps']:.1f}"])
+    print(table(rows, ["archive", "offset", "bytes", "resolution", "fps",
+                       "frames", "duration", "Mbps"], align="llrrrrrr"))
+    total_bytes = sum(r["bytes"] for r in records)
+    total_duration = sum(r["duration"] for r in records)
+    print(f"\n{len(records)} movie(s), {total_bytes / (1024 * 1024):.1f} MiB, "
+          f"{total_duration:.1f}s total; pass --out DIR to extract")
+    if not args.all and len(records) > args.max:
+        print(f"... {len(records) - args.max} more (raise --max or use --all)")
+    return 0
+
+
 def cmd_scan(args) -> int:
     targets = _scan_targets(args)
     if not targets:
@@ -596,6 +708,9 @@ def cmd_psin(args) -> int:
     print(f"containers {info['containers']:,}   fragments {info['fragments']:,}"
           f"   bodies {info['bodies']:,}   confident {info['confident']:,}")
     print(f"section tags: {info['section_tags']}")
+    if info["containers"]:
+        print(f"checksums verified: {info['checksums_verified']:,}/"
+              f"{info['containers']:,} containers")
     if info["bodies"]:
         print(f"body entries: min {info['entries_min']} avg {info['entries_avg']} "
               f"max {info['entries_max']}")
@@ -613,7 +728,8 @@ def cmd_psin(args) -> int:
             rows.append([f"{item.total_size:,}", "container",
                          f"{len(item.sections)}", "-",
                          f"{len(body.entries) if body else 0}",
-                         f"0x{item.stored_checksum:08X}", ""])
+                         f"0x{item.stored_checksum:08X}",
+                         "ok" if item.checksum_verified else "BAD"])
         elif item.kind == "fragment":
             rows.append([f"{item.total_size:,}", "fragment",
                          f"{item.declared_size:,}", f"{item.missing:,}",
@@ -625,7 +741,7 @@ def cmd_psin(args) -> int:
                          f"{item.payload_size:,} B"])
     print()
     print(table(rows, ["bytes", "kind", "declared/sections", "missing/fieldA",
-                       "entries", "checksum/payload@", "payload"], align="rlrrrrr"))
+                       "entries", "checksum/payload@", "chks"], align="rlrrrrl"))
     return 0
 
 
@@ -1237,6 +1353,74 @@ def _cmd_embedded_textures(args) -> int:
     return 0
 
 
+def _cmd_textures_via_backend(args) -> int:
+    """Full-format PNG previews for TTPF pools through SixNG's `ttpf`."""
+    from . import models as models_mod
+
+    if not args.out:
+        eprint("--out DIR is required for backend export")
+        return 1
+    backend = models_mod.find_backend(args.backend)
+    if not backend:
+        eprint("no sixng backend found; build it (see README) or use the native path")
+        return 2
+    pools = _find_pools(args.root, args.pool)
+    if not pools:
+        eprint("no .ttpf pools found")
+        return 1
+    os.makedirs(args.out, exist_ok=True)
+    max_n = None if args.all else args.max
+    total = 0
+    exported = 0
+    written: list[str] = []
+    for pool in pools:
+        if max_n is not None and total >= max_n:
+            break
+        index = rds5.read_index(pool)
+        selected = []
+        for tex in index.textures:
+            if args.hash_prefix and not f"{tex.hash:016x}".startswith(args.hash_prefix.lower()):
+                continue
+            if tex.width * tex.height < args.min_size:
+                continue
+            selected.append(tex)
+        if not selected:
+            continue
+        store = os.path.relpath(pool, args.root)
+        command = ["ttpf", store, "--out", os.path.abspath(args.out)]
+        if args.hash_prefix:
+            for tex in selected[:max_n - total if max_n is not None else None]:
+                command += ["--hash", f"{tex.hash:016x}"]
+            remaining = max_n - total if max_n is not None else len(selected)
+            expected = min(len(selected), remaining)
+        else:
+            remaining = max_n - total if max_n is not None else len(selected)
+            expected = min(len(selected), remaining)
+            command += ["--first", str(expected)]
+        try:
+            payload = models_mod.run_any(backend, args.root,
+                                         os.path.abspath(args.work), command)
+        except RuntimeError as exc:
+            eprint(str(exc))
+            return 1
+        items = payload if isinstance(payload, list) else payload.get("items", [])
+        for item in items:
+            png = item.get("png") if isinstance(item, dict) else None
+            if png:
+                written.append(png)
+        exported += len(items)
+        total += expected
+    if args.json:
+        print(json.dumps({"exported": exported, "png": written}, indent=2))
+        return 0
+    print(f"backend exported {exported:,} TTPF PNG previews to {args.out}")
+    for path in written[:8]:
+        print(f"  {path}")
+    if len(written) > 8:
+        print(f"  ... {len(written) - 8} more")
+    return 0
+
+
 def cmd_textures(args) -> int:
     """List TTPF textures, or export them as DDS files."""
     from . import texture as texture_mod
@@ -1245,6 +1429,8 @@ def cmd_textures(args) -> int:
         if args.via == "sixng":
             return _cmd_embedded_via_backend(args)
         return _cmd_embedded_textures(args)
+    if args.via == "sixng":
+        return _cmd_textures_via_backend(args)
 
     pools = _find_pools(args.root, args.pool)
     if not pools:
@@ -1278,9 +1464,7 @@ def cmd_textures(args) -> int:
                     __covered, missing, uncovered = texture_mod.coverage(
                         index, tex.virtual_offset, layout.total, starts)
                 reason = None
-                if tex.is_cube:
-                    reason = "cube-map copies"
-                elif layout is None:
+                if layout is None:
                     reason = "unsupported tile mode or element size"
                 elif layout.total > texture_mod.MAX_TEXTURE_BYTES:
                     reason = "larger than 64 MiB"
@@ -1351,6 +1535,53 @@ def cmd_textures(args) -> int:
     return 0
 
 
+def cmd_names(args) -> int:
+    """Build or query the local joaat name dictionary."""
+    from . import names as names_mod
+
+    if args.action == "build":
+        dictionary = names_mod.build(args.root, paths_file=args.paths,
+                                     include_shaders=not args.no_shaders)
+        out = os.path.abspath(args.out)
+        parent = os.path.dirname(out)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        with open(out, "w", encoding="utf-8") as handle:
+            json.dump(dictionary, handle, indent=1)
+        if args.json:
+            print(json.dumps({"out": out,
+                              "hashes": len(dictionary["hashes"]),
+                              "case_sensitive": len(dictionary["exact"]),
+                              "identifiers": dictionary["counts"]}, indent=2))
+            return 0
+        print(f"wrote {out}")
+        print(f"  hashes: {len(dictionary['hashes']):,}  "
+              f"case-sensitive: {len(dictionary['exact']):,}")
+        for source, count in sorted(dictionary["counts"].items()):
+            print(f"  {source}: {count:,} identifiers")
+        return 0
+
+    if not args.hash:
+        eprint("names lookup needs a hash")
+        return 1
+    try:
+        dictionary = names_mod.load(args.index)
+    except (OSError, ValueError) as exc:
+        eprint(f"cannot read {args.index}: {exc}")
+        return 1
+    found = names_mod.lookup(dictionary, args.hash)
+    if args.json:
+        print(json.dumps({"hash": args.hash, "names": [
+            {"name": name, "source": source} for name, source in found]}, indent=2))
+        return 0
+    if not found:
+        print(f"no name for {args.hash}")
+        return 0
+    for name, source in found:
+        print(f"{name}  [{source}]")
+    return 0
+
+
 def cmd_world(args) -> int:
     """Extract world/map data through the optional SixNG backend."""
     from . import models as models_mod
@@ -1408,6 +1639,7 @@ def cmd_selftest(args) -> int:
     from . import audio as _audio
     from . import bcn as _bcn
     from . import embedded as _embedded
+    from . import names as _names
     from . import png as _png
     from . import structured as _structured
     from . import texture as _texture
@@ -1541,6 +1773,21 @@ def cmd_selftest(args) -> int:
           layout.total == 12288 and layout.mips[0].offset == 4096
           and layout.mips[1].tail == (16, 0))
     array = _gfx10.Layout.new("D64K", 64, 64, 9, 16).with_slices(8)
+    cube = _gfx10.Layout.new("S4K", 32, 32, 6, 16)
+    check("gfx10 cube base", cube is not None
+          and cube.with_cube_copies(6, 3, None) is not None
+          and cube.base == 18 * 4096 and cube.total == 54 * 4096)
+    cube2 = _gfx10.Layout.new("S4K", 128, 128, 7, 8)
+    check("gfx10 cube total", cube2 is not None
+          and cube2.with_cube_copies(6, 4, None) is not None
+          and cube2.base == 104 * 4096
+          and cube2.total == (104 + 258) * 4096)
+    s4k4 = _gfx10.Layout.new("S4K", 32, 32, 1, 4)
+    d64k4 = _gfx10.Layout.new("D64K", 128, 128, 1, 4)
+    check("gfx10 S4K 4-byte block", s4k4 is not None and s4k4.block_w == 32
+          and s4k4.block_h == 32 and s4k4.bpe == 4)
+    check("gfx10 D64K 4-byte block", d64k4 is not None and d64k4.block_w == 128
+          and d64k4.block_h == 128 and d64k4.bpe == 4)
     check("gfx10 array slicing",
           array.total == 1 << 20 and array.mip_span(0) == (8 * 65536, 9 * 65536)
           and array.addr(0, 3, 0, 0) == 11 * 65536)
@@ -1659,6 +1906,21 @@ def cmd_selftest(args) -> int:
     check("png preview writes",
           _png.png_bytes(2, 1, bytes((255, 0, 0, 255, 0, 255, 0, 255)))
           .startswith(b"\x89PNG\r\n\x1a\n"))
+    check("joaat known hashes",
+          _names.joaat("standard") == 0xBCF03FC1
+          and _names.joaat("diffusetex") == 0xC8E8C282)
+    check("joaat exact differs",
+          _names.joaat_exact("BumpTex") != _names.joaat("BumpTex"))
+    check("psin checksum vector", _psin.joaat_checksum(b"") == 0x6AE15BB2)
+    parts = bytearray()
+    parts += b"PSIN" + _s.pack(">I", 16) + b"\x00" * 8
+    for tag in (b"LSCH", b"LENM", b"LSNS", b"LGID", b"LRSC"):
+        parts += tag + _s.pack(">I", 8)
+    parts += b"CHKS" + _s.pack(">I", 20) + _s.pack(">I", 76) + b"\x00" * 4 + b"zppp"
+    checksum = _psin.container_checksum(bytes(parts), 56)
+    _s.pack_into(">I", parts, 68, checksum)
+    parsed = _psin.parse_container(bytes(parts))
+    check("psin checksum verifies", parsed is not None and parsed.checksum_verified)
 
     print(f"\n{len(failures)} failure(s)")
     return 0 if not failures else 1
@@ -1707,6 +1969,34 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--spread", type=int, default=0,
                        help="sample N evenly spaced windows instead of the file head "
                             "(carriers cluster; suggested: 4)")
+
+    p = sub.add_parser("movies", help="Bink2 movie metadata browser and extractor")
+    p.add_argument("files", nargs="*", help="specific archives (default: movies)")
+    p.add_argument("--archive", action="append", default=[],
+                   help="archive fragment (default: movies)")
+    p.add_argument("--limit", type=int, default=256,
+                   help="MiB to scan per archive (default 256)")
+    p.add_argument("--full", action="store_true", help="scan whole archives")
+    p.add_argument("--align", type=int, default=0x1000, help="required alignment")
+    p.add_argument("--no-align", action="store_true")
+    p.add_argument("--no-padding", action="store_true")
+    p.add_argument("--quiet", action="store_true")
+    p.add_argument("--spread", type=int, default=0,
+                   help="sample N evenly spaced windows")
+    p.add_argument("--min-duration", type=float, default=0.0,
+                   help="minimum duration in seconds")
+    p.add_argument("--max-duration", type=float, default=0.0,
+                   help="maximum duration in seconds")
+    p.add_argument("--min-width", type=int, default=0)
+    p.add_argument("--min-height", type=int, default=0)
+    p.add_argument("--min-size", type=int, default=0, help="minimum bytes")
+    p.add_argument("--sort", choices=["offset", "size", "duration", "resolution"],
+                   default="offset")
+    p.add_argument("--max", type=int, default=40, help="rows to display")
+    p.add_argument("--all", action="store_true", help="display every match")
+    p.add_argument("--out", help="extract selected movies into this directory")
+    p.add_argument("--manifest", help="manifest path (default <out>/movies.json)")
+    p.set_defaults(func=cmd_movies)
 
     p = sub.add_parser("scan", help="find validated Bink2/Bink1/AWC carriers")
     add_common(p)
@@ -1794,6 +2084,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--dump", type=int, default=0, help="dump N records at the best stride")
     p.set_defaults(func=cmd_hunt, spread=0, quiet=False, no_padding=False,
                    no_align=False, align=0x1000)
+
+    p = sub.add_parser("names", help="build or query the joaat name dictionary")
+    p.add_argument("action", choices=["build", "lookup"])
+    p.add_argument("hash", nargs="?", help="hash to resolve (lookup)")
+    p.add_argument("--out", default="names.json", help="output dictionary")
+    p.add_argument("--index", default="names.json", help="dictionary to read")
+    p.add_argument("--paths", default=None, help="extra recovered path list")
+    p.add_argument("--no-shaders", action="store_true",
+                   help="skip the shaders.rpf C-string scan")
+    p.set_defaults(func=cmd_names)
 
     p = sub.add_parser("world", help="extract world/map data (SixNG backend)")
     p.add_argument("--kind", required=True, choices=sorted([

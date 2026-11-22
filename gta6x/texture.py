@@ -105,16 +105,21 @@ def format_name(dxgi_format: int) -> str:
 
 def layout_for(texture: rds5.TtpTexture) -> gfx10.Layout | None:
     """Gfx10 layout for a texture, or None when unsupported."""
-    if texture.is_cube:
-        return None
-    swizzle = gfx10.TILE_MODES.get(texture.tile_mode)
-    if swizzle is None:
-        return None
-    name, element_bytes, block_pixels, _is_bc = format_info(texture.dxgi_format)
+    _name, element_bytes, block_pixels, _is_bc = format_info(texture.dxgi_format)
     if not gfx10.element_bytes_ok(element_bytes):
         return None
     blocks_w = -(-texture.width // block_pixels)
     blocks_h = -(-texture.height // block_pixels)
+    if texture.is_cube:
+        layout = gfx10.Layout.new("S4K", blocks_w, blocks_h,
+                                  texture.mips, element_bytes)
+        if layout is None:
+            return None
+        return layout.with_cube_copies(texture.slices, texture.tile_mode - 8,
+                                       texture.cube_base)
+    swizzle = gfx10.TILE_MODES.get(texture.tile_mode)
+    if swizzle is None:
+        return None
     layout = gfx10.Layout.new(swizzle, blocks_w, blocks_h,
                               texture.mips, element_bytes)
     if layout is None:
@@ -229,7 +234,7 @@ def read_virtual(path, index: rds5.TtpIndex, virtual: int, length: int,
 
 
 def dds_header(width: int, height: int, mips: int, slices: int,
-               dxgi_format: int) -> bytes:
+               dxgi_format: int, cube: bool = False) -> bytes:
     """DDS header (148 bytes) for a DX10 2D texture or 2D array."""
     _name, element_bytes, _block_pixels, is_bc = format_info(dxgi_format)
     if element_bytes == 0:
@@ -241,6 +246,8 @@ def dds_header(width: int, height: int, mips: int, slices: int,
         pitch = width * element_bytes
         flags = 0x2100F
     caps = 0x1000 | (0x8 if slices > 1 else 0) | (0x400000 if mips > 1 else 0)
+    caps2 = 0x200 | 0xFC00 if cube else 0
+    misc = 4 if cube else 0
     out = bytearray()
     out += b"DDS " + struct.pack("<I", 124)
     out += struct.pack("<I", flags)
@@ -252,11 +259,11 @@ def dds_header(width: int, height: int, mips: int, slices: int,
     out += struct.pack("<I", 32) + struct.pack("<I", 4)
     out += b"DX10" + b"\x00" * 20           # pixel format
     out += struct.pack("<I", caps)
-    out += struct.pack("<I", 0)              # caps2 (no cube flag)
+    out += struct.pack("<I", caps2)          # cube faces when applicable
     out += b"\x00" * 12
     out += struct.pack("<I", dxgi_format)
     out += struct.pack("<I", 3)              # D3D10_RESOURCE_DIMENSION_TEXTURE2D
-    out += struct.pack("<I", 0)              # miscFlag
+    out += struct.pack("<I", misc)           # D3D10_RESOURCE_MISC_TEXTURECUBE
     out += struct.pack("<I", slices)
     out += struct.pack("<I", 0)              # miscFlags2
     return bytes(out)
@@ -267,7 +274,8 @@ def dds_bytes(texture: rds5.TtpTexture, layout: gfx10.Layout,
     """Build a DDS file (header + untiled mips) for one TTPF texture."""
     width, height, mips, slices = (texture.width, texture.height,
                                    texture.mips, texture.slices)
-    out = bytearray(dds_header(width, height, mips, slices, texture.dxgi_format))
+    out = bytearray(dds_header(width, height, mips, slices, texture.dxgi_format,
+                               cube=texture.is_cube))
     for mip in range(mips):
         for slice_index in range(slices):
             out += layout.untile_slice(data, mip, slice_index)
@@ -285,8 +293,7 @@ def export_texture(path, index: rds5.TtpIndex, texture: rds5.TtpTexture,
               "skipped": None}
     layout = layout_for(texture)
     if layout is None:
-        result["skipped"] = ("unsupported tile mode or element size"
-                             if not texture.is_cube else "cube-map copies")
+        result["skipped"] = "unsupported tile mode or element size"
         return result
     if layout.total > MAX_TEXTURE_BYTES:
         result["skipped"] = "texture exceeds the 64 MiB export limit"

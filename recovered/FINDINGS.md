@@ -6,7 +6,7 @@ payloads are zlib streams, media carriers are stored in the clear, and texture
 pools carry their own indexes.
 
 All numbers below were measured on this package with the parsers in `gta6x/`.
-They are observations, not format guarantees; the tool's `selftest` (42 checks)
+They are observations, not format guarantees; the tool's `selftest` (50 checks)
 covers the structural rules without game data.
 
 ## Package profile
@@ -27,12 +27,14 @@ covers the structural rules without game data.
 | Zlib payloads | 176,971 checksum-verified assets in one catalogue sweep; 4.12 GB packed → 26.34 GB inflated | `catalog --db`, `get` |
 | Complete XML | `common.rpf`: 259 documents, **79 joined** from split pages | `structured` |
 | Complete PSIN | 16 MiB of `data.rpf`: 1,048 containers, **28 joined** | `structured` |
-| Streamed textures | 357,115 descriptors, **301,677 exportable** to DDS (84.5%); **277,297** to PNG (77.6%) | `textures --png` |
+| Streamed textures | 357,115 descriptors, **305,095 exportable** to DDS (85.4%, incl. 563 cube maps); **277,297** native PNG (77.6%); backend PNG covers BC6H/BC7 | `textures --png`, `--via sixng` |
 | Embedded txd textures | **1,345 dictionaries / 3,155 textures** native; full mip chains via backend | `textures --embedded` |
+| Movies | 515 Bink2 titles in `movies.rpf`: 8.83 GB, 3.94 h total | `movies` |
 | AWC audio | 238 containers in the first 48 MiB; per-stream Opus metadata, native payloads and Ogg remux | `awc`, `scan` |
 | DXBC shaders | **9,089** validated in the first 64 MiB of `shaders.rpf` | `shaders` |
 | Models | `packs.rpf`: 80,424 entries, **75,135 model resources**, 27,288 named → glTF/GLB | `models` (SixNG backend) |
 | World data | placements, collision, navmesh, paths, lights, interiors, vehicles, meta/PSO, shader census | `world` (SixNG backend) |
+| Name hashes | 50,864 joaat hashes / 36,943 case-sensitive, built from common + shaders + paths | `names` |
 
 The catalogue sweep is not exhaustive: per-archive limits vary, and only
 `common.rpf`, `script.rpf`, `textures.rpf`, `shaders.rpf` and the smaller archives
@@ -144,10 +146,19 @@ container length. The first four containers carry 58 Opus 48 kHz streams. Opus p
 
 Seven tagged sections (`PSIN`, `LSCH`, `LENM`, `LSNS`, `LGID`, `LRSC`, `CHKS`)
 tile the blob exactly; `CHKS` is 20 bytes and repeats the total length, a stored
-checksum and a platform tag. Section 1 is the entry table body
+checksum and a platform tag. Section 1 is the instance-table body
 (`PSIN | size | fieldA | fieldB | AA-fill entries | pppp | payload`). Pages that
 declare a section longer than the available stream are stream-split fragments,
 not a second format.
+
+Section roles from the observed layouts: `LSCH` schema headers/fields, `LENM`
+enum name/value records, `LSNS` 128-bit name records, `LGID` global 128-bit id
+records, `LRSC` resource-reference/fixup records. These roles are structural
+inferences; only `CHKS` is cryptographically verified below.
+
+The `CHKS` checksum is RAGE JOOAT (signed bytes, seed `0x3FAC7125`) over the
+whole container with the `CHKS` length and checksum fields zeroed, big-endian.
+It verifies on **821/821** complete containers in the 8 MiB `data.rpf` sample (788/788 for the stream-local `psin` sample).
 
 ### DXBC shader wrappers
 
@@ -171,18 +182,22 @@ smaller mips and is tiled in 16×16-element blocks.
 * **RPF9 index key.** The table of contents remains AES ciphertext. `f2`, `f3`,
   `h1`/`h2`, `f4`, the `0x20..0x40` words and the key itself are unresolved;
   archive members cannot be listed from the index, only carved.
-* **PSIN `CHKS`.** The checksum algorithm is unknown; the stored value is read
-  but not verified.
 * **BCPack.** Textures whose mips live in BCPack chunks have no public decoder
   (Xbox hardware texture codec) and are skipped.
 * **Native model decoding.** Geometry is exported through the optional SixNG
   backend; no native mesh/meshlet decoder is included.
 * **Embedded mip tail.** The native txd path exports mip 0 only; small mips in
   the packed tail are not untiled. The backend exports full chains.
-* **Texture layouts.** TTPF cube-map copies (567) and uncompressed element
-  sizes (2,910 descriptors) are not exported; Gfx10 equations cover 8/16-byte
-  elements. Native PNG previews cover BC1/BC2/BC3/BC4/BC5 and RGBA8 (77.6%);
-  BC6H/BC7 (21.8%) and the remaining layouts stay DDS-only.
+* **Texture layouts.** Cube maps use the S4K cube-copy layout: **563 of 567**
+  export as six-face DDS; four descriptors remain unsupported. Gfx10
+  equations now cover 1/2/4/8/16-byte elements (SW_4KB_S and SW_64KB_D); only
+  eight descriptors remain unsupported. Native PNG previews cover
+  BC1/BC2/BC3/BC4/BC5 and RGBA8
+  (77.6%); BC6H/BC7 (21.8%) stay DDS-only natively but are covered by the
+  backend `textures --via sixng` route.
+* **64-bit texture hashes.** TTPF/embedded texture hashes do not match 32-bit
+  joaat (0/5,000 sampled), so the name dictionary cannot resolve them yet; the
+  64-bit name-hash algorithm is unknown.
 * **Audio decode.** Streams are catalogued, native payloads written, and Opus
   is remuxed losslessly to Ogg. PCM/WAV decoding (and Opus/XMA2 transcoding)
   is not implemented in `gta6x`.
@@ -202,6 +217,9 @@ python3 -m gta6x --root <pkg> structured --archive common --out ./structured
 python3 -m gta6x --root <pkg> shaders --archive shaders --limit 64 --out ./shaders
 python3 -m gta6x --root <pkg> textures --archive textures --embedded --out ./embedded
 python3 -m gta6x --root <pkg> textures --pool vehicles --out ./textures --png --all
+python3 -m gta6x --root <pkg> textures --hash-prefix 19c12e6a --out ./cube
+python3 -m gta6x --root <pkg> textures --via sixng --pool vehicles --max 20 --out ./textures-backend
+python3 -m gta6x --root <pkg> movies --full --max 20
 python3 -m gta6x --root <pkg> awc --archive audio --limit 64 --raw-out ./audio
 python3 -m gta6x --root <pkg> awc --archive audio --limit 64 --ogg-out ./audio
 python3 -m gta6x --root <pkg> catalog --db gta6.db --limit 64
@@ -209,6 +227,8 @@ python3 -m gta6x --root <pkg> models index --archive packs
 python3 -m gta6x --root <pkg> models extract --archive packs --name '^ankle' --max 1 --out ./models
 python3 -m gta6x --root <pkg> world --kind vehicles --archive packs --out ./world
 python3 -m gta6x --root <pkg> world --kind placements --limit 2000 --out ./world
+python3 -m gta6x --root <pkg> names build --out names.json
+python3 -m gta6x names lookup bcf03fc1 --index names.json
 ```
 
 ## Provenance

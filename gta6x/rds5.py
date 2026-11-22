@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import os
 import struct
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from .rpf import entropy
 
@@ -187,6 +187,7 @@ class TtpTexture:
     dxgi_format: int
     tile_mode: int
     slices: int
+    cube_base: int | None = None
 
     @property
     def virtual_offset(self) -> int:
@@ -213,6 +214,7 @@ class TtpTexture:
             "slices": self.slices,
             "virtual_offset": self.virtual_offset,
             "cube": self.is_cube,
+            "cube_base": self.cube_base,
         }
 
 
@@ -364,6 +366,21 @@ def read_index(path: str | os.PathLike) -> TtpIndex:
             problems.append(f"chunk {i} is stored but packed {packed} != size {size}")
         previous_source, previous_virtual = start, virtual
         chunks.append(TtpChunk(i, value, start, virtual, size, packed, codec, padding))
+
+    if chunks and textures:
+        by_virtual = {chunk.virtual_offset: i for i, chunk in enumerate(chunks)}
+        updated: list[TtpTexture] = []
+        for texture in textures:
+            base = None
+            if texture.is_cube:
+                index = by_virtual.get(texture.virtual_offset)
+                copies = texture.tile_mode - 8
+                if index is not None and index + copies - 1 < len(chunks):
+                    base = (chunks[index + copies - 1].virtual_offset
+                            - texture.virtual_offset)
+            updated.append(replace(texture, cube_base=base)
+                           if base is not None else texture)
+        textures = updated
 
     if chunks:
         metadata_bytes = 16 + area + texture_count * 32

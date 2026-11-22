@@ -6,6 +6,8 @@ surfaces, matching the layout used by ``data/ttdb/*.ttpf``.
 
 * A swizzle mode is a 4 KiB or 64 KiB block with a fixed bit order of the
   element-coordinate x/y bits inside it; blocks are stored row-major.
+* Both S4K and D64K cover 1/2/4/8/16-byte elements, using the GFX10
+  ``SW_4KB_S`` / ``SW_64KB_D`` addrlib bit orders.
 * Mips are stored **smallest first**; mip 0 is last.
 * Mips that fit in half a block (``w <= block_w / 2``, ``h <= block_h``) and are
   among the last ``max_mips_in_tail`` share one mip-tail block at offset 0, each
@@ -30,11 +32,29 @@ _EQUATIONS: dict[tuple[str, int], tuple[tuple[bool, int], ...]] = {
                   (_Y, 3), (_X, 3)),
     ("S4K", 8): ((_X, 0), (_Y, 0), (_Y, 1), (_X, 1), (_X, 2), (_Y, 2),
                  (_X, 3), (_Y, 3), (_X, 4)),
+    # 4 KiB S: the low bits of the 64 KiB S order (prosper's pixel-verified
+    # 4 B/1 B orders and the addrlib continuation for 2 B).
+    ("S4K", 4): ((_X, 0), (_X, 1), (_Y, 0), (_Y, 1), (_Y, 2), (_X, 2),
+                 (_Y, 3), (_X, 3), (_Y, 4), (_X, 4)),
+    ("S4K", 2): ((_X, 0), (_X, 1), (_X, 2), (_Y, 0), (_Y, 1), (_Y, 2),
+                 (_X, 3), (_Y, 3), (_X, 4), (_Y, 4), (_X, 5)),
+    ("S4K", 1): ((_X, 0), (_X, 1), (_X, 2), (_X, 3), (_Y, 0), (_Y, 1),
+                 (_Y, 2), (_Y, 3), (_Y, 4), (_X, 4), (_Y, 5), (_X, 5)),
     ("D64K", 16): ((_X, 0), (_Y, 0), (_X, 1), (_Y, 1), (_Y, 2), (_X, 2),
                    (_Y, 3), (_X, 3), (_Y, 4), (_X, 4), (_Y, 5), (_X, 5)),
     ("D64K", 8): ((_X, 0), (_Y, 0), (_X, 1), (_X, 2), (_Y, 1), (_Y, 2),
                   (_X, 3), (_Y, 3), (_X, 4), (_Y, 4), (_X, 5), (_Y, 5),
                   (_X, 6)),
+    # 64 KB D: full addrlib GFX10_SW_64K_D patterns, low bits first.
+    ("D64K", 4): ((_X, 0), (_X, 1), (_Y, 0), (_Y, 1), (_Y, 2), (_X, 2),
+                  (_Y, 3), (_X, 3), (_Y, 4), (_X, 4), (_Y, 5), (_X, 5),
+                  (_Y, 6), (_X, 6)),
+    ("D64K", 2): ((_X, 0), (_X, 1), (_X, 2), (_Y, 0), (_Y, 1), (_Y, 2),
+                  (_X, 3), (_Y, 3), (_X, 4), (_Y, 4), (_X, 5), (_Y, 5),
+                  (_X, 6), (_Y, 6), (_X, 7)),
+    ("D64K", 1): ((_X, 0), (_X, 1), (_X, 2), (_Y, 1), (_Y, 0), (_Y, 2),
+                  (_X, 3), (_Y, 3), (_Y, 4), (_X, 4), (_Y, 5), (_X, 5),
+                  (_Y, 6), (_X, 6), (_Y, 7), (_X, 7)),
 }
 
 #: TTPF tile-mode values (descriptor d1 bits 24..27) and their swizzle.
@@ -49,8 +69,8 @@ def _ceil(value: int, boundary: int) -> int:
 
 
 def element_bytes_ok(bpe: int) -> bool:
-    """Only 8- and 16-byte elements (BC1-BC7) have a validated bit equation."""
-    return bpe in (8, 16)
+    """Element sizes with a validated bit equation (S4K also 1/2/4)."""
+    return bpe in (1, 2, 4, 8, 16)
 
 
 @dataclass
@@ -123,6 +143,43 @@ class Layout:
         n = max(1, count)
         self.slices = n
         self.total = self.slice_bytes * n
+        return self
+
+    def with_cube_copies(self, slices: int, copies: int,
+                         base: int | None = None) -> Layout | None:
+        """Cube maps: ``copies`` interleaved copies of the mip chain.
+
+        Ported from the Gfx10 layout used by the SixNG readers. ``base`` is the
+        byte distance from the texture's first page to the first cube face when
+        the pool chunk table provides it; otherwise it is derived from padded
+        chain sizes.
+        """
+        first = next((i for i, p in enumerate(self.mips) if p.tail is not None),
+                     len(self.mips))
+        has_tail = first < len(self.mips)
+        units = first + (1 if has_tail else 0)
+        n = copies
+        if n <= 0 or n > units:
+            return None
+
+        def chain(j: int) -> int:
+            if has_tail and j == 0:
+                return self.block_bytes
+            m = first - (j + 1 - (1 if has_tail else 0))
+            return self.mips[m].offset + self.level_bytes(m)
+
+        count = max(1, slices)
+
+        def pad(value: int) -> int:
+            return ((value + 0xFFFF) // 0x10000 * 0x10000
+                    if value > 128 * 1024 else value)
+
+        if base is None:
+            base = sum(pad(count * chain(units - n + c)) for c in range(n - 1))
+        self.slices = count
+        self.slice_major = True
+        self.base = base
+        self.total = base + count * self.slice_bytes
         return self
 
     def level_bytes(self, m: int) -> int:

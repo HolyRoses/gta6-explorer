@@ -33,7 +33,7 @@ BACKEND_ENV = "GTA6X_SIXNG"
 BACKEND_NAME = "sixng"
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-__all__ = ["BackendMissing", "find_backend", "run", "info", "index",
+__all__ = ["BackendMissing", "find_backend", "run", "run_any", "info", "index",
            "list_models", "extract_models", "manifest_models"]
 
 
@@ -56,7 +56,8 @@ def find_backend(explicit: str | None = None) -> str | None:
 
 
 def _run(backend: str, game: str, work: str, args: list[str],
-         stream_progress: bool = False, timeout: int = 7200) -> dict:
+         stream_progress: bool = False, timeout: int = 7200,
+         require_ok: bool = True) -> dict:
     cmd = [backend, "--game", game, "--work", work, *args]
     if stream_progress:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -94,9 +95,10 @@ def _run(backend: str, game: str, work: str, args: list[str],
                 break
             except json.JSONDecodeError:
                 continue
-    if proc.returncode != 0 or not payload or not payload.get("ok", False):
+    ok = isinstance(payload, dict) and payload.get("ok", False)
+    if proc.returncode != 0 or payload is None or (require_ok and not ok):
         error = None
-        if payload:
+        if isinstance(payload, dict):
             error = payload.get("error")
         if not error:
             error = (proc.stderr or "").strip().splitlines()[-1:] or ["backend failed"]
@@ -109,6 +111,11 @@ def run(backend: str, game: str, work: str, args: list[str],
         stream_progress: bool = False) -> dict:
     """Run an arbitrary sixng subcommand and return its final JSON payload."""
     return _run(backend, game, work, args, stream_progress=stream_progress)
+
+
+def run_any(backend: str, game: str, work: str, args: list[str]) -> object:
+    """Run a subcommand whose final JSON payload is not an ``ok`` envelope."""
+    return _run(backend, game, work, args, require_ok=False)
 
 
 def info(backend: str, game: str, work: str) -> dict:

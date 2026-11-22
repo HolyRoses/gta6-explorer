@@ -43,8 +43,9 @@ available page.  Those are reported as *fragments* carrying the declared size,
 the available size and whatever body prefix could be read -- not as a different
 format.  The remaining 39/300 sampled assets are exactly this case.
 
-The ``CHKS`` checksum algorithm is still unknown; the stored value is exposed
-but not verified.
+The ``CHKS`` checksum is now verified: RAGE JOOAT (signed bytes) with seed
+``0x3FAC7125`` over the whole container, with the ``CHKS`` length and checksum
+fields zeroed.  It matches every complete container sampled from 1.0.2.1.
 """
 
 from __future__ import annotations
@@ -55,6 +56,7 @@ from dataclasses import dataclass, field
 MAGIC = b"PSIN"
 CONTAINER_TAGS = (b"PSIN", b"LSCH", b"LENM", b"LSNS", b"LGID", b"LRSC", b"CHKS")
 CHKS_LENGTH = 20
+CHKS_SEED = 0x3FAC7125
 
 ENTRY_STRIDE = 16          # measured: 8 bytes of data + 8 bytes of 0xAA fill
 TABLE_BASE = 0x20          # entry table starts after the 32-byte body header
@@ -64,9 +66,10 @@ HEADER_SIZE = 0x10
 ENTRY_SIZE = 8
 
 __all__ = [
-    "MAGIC", "CONTAINER_TAGS", "PsinSection", "PsinBody", "PsinContainer",
-    "PsinFragment", "parse", "parse_container", "parse_body", "parse_page",
-    "is_psin", "summarise",
+    "MAGIC", "CONTAINER_TAGS", "CHKS_SEED", "PsinSection", "PsinBody",
+    "PsinContainer", "PsinFragment", "joaat_checksum", "container_checksum",
+    "parse", "parse_container", "parse_body", "parse_page", "is_psin",
+    "summarise",
 ]
 
 
@@ -129,11 +132,12 @@ class PsinContainer:
     platform_tag: int = 0
     total_size: int = 0
     body: PsinBody | None = None
+    computed_checksum: int = 0
     kind: str = "container"
 
     @property
     def checksum_verified(self) -> bool:
-        return False  # algorithm not established yet
+        return self.computed_checksum == self.stored_checksum
 
     def section(self, tag: str) -> PsinSection | None:
         for sec in self.sections:
@@ -147,6 +151,7 @@ class PsinContainer:
             "total_size": self.total_size,
             "sections": [s.as_dict() for s in self.sections],
             "stored_checksum": f"0x{self.stored_checksum:08X}",
+            "computed_checksum": f"0x{self.computed_checksum:08X}",
             "platform_tag": f"0x{self.platform_tag:08X}",
             "checksum_verified": self.checksum_verified,
             "body": self.body.as_dict() if self.body else None,
@@ -205,6 +210,26 @@ def _sections_tile(data: bytes) -> list[PsinSection] | None:
     return sections if pos == len(data) else None
 
 
+def joaat_checksum(data: bytes, seed: int = CHKS_SEED) -> int:
+    """RAGE JOOAT: signed bytes, one-at-a-time, with the finalisation steps."""
+    value = seed & 0xFFFFFFFF
+    for byte in data:
+        value = (value + (byte - 256 if byte >= 128 else byte)) & 0xFFFFFFFF
+        value = (value + (value << 10)) & 0xFFFFFFFF
+        value ^= value >> 6
+    value = (value + (value << 3)) & 0xFFFFFFFF
+    value ^= value >> 11
+    value = (value + (value << 15)) & 0xFFFFFFFF
+    return value
+
+
+def container_checksum(data: bytes, chks_offset: int) -> int:
+    """JOOAT over a container with CHKS length+checksum zeroed."""
+    body = bytearray(data)
+    body[chks_offset + 8:chks_offset + 16] = b"\x00" * 8
+    return joaat_checksum(bytes(body))
+
+
 def parse_container(data: bytes) -> PsinContainer | None:
     """Parse a complete seven-section container."""
     sections = _sections_tile(data)
@@ -220,7 +245,8 @@ def parse_container(data: bytes) -> PsinContainer | None:
     platform = struct.unpack_from(">I", data, base + 16)[0]
     body_sec = sections[0]
     body = parse_body(data[body_sec.offset: body_sec.offset + body_sec.length])
-    return PsinContainer(sections, stored, platform, len(data), body)
+    computed = container_checksum(data, base)
+    return PsinContainer(sections, stored, platform, len(data), body, computed)
 
 
 def parse_body(data: bytes) -> PsinBody | None:
@@ -335,6 +361,7 @@ def summarise(items: list[PsinContainer | PsinBody | PsinFragment]) -> dict:
         elif item.kind == "body":
             body_objs.append(item)
     tags: collections.Counter[str] = collections.Counter()
+    verified = sum(1 for c in containers if c.checksum_verified)
     for c in containers:
         for sec in c.sections:
             tags[sec.tag] += 1
@@ -359,4 +386,6 @@ def summarise(items: list[PsinContainer | PsinBody | PsinFragment]) -> dict:
         "payload_avg": round(sum(payloads) / len(payloads), 1) if payloads else 0,
         "container_bytes": sum(c.total_size for c in containers),
         "fragment_missing": sum(f.missing for f in fragments),
+        "checksums_verified": verified,
+        "checksums_bad": len(containers) - verified,
     }
