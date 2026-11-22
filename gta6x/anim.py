@@ -9,7 +9,7 @@ measurable and useful for browsing:
 * ``pack:/...`` name tables (``.clip``/``.anim``/``.motion``),
 * ``SKEL_*`` bone-name tables,
 * ``RBF0`` rig-set metadata,
-* packed clip streams (u32 2/3 + ``01 01 00 00``),
+* candidate packed headers (u32 2/3 + ``01 01 00 00``),
 * type-hash tables, PSIN metadata and raw streams.
 
 This module classifies those streams and extracts the name tables. It does not
@@ -138,7 +138,7 @@ def classify(data: bytes, offset: int, stored: int) -> AnimRecord:
     elif len(data) >= 8 and _u32(data, 0) in (2, 3) and data[4:8] == b"\x01\x01\x00\x00":
         record.signature = "clip-stream"
         record.version = _u32(data, 0)
-        record.detail = "24-byte header"
+        record.detail = "candidate packed header; clip identity unverified; may be a continuation"
     elif data[:8] == b"\x00" * 8:
         record.signature = "zero-prefix"
     elif _printable(data):
@@ -155,11 +155,11 @@ def scan(path: str | os.PathLike, limit: int | None = None,
     path = os.fspath(path)
     if start is None:
         try:
-            start = rpf.read_header(path).index_size
+            header = rpf.read_header(path)
+            start = header.index_size if header.is_rpf9 else 0
         except (OSError, ValueError):
             start = 0
-    length = (start + limit) if limit else None
-    for blob in zlibcarve.carve_streams(path, length=length, min_out=64):
-        if blob.offset < start:
-            continue
+    if start < 0 or start > os.path.getsize(path) or (limit is not None and limit <= 0):
+        raise ValueError('animation start must be inside the archive and limit positive')
+    for blob in zlibcarve.carve_streams(path, start=start, length=limit, min_out=64):
         yield classify(blob.data, blob.offset, blob.compressed)

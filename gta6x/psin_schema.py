@@ -416,11 +416,15 @@ def inspect_sources(paths: list[str], *, limit: int | None,
         summary['instance_nodes'] = max_nodes - remaining_nodes
         summary['instance_values_decoded'] = sum(i.get('summary', {}).get('decoded_values', 0)
                                                 for i in inspections)
-        for key in ('hash32_arrays_resolved', 'hash32_array_values_decoded'):
+        for key in ('hash32_arrays_resolved', 'hash32_array_values_decoded',
+                    'structure_arrays_resolved', 'structure_array_records_linked',
+                    'reference_arrays_resolved', 'reference_array_records_linked', 'reference_array_null_entries',
+                    'reference_fields_resolved', 'reference_fields_linked', 'reference_fields_null', 'reference_fields_unresolved',
+                    'maps_resolved', 'maps_unresolved', 'map_entries_linked'):
             summary['instance_' + key] = sum(i.get('summary', {}).get(key, 0) for i in inspections)
     result = dict(format='gta6x-psin-schemas-v2', summary=summary,
                 scope='Complete recovered PSIN containers only; archive fragments are omitted.',
-                interpretation=('LSCH/LENM with bounded inferred instance values; only validated hash32-array links are followed, other references remain explicit.'
+                interpretation=('LSCH/LENM with bounded inferred values and local field/array/map-entry associations; unresolved references remain explicit and record-link targets are not expanded.'
                                 if with_instances else
                                 'LSCH/LENM records with explicitly inferred type meanings; unknown types, fixups and instances remain undecoded.'),
                 resources=resources, schemas=rows)

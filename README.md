@@ -35,12 +35,12 @@ to directories you name.
 | PSIN containers, section bodies, stream-split fragments | **yes**, complete-container checksums verified (JOOAT) |
 | Browse native **LSCH/LENM schemas** and export JSON | **yes**, enum records, nine inferred type meanings and optional name candidates; unknowns preserved |
 | Resolve **cross-file PSIN schemas** | **partial**, private signature-aware registry; local definitions win and conflicting versions remain unresolved |
-| Read native **PSIN instance blocks** | **partial**, bounded scalar/enum/embedded values, local hash32 arrays, hash/text pools and opaque/reference diagnostics with `psin --instances`; unknowns remain explicit |
+| Read native **PSIN instance blocks** | **partial**, scalar/enum/embedded values, local hash32 arrays, local reference-field, structure/reference-array and map-entry links, hash/text pools and opaque/reference diagnostics with `psin --instances`; unknowns remain explicit |
 | Recover **DXBC shaders** from `shaders.rpf` | **yes**, 9,089 in the first 64 MiB |
 | Recover complete **XML/PSIN** resources split across zlib pages | **yes**, 259 XML / 1,048 PSIN in 16 MiB samples |
 | Carve zlib streams; catalogue; browser; reports; TUI | **yes** |
 | List/extract **models** to glTF/GLB | **yes**, via optional SixNG backend |
-| Index **animation archive** containers and clip/bone names | **yes**, `anim`; clips not decoded |
+| Browse **animation resources**, names and clip-record links | **yes**, `anim --resources` exports bounded `0DRP` metadata; `--clip-records` binds names/record prefixes; `--clip-components` follows animation/buffer links; `--packed-layout` inspects bounded headers/raw channel rows; curves remain unknown |
 | Extract **world/map data** (placements, collision, navmesh, paths, lights, interiors, vehicles, meta/PSO) | **yes**, via optional SixNG backend |
 | Build a local **joaat name dictionary** and resolve 32-bit hashes | **yes**, ~50k names from XML/text, shaders and paths |
 | Decrypt the RPF9 index | **no** — no index key is supplied or recovered |
@@ -104,7 +104,7 @@ options (`--root`, `--json`) go before the subcommand.
 | `info` | Package overview, store identity, chunk counts, composition by type | `--json` |
 | `headers` | RPF9 header table: index size, constants, fingerprint, encryption test | `--json`, explicit files |
 | `resources` | TTPF pool index: header fields, chunks, codecs, virtual size, ETPF, validation | `--json` |
-| `anim` | Index animation streams and recover clip/bone names | `--archive`, `--limit`, `--full`, `--clips`, `--out`, `--max` |
+| `anim` | Index streams/names, browse resource metadata and named record links | `--archive`, `--start`, `--limit`, `--full`, `--clips`, `--resources`, `--clip-records`, `--clip-components`, `--packed-layout`, `--max-nodes`, `--out`, `--max` |
 | `textures` | TTPF pools and embedded txd dictionaries; export DDS/PNG | `--pool`, `--embedded`, `--archive`, `--via`, `--out`, `--png`, `--bcpack`, `--bcpack-helper`, `--max`, `--all`, `--hash-prefix`, `--min-size` |
 | `scan` | Find validated Bink2/Bink1/AWC carriers | `--kind`, `--limit`, `--full`, `--spread`, `--no-padding`, `--no-align`, `--max` |
 | `movies` | Movie metadata browser; optional extraction | `--archive`, `--limit`, `--full`, `--min/max-duration`, `--min-width/height`, `--sort`, `--out` |
@@ -451,7 +451,8 @@ without type-rule changes. Discovery contains **11,794 enum headers / 118,111
 members**; the separate range contains **1,748 / 26,632**. All 13,004 checked
 enum32 payload values in that range match their LENM definitions. Boolean and
 float probes also agree with the inferred labels. Map and enum_bitset64 have
-discovery evidence only, with no examples in that range. These are consistency
+no examples in that range; map-entry validation uses the supplementary cohort
+described below. Enum_bitset64 still has discovery evidence only. These are consistency
 checks, not an independent semantic decoder oracle or a fresh blind holdout;
 the range was previously used for structural LSCH validation.
 
@@ -469,7 +470,7 @@ Boolean, finite float32, hash32, enum32 and embedded-structure values where the
 schema is unambiguous (local by default, optionally using the registry below).
 Field hashes and name candidates remain separate;
 enum aliases are preserved. Interpretations remain **inferred**. Unknown types,
-missing schemas, unsupported array/map pointers and bitsets produce explicit unresolved
+missing schemas, unsupported array/map profiles and bitsets produce explicit unresolved
 fields instead of fabricated values. Nonfinite floats and invalid Boolean/enum
 values keep their bits and a reason. JSON contains no NaN/Infinity numbers.
 Block/record offsets refer to the decompressed PSIN container; field offsets
@@ -480,6 +481,8 @@ the PP terminator, every block extent, zero alignment padding and exact EOF.
 Bad bodies refuse instance output while retaining any verified schema. A
 resource/block/record status of `partial` is expected when fields are unresolved;
 `complete` means its listed fields were handled, not a confirmed object graph.
+A complete structure-array field means its record links were validated; linked
+records may still be partial and retain their own unresolved fields.
 The enclosing resource's `status: ok` still refers to schema/checksum validation.
 
 `--max-nodes` defaults to 100,000 across the entire report; records, fields,
@@ -493,7 +496,7 @@ decodes return zero. Keep all exported game values private.
 Native record checks parsed all **821 discovery containers**, all **223 comparison
 containers**, and **1,012 script.rpf metadata containers**. They emitted
 **732,614 / 94,289 / 230,622** supported record leaves respectively, each checked
-by encoding it back to its exact source bytes. All resources remain partial.
+by encoding it back to its exact source bytes. Most resources remain partial.
 These are byte/structure consistency results, not independent confirmation of
 type semantics. The script sample is additional cross-archive evidence.
 
@@ -530,7 +533,7 @@ Game-data pool checks add **1,071 / 8,913 / 0** supported values to the
 (9,931 hashes and 53 strings). All **1,057,525** existing record leaves are
 unchanged; all **1,067,509** record/pool observations re-encode exactly to source bytes.
 Another **69,363** candidate/opaque entries retain raw bits without decoded
-values. All resources remain partial. The reference candidate fits all
+values. Most resources remain partial. The reference candidate fits all
 **55,884 nonzero pool words**, including their local target-stride alignment;
 wrong target order and other bit partitions fail that consistency check.
 ASCII has discovery evidence only; no text-pool examples occur in comparison
@@ -568,8 +571,9 @@ also aggregate these as `instance_hash32_arrays_resolved` and
 node budget, including repeated references to the same bytes. `decoded_values`
 counts array observations alongside scalar and standalone pool observations:
 the same physical hash may appear in both views, so totals are not unique
-bytes or unique values. Structure arrays, maps and general pointer traversal
-remain unsupported.
+bytes or unique values. Structure arrays use the bounded record links described
+below; map entries use a separate bounded profile. General pointer traversal
+remains unsupported.
 
 The source split was frozen before implementation: **821 discovery resources**,
 **223 separate-range validation resources**, and **1,012 script validation
@@ -584,8 +588,162 @@ empty arrays, with **1,011 / 997 / 0** attached hash observations. All
 **1,067,509** prior record/pool observations are unchanged; all **1,069,517**
 current observations round-trip to source bytes. Reversing element order fails
 on all 470 spans with discriminating content. Other array profiles remain
-unresolved and all 2,056 tested resources remain partial. These checks establish
+unresolved outside the supported profiles; most resources remain partial. These checks establish
 bounded byte/shape consistency, not independently confirmed header semantics.
+
+**Structure-array record links:** `--instances` also resolves a local structure
+element descriptor (exact code `0x05`, synthetic ID `0x100`, offset zero) when
+its referenced structure hash has exactly one local definition with positive
+size. The same equal-u16/zero-tail and null-empty header restrictions apply.
+Nonempty targets must match that exact structure hash, with block length and
+offset divisible by its declared stride and the entire array span bounded
+inside the block. Matching sizes/signatures do not substitute for an exact
+local type match. Missing/duplicate definitions and imported registry owners
+or targets remain unresolved.
+
+The field's `array.mode` is `record_links`. Its `elements` contain
+`status: record_reference`, `block_index`, `record_index`, offsets, lengths and
+structure hashes. Follow a link in the exported JSON using
+`blocks[block_index].records[record_index]`. Records are already decoded by the
+normal block reader; the array does not copy or recursively expand them.
+Aliases and cycles stay finite links. A valid link does not claim that the
+referenced record's fields or gameplay meaning are understood; inspect that
+record's own status. All interpretations remain inferred.
+
+`structure_arrays_resolved` includes empty arrays;
+`structure_array_records_linked` counts each link, including aliases. Report
+aggregates use the `instance_` prefix. Each link consumes the shared node
+budget; records are decoded once in their existing rows. Link creation adds
+neither duplicate scalar values nor extra `decoded_values` observations.
+Reference arrays use the bounded two-hop links below. Other pointer/array
+profiles and recursive graph expansion remain open; map-entry links are
+described below.
+
+The same frozen source split was preserved without promotions or registry
+refitting. Discovery / data-validation / script resolve **25,526 / 130 / 0**
+arrays, including **16,745 / 31 / 0** empty arrays, linking **15,392 / 293 / 0**
+existing records. All **1,069,517** prior value observations are preserved and
+byte-round-trip. **788** links currently lead to partial records. Missing/ambiguous local schemas leave **15,059** structure-array
+fields unresolved. Wrong-record-order controls discriminate 2,278 spans;
+2,277 also have discriminating byte content. These are bounds/type/association
+consistency checks on previously examined sources, not a fresh blind holdout
+or independently confirmed pointer semantics.
+
+**Reference-array record links:** `--instances` resolves one inferred profile
+for local synthetic element descriptors with exact code `0x07`, offset zero
+and zero auxiliary attributes. The usual equal-u16/zero-tail/null-empty header
+rules apply. A nonempty header must select a complete, eight-byte-aligned span
+in an intrinsic `0x07` word pool, with no conflicting local structure definition.
+Each word is retained and independently checked: zero becomes an explicit
+`null_reference`; a nonzero word must select a whole record under exactly one
+positive-size local definition for its target block's declared type. No common
+base class, inheritance relationship, global fallback or recursive reference
+chain is inferred.
+
+`array.mode` is `reference_record_links`. Elements retain `reference_bits`,
+`reference_data_offset`, `reference_byte_length` and `pool_element_index`.
+Nonnull entries use the same block/record links as structure arrays; null
+entries have `target: null` and no invented record. Any invalid/ambiguous member
+leaves the whole array unresolved with an explicit failed slot/word diagnostic
+and **no prefix links**. Shared node limits count every slot, including nulls
+and aliases, plus the standalone pool view. Targets are not expanded and
+`decoded_values` is not inflated. Bare reference pools retain their candidate interpretation. Named `0x07` fields
+can use the bounded contextual profile below; no global primitive meaning is assigned.
+
+Counters `reference_arrays_resolved`, `reference_array_records_linked` and
+`reference_array_null_entries` also appear in reports with an `instance_`
+prefix. With the unchanged frozen split, discovery / validation / script
+resolve **31,390 / 2,795 / 0** arrays, link **51,779 / 4,040 / 0** records and
+retain **14 / 0 / 0** null slots. **7,336** arrays have mixed target types;
+**23,183** links led to partial records before map-entry support. All **28,844** previous hash32/structure
+array associations and **1,069,517** value observations are preserved and
+byte-check successfully. Wrong slot order discriminates 12,608 spans.
+Before map-entry support, 2,055 of 2,056 resources remained partial and one
+had all listed fields handled; `complete` still does not establish full byte coverage or gameplay
+semantics. **15,090** recognized array fields remain unresolved. These are
+consistency results on reused sources, not blind accuracy or semantic ground truth.
+
+**Standalone reference fields:** `--instances` also binds exact named `0x07` /
+zero-auxiliary fields in local schemas. The full eight-byte word must fit its
+owning record/block and cannot contain another named field's start; synthetic
+`0x100` descriptors are excluded. Zero words become explicit null references.
+Nonzero words must select a whole record under the target block's unique,
+positive-size local definition, with full block/offset stride and span checks.
+Imported owners/targets, unsupported attributes, short/overlapping slots and
+invalid targets remain unresolved with a reason. Original bits are retained
+when the slot is safe to read.
+
+The field's `reference` object records the inferred profile, original word and
+absolute decompressed-container source offset, plus a `record_reference` link or `null_reference`.
+Target lookup uses the same block/record indices as array links, without
+recursive expansion or copied values. The raw schema type and `type_name: null`
+remain unchanged: this is a contextual binding, not a globally confirmed LSCH
+primitive. A complete field means its association was handled, not that the
+target's fields or gameplay semantics are understood. Each attempt/binding/null
+consumes the shared output budget. `decoded_values` is unchanged.
+
+Counters `reference_fields_resolved`, `reference_fields_linked`,
+`reference_fields_null` and `reference_fields_unresolved` also appear with an
+`instance_` report prefix. Discovery / frozen validation / script resolve
+**102,280 / 11,633 / 0** field observations: **31,691 / 2,130 / 0** record links
+and **70,589 / 9,503 / 0** nulls. All **63,029** previous array associations and
+**1,069,517** value observations remain identical and byte-check successfully.
+Wrong-endian words fail every one of the 33,821 nonzero field-target checks.
+**20,013** links targeted partial records before map-entry support. At that
+milestone, 2,055 resources were partial and one had all listed fields handled. The split and registry remain
+frozen; results are consistency evidence on reused sources, not blind accuracy
+or independent semantic confirmation. Fixups and other profiles stay open;
+bounded map-entry associations are now supported as follows.
+
+**Bounded map-entry links:** `psin --instances` recognizes a local map
+field with distinct synthetic key/value descriptors at offset zero. The key
+must be exact hash32; supported values are hash32, bool8, or a structure with
+one positive-size local definition. The 24-byte header requires a leading
+64-bit word of one, an entry reference, two equal u16 words, and a zero u32
+tail. All words retain their bits; the leading word's meaning and the u16
+count/capacity roles remain unknown. An empty map requires a zero reference.
+
+A nonempty reference selects a block with exactly one positive-size local
+entry schema. Its two named fields must match the descriptors: hash32 key at
+zero and value at a declared offset of at least four, fully inside the entry
+stride. Structure values are **not** assumed to start at eight. The block and
+reference offset must contain whole record strides, and the complete entry
+span must fit the logical block. Imported registry owners/entry/value schemas,
+ambiguous definitions, unsupported descriptors and header variants stay
+unresolved, with a reason and no prefix entries.
+
+The field's `map.mode` is `entry_record_links`. Its `entries` retain stored
+order and duplicates, with `block_index`/`record_index` links to existing rows.
+Use `blocks[block_index].records[record_index]` to inspect each key/value pair.
+No dictionary conversion, hash lookup, bucket, insertion-order, inheritance or
+complete object-graph semantics are claimed. Entry fields may still be
+partial. Header associations and links share the node budget; linking adds no
+new scalar observations. Counters `maps_resolved`, `maps_unresolved` and
+`map_entries_linked` also appear with the report-level `instance_` prefix.
+
+Discovery resolves **15,274 / 15,293** map fields, including **11,256** empty
+maps, and links **29,366** entry records; **19** descriptor profiles remain
+unresolved. The original 223 data / 1,012 script validation observations have
+no maps. Their frozen source lists were preserved, and a separate map split
+adds **1,155 validation observations** selected by archive offsets before
+examining their map headers. These supplementary sources were already schema
+registry providers; this is **not a fresh blind holdout**. The combined
+validation split contains 2,390 observations / 2,228 distinct payloads, with
+zero discovery-payload overlap. No validation input was promoted, no profile
+was tuned from validation results, and the registry remains frozen.
+
+Supplementary validation parses **1,152 / 1,155** resources and resolves
+**3,782 / 7,829** map fields, including **1,645** empty maps, linking **22,469**
+entry records. It explicitly refuses **4,047** map fields: 2,220 unsupported
+value descriptors, 1,269 unsupported keys and 558 unvalidated headers. Three
+resources exceed the same 250,000-node per-resource audit budget they exceeded
+before implementation; their maps are excluded from these counts. Across all
+five cohorts, **2,142,630** prior values round-trip unchanged, as do **110,056**
+array and **196,274** standalone-reference associations. Reversed key order
+discriminates 4,393 spans, and nine maps retain duplicate stored keys. Of 3,208
+parsed resources, 3,183 remain partial and 25 have every listed field handled;
+that status does not establish byte coverage or gameplay semantics. These
+results establish bounded structural consistency, not semantic ground truth.
 
 Schema JSON also exposes lossless `base_type_code` and `type_subcode` bytes
 alongside the original 16-bit `type_code` and complete `type_word`. Structure
@@ -827,7 +985,7 @@ python3 -m gta6x --root <pkg> anim --limit 64 --max 20
 python3 -m gta6x --root <pkg> anim --full --out ./anim
 ```
 
-Full `anim.rpf` scan (about 3.4 minutes in Python): **130,771 streams** and
+Earlier full `anim.rpf` index scan (about 3.4 minutes in Python): **130,771 streams** and
 **2,327 names**:
 
 | Signature | Count | Meaning |
@@ -835,7 +993,7 @@ Full `anim.rpf` scan (about 3.4 minutes in Python): **130,771 streams** and
 | zero-prefix | 78,809 | zero-prefixed pages, often with pointers/name data |
 | raw | 25,273 | unclassified payloads |
 | page-directory | 22,904 | `0DRP` at +0x10 |
-| clip-stream | 1,788 | `u32 2/3` + `01 01 00 00` packed clips |
+| clip-stream | 1,788 | legacy label for `u32 2/3` + `01 01 00 00` candidate packed headers; clip identity unverified |
 | typehash | 1,379 | 16-byte type/chunk tables |
 | move | 324 | `MoVE` motion containers |
 | name-table | 274 | `pack:/…` path tables (`.clip`, `.anim`, `.motion`) |
@@ -849,7 +1007,237 @@ census is 2,012 `.clip`, 274 `.anim` and 12 `.motion` paths. It also followed
 `breakout_quick_front` and `idle` to page-0 clip records: duration `f32` at
 record `+0x78`/`+0x68`, 0x48-byte track records with `type = 0xFFFF0001` and
 two hashes, plus 63/38-entry and 12/38-entry bone masks. The page→packed-stream
-join and keyframe values remain open; our browser does not guess them.
+binding and keyframe values remain open; those upstream record interpretations
+have not been established by the native resource browser below.
+
+**Native resource metadata:** `--resources` also reconstructs the observed
+version-122 `0DRP` resource chains and includes a `resources` list and
+`resource_summary` in `anim.json`. For example:
+
+```bash
+python3 -m gta6x --root <pkg> anim --limit 1 --resources --out ./anim-resources
+```
+
+The reader exports local structure headers and raw field descriptors,
+enum headers and full-width member bits, and data-block types/offsets/lengths.
+Header words with unknown roles remain named `unknown_*`; field type meanings
+remain explicitly unknown in this format. No PSIN registry definitions or
+inferred PSIN primitive labels are silently imported. Duplicate definitions
+and enum aliases remain separate observations. Decompressed offsets refer to
+the joined resource; each `segments` entry records its archive offset,
+compressed size and inflated size.
+
+Only immediately adjacent zlib streams across zero alignment padding may join.
+A page whose inflated size is a multiple of 64 KiB can continue; a shorter
+terminal page is required. Independent resource starts, gaps, nonzero padding,
+scan cuts, unsupported headers/versions, unsafe pointers and incomplete spans
+produce explicit refusals. Virtual addresses use full-width subtraction from
+the observed base, without masking high bits. Every metadata table and block
+span must fit the assembled resource. This framing has no verified checksum
+or declared total resource length: a parsed result deliberately stays
+`partial`, without claiming complete byte coverage, clip identity or curve
+values. Unknown header references are recorded without following them.
+
+Resource assembly is capped at 16 MiB / 256 segments. The existing zlib carver
+retains its separate capped-stream policy. `--max-nodes` defaults to 100,000
+metadata nodes across all selected archives; increase it for larger surveys.
+Refused resources include a reason and no prefix tables. The CLI returns
+nonzero if any candidate is refused; JSON or `--out` retains every refusal.
+`--max` caps displayed rows, while an output manifest retains the budgeted
+results. Without `--resources` or `--clip-records`, the original index shape
+is preserved; the legacy `clip-stream` diagnostic clarifies its unverified identity.
+
+Frozen discovery / validation ranges contain **618 / 377** resource candidates,
+all structurally parsed: **27,089 / 16,957** structure observations,
+**218,458 / 126,912** field descriptors, **399,769 / 247,432** enum-member
+observations and **13,904 / 8,765** bounded data-block spans. Joining was needed
+for **175 / 271** resources; reversed-page controls fail for all 446. All table
+words round-trip to source bytes, and all 2,985 wrong-endian table-pointer
+controls fail. Validation contains 377 distinct resource payloads with zero
+discovery overlap. This is structural consistency on an already indexed
+archive, not blind semantic accuracy or an independent decoder oracle.
+No rules were fitted to validation outcomes; PSIN validation inputs and the
+BCPack tables/provisional labels remain unchanged.
+
+All **47** legacy `clip-stream` matches in these two ranges are continuation
+streams inside the reconstructed resources. A header match therefore does
+not identify an independently named clip. Named record-prefix links now cover
+a separate observed dictionary profile, as described below; packed payload
+roles and keyframe/quantization decoding remain open.
+
+**Named clip-record links:** `--clip-records` follows supported animation
+name dictionaries and adds `clip_dictionaries` / `clip_record_summary` to
+`anim.json`. It works independently of `--resources`, and the two modes share
+`--max-nodes` across all selected archives. Linked paths also enrich the names
+and clip lists. For a full survey:
+
+```bash
+python3 -m gta6x --root <pkg> anim --full --clip-records --out ./named-clips
+```
+
+For a smaller scan, `--start OFFSET --limit N` selects a compressed-byte
+window: the offset accepts decimal or `0x` hexadecimal, and N is MiB. The
+scanner starts at that offset directly. This is useful when clip dictionaries
+are far beyond the archive's initial `0DRP` metadata. A window beginning inside
+a dictionary may omit its prefix; this is a candidate census, not a complete
+archive-member listing.
+
+The supported dictionary profile checks its identifier string, local slot
+array, complete acyclic node chains and declared member count. Each kind-2
+record link requires a bounded **144-byte prefix**, exact local node/record
+tag equality, a referenced `pack:/…clip` string with checked length/NUL/ASCII,
+and a stored key matching the lowercase JOOAT hash of its filename stem.
+There are no title-specific class/field tables or imported schema guesses.
+Slot/chain order and duplicate keys/record aliases are preserved; no
+hash-to-slot formula, insertion/play order or full object size is inferred.
+
+Each successful entry has `status: record_reference`, its original key/tag/
+reference words, `record_data_offset`, `record_prefix_byte_length`, and a
+`name` with its source location/header bits. Header roles and class tags remain
+unknown. The f32 at prefix `+0x78` is exposed as a **duration candidate**, with
+original bits and an unconfirmed semantic role. Nonfinite/negative candidates
+retain bits and an unresolved reason. No packed payload, track, bone or curve
+values are decoded.
+
+Only checked adjacent streams across zero padding may join when required
+references lie beyond the current page. If all naming references already fit
+a whole-page prefix, `framing: bounded_metadata_prefix` records that fact and
+stops before reading unrelated neighbors. It does **not** establish the full
+resource endpoint; status remains `partial`. Otherwise a short terminal page
+is required. `0DRP` framing retains its stricter terminal-page requirement.
+The same 16-MiB / 256-segment limits apply. Slots, members, strings and each
+64-byte string chunk share the output budget. A malformed dictionary refuses
+all its entries; unsupported/invalid individual record bindings retain raw node
+words and explicit reasons, without invented names. Either case gives a
+nonzero CLI exit. JSON/`--out` retains all diagnostics.
+
+A separately frozen split of eight 8-MiB archive windows resolves **1,277**
+record links in **191 discovery dictionaries**, then **1,432** links in **170
+validation dictionaries**, with no refusals or unresolved members at the audit
+budget. All 393 / 384 source streams and 191 / 170 metadata-prefix payloads
+have zero cross-role hash overlap; the archive was previously indexed, so
+these are structural consistency checks, not blind semantic confirmation.
+All 2,709 full-path-hash and wrong-endian-key controls discriminate the stored
+stem keys. No rules changed in response to validation results. All **995**
+previous `0DRP` resource outputs remain identical after sharing the framing
+helper. Existing PSIN/BCPack frozen inputs and provisional labels are unchanged.
+Component/animation-record and opaque-buffer associations are now supported
+by the additional mode below. Curve/keyframe formats remain open.
+
+**Animation components and opaque buffers:** `--clip-components` implies
+`--clip-records` and follows the next checked association:
+
+```text
+named clip → 24-byte groups → 56-byte segments → .anim prefix → buffer spans
+```
+
+```bash
+python3 -m gta6x --root <pkg> anim --full --clip-components \
+        --max-nodes 1000000 --out ./clip-components
+```
+
+The full-archive scan still obeys the output budget and supported profiles;
+use `--start OFFSET --limit N` for smaller compressed-byte windows. This mode
+adds a `components` view to each successfully bound named clip. Its groups and
+segments retain source order and aliases. Each segment selects a bounded
+112-byte animation prefix and an exact ASCII/NUL `pack:/…anim` name whose stem
+JOOAT matches the segment key. Name/type tags, timing fields and other
+references remain unconfirmed. Verified animation paths also enrich the
+manifest's `anims` and name lists.
+
+Each animation references an array of opaque packed buffers. A buffer's
+observed span is its 32-byte header plus the body-byte count at header `+4`;
+the observed reserved word at `+8` must be zero. The animation's size word
+must equal the **largest** referenced buffer span. It is not a sum or a
+pointer-table stride. Every buffer exports its checked source offset/length,
+original reference/header bits and SHA-256, without copying buffer contents
+into JSON. No codec, channel, bone, track, float timing or keyframe values
+are decoded from these buffers.
+
+Every followed array requires equal u16 header words, zero tail, and a whole
+bounded span at its observed stride. Explicit null-empty group/segment arrays
+stay empty; an animation without validated buffers remains unresolved.
+Full-width pointer checks, ASCII name limits, node/segment/resource limits and
+shared output budgets apply. Strings, aliases and buffer-hash work all consume
+budget. Duplicate references are observations, not claims of unique animations
+or unique bytes. A failed component graph yields its reason and no prefix
+of groups or buffers. A parsed dictionary keeps its independently verified
+clip names; framing or budget failures discard dictionary output. Such failures
+produce a nonzero CLI exit and preserved diagnostics.
+
+A naming prefix may need additional adjacent pages for component/buffer spans.
+The scanner waits for those bytes in this mode; it stops early only when all
+required associations fit. Existing `--clip-records` output is unchanged.
+`clip_record_summary` adds `component_clips_attempted`, `component_clips_resolved`,
+`component_clips_unresolved`, `component_groups`, `animation_links` and
+`payload_spans`. A complete component view means its supported associations
+were handled; the containing dictionary remains `partial`.
+
+The same frozen discovery / validation windows resolve **1,277 / 1,432** clip
+component views, **3,794 / 3,946** animation links and **4,956 / 5,617** buffer
+references, without refusals or validation-driven profile changes. These are
+**879 / 908** distinct buffer-content hashes, with zero cross-role overlap.
+All emitted fields/spans/hashes round-trip to source; full-path-hash and
+wrong-endian-key controls discriminate all 7,740 animation links, and the
+incorrect summed-length rule fails all 1,872 multi-buffer cases. The cohorts
+were previously examined, so this is reused-source structural consistency,
+not independent confirmation of animation or timing semantics. All prior
+named-clip outputs remain identical in default mode. Existing `0DRP`, PSIN,
+BCPack splits/tables and provisional labels remain unchanged. Bounded packed
+header/channel-candidate inspection is now available as follows; compressed
+stream semantics and keyframe quantization remain open.
+
+**Packed headers and channel-layout candidates:** `--packed-layout` implies
+`--clip-components` and adds `animation.packed_layout` under each supported
+component segment. Use a compressed-byte window or a full scan with an explicit
+metadata budget:
+
+```bash
+python3 -m gta6x --root <pkg> anim --full --packed-layout \
+        --max-nodes 1000000 --out ./packed-layout
+```
+
+The supported profile retains the entire 32-byte header as bits and raw LE
+fields, requires the observed `u16_14=2` / `u8_1e=11` markers, and checks its
+body length/reserved word. Two ordered relative offsets partition the buffer
+into the header, `section_0`, `section_1` and an auxiliary tail, with no gaps or
+out-of-buffer reads. The sections' compressed meanings remain unknown; offset
+alignment and scalar formats are not guessed.
+
+The last header byte's high and low nibbles sum to the number of six-byte
+auxiliary rows in the tail. Rows retain their source order and raw
+`u8/u8/u16/u16` fields. No codec, axis, bone, channel assignment or nibble-group
+ordering is inferred. The animation prefix's checked 12-byte table is exported
+as `bindings`, retaining all three raw u32 words per row. These are **channel-
+binding candidates**: identifiers and type-like words stay unknown, including
+values familiar from other formats. Duplicate rows and aliases are preserved.
+
+Buffer sample-count candidates reconcile with the animation total when adjacent
+chunks overlap by one sample. The stored step defines inferred index windows;
+nonfinal chunks require `step + 1` samples, and the final chunk must fit. These
+are metadata indices, **not decoded frames, sample values, rates or durations**.
+Header words without verified roles remain numeric/raw. The overall dictionary
+remains `partial`, even when this structural view is complete.
+
+An invalid or unsupported layout returns a reason and no prefix layout rows;
+its independently verified opaque-buffer associations remain available in a
+parsed dictionary. Framing or budget exhaustion can refuse the dictionary.
+`--max-nodes` covers header/region, binding, auxiliary and index-window output
+alongside the parent modes. Larger windows may need a higher budget. Text/JSON
+retain diagnostics and the CLI exits nonzero for unresolved layouts. Existing
+`--clip-components` and `--clip-records` outputs remain unchanged.
+
+Frozen discovery / validation resolve **3,794 / 3,946** animation-layout views,
+**4,956 / 5,617** buffer-header layouts, **223,879 / 236,886** raw binding-row
+observations and **11,030 / 16,423** auxiliary rows without profile changes or
+refusals. Source bits and region partitions round-trip exactly. The incorrect
+no-overlap rule fails all 1,872 multi-buffer controls; reversed sample-count
+order discriminates 1,775 applicable cases. All prior component-mode outputs
+remain identical. These are structural checks on reused cohorts, not blind
+accuracy or semantic decoder confirmation. Frozen splits, `0DRP` framing,
+PSIN/BCPack data and provisional labels remain intact. Next: establish channel
+identifiers, codec selection and compressed section grammar before decoding
+sample values or keyframes.
 
 ## Payload carving, catalogue and browser
 
@@ -911,11 +1299,19 @@ decode, and external-adapter agreement does not establish confirmed ground truth
 | `structured` | `common.rpf`: 259 complete XML (79 joined); 16 MiB of `data.rpf`: 1,048 complete PSIN (28 joined) |
 | `textures --embedded` | native: 1,347 txd dictionaries / 3,167 descriptors in `textures.rpf`; 3,020 supported 2D descriptors; all 31 mipmapped 2D textures export 253 declared mips, including 144 tail levels; 147 depth/array descriptors refused |
 | Native LSCH/LENM schemas | 821 discovery containers / 433 schema pairs; separate-range validation 223/223 containers, 34 additional pairs; 11,794/1,748 enum headers and 118,111/26,632 members respectively; inferred types and JSON v2 export |
-| Native PSIN instances | 821 / 223 data containers and 1,012 script metadata containers; 734,696 / 104,199 / 230,622 scalar/pool/array observations round-trip exactly; all resources explicitly partial |
+| Native PSIN instances | 821 / 223 data containers and 1,012 script metadata containers; 734,696 / 104,199 / 230,622 scalar/pool/array observations round-trip exactly; 2,044 partial and 12 with all listed fields handled after map-entry support |
 | Low-ID PSIN pools | 9,984 added hash/ASCII values; 55,898 candidate reference words and 13,465 opaque groups retain bits with unknown meanings; no pointer following |
 | Bounded PSIN hash32 arrays | 3,188 resolved fields, including 2,293 empty arrays; 2,008 hash observations attached to owning fields, often also visible in pools; frozen source split, unsupported profiles remain explicit |
+| PSIN structure-array links | 25,656 resolved fields / 15,685 links to existing local typed records; targets may remain partial; no recursive expansion or duplicate value observations |
 | Cross-file PSIN registry | 697 provider schema pairs; 2,462 missing embedded-field annotations resolved across the data samples; conflicts retained, no additional instance values in these samples |
-| `selftest` | 95 checks, all passing (AWC, Ogg, RDS5, PSIN/LSCH/LENM/instances/registry/pools/hash32 arrays, XML, Gfx10, DDS, PNG, shaders, txd full mip chains/tail addresses/bounds, name hashes, animation, music, BCPack, BC2 layout, signed BC4/BC5/8-bit previews and BC6H/BC7); backend features are not self-tested |
+| PSIN reference-array links | 34,185 resolved fields / 55,819 local record links / 14 explicit null slots; both pointer levels bounded; invalid members yield no prefix |
+| PSIN standalone reference fields | 113,913 resolved field observations: 33,821 bounded local record links / 80,092 explicit nulls; original schema type remains unknown outside the contextual profile |
+| PSIN map-entry links | 15,274 discovery / 3,782 supplementary-validation fields resolved; 29,366 / 22,469 entry links; unsupported profiles explicit, reused-source consistency evidence |
+| Animation resource metadata | 618 discovery / 377 validation `0DRP` candidates parsed; 446 joined resources; all local schema/member/block spans bounded; no clip/curve semantics claimed |
+| Named animation clip records | 191 discovery / 170 validation dictionaries; 1,277 / 1,432 bounded name/record-prefix links; duration meanings and packed curves remain unconfirmed |
+| Animation component/buffer links | 1,277/1,432 discovery/validation clip views; 3,794/3,946 animation links; 4,956/5,617 opaque buffer references; packed contents undecoded |
+| Packed animation metadata | 3,794/3,946 discovery/validation animation layouts; 223,879/236,886 raw binding rows and 11,030/16,423 auxiliary rows; one-sample chunk overlap checked; values/codec meanings unknown |
+| `selftest` | 140 checks, all passing (AWC, Ogg, RDS5, PSIN/LSCH/LENM/instances/registry/pools/hash32 arrays/structure/reference links/fields/map entries, XML, Gfx10, DDS, PNG, shaders, txd full mip chains/tail addresses/bounds, name hashes, animation/0DRP metadata, named clip/component/buffer links, packed header/channel candidates and bounds, music, BCPack, BC2 layout, signed BC4/BC5/8-bit previews and BC6H/BC7); backend features are not self-tested |
 
 The local SQLite catalogue used during development holds 176,971 checksum-
 verified assets across 20 archives; that file is generated output, not part of
@@ -1014,7 +1410,9 @@ stream-split pages are fragments. See [PSIN metadata](#psin-metadata).
   supported type meanings as inferred. An optional private cross-file registry
   resolves unambiguous missing definitions; conflicting versions remain unknown.
   Instance reading covers scalars/enums/embedded structures and one bounded
-  local hash32-array profile. Other pointers, fixups, bitsets and remaining types
+  local hash32-array profile plus local reference-field, structure/reference-array
+  and map-entry links to existing typed rows.
+  Other pointers, fixups, bitsets and remaining types
   are unresolved. Low-ID hash/ASCII pool views add
   values; reference/opaque views preserve bits with explicit unknowns and no
   target following. Unrecoverable fragments are excluded.
@@ -1038,11 +1436,17 @@ gta6x/
   psin_schema.py native LSCH/LENM browser, inferred types and JSON records
   psin_instances.py bounded instance blocks and inferred member values
   psin_pools.py  low-ID hash/text pools, reference candidates and opaque views
-  psin_arrays.py bounded local hash32-array spans; other profiles stay unknown
+  psin_arrays.py bounded hash32 spans and local structure/reference-array record links
+  psin_references.py bounded local record bindings for fields/reference arrays
+  psin_maps.py   bounded local map-entry record links, preserving duplicates
   psin_registry.py signature-aware private cross-file definitions/conflicts
   models.py     optional SixNG backend: index, list, glTF/GLB export
   world.py      optional SixNG world/map resource commands
   anim.py       animation stream classification and name recovery
+  anim_resources.py bounded resource framing and raw 0DRP schema/block metadata
+  anim_clips.py supported named clip-record prefixes, raw tags and duration candidates
+  anim_components.py bounded group/segment/animation and opaque buffer associations
+  anim_packed.py packed header partitions, raw channel/auxiliary rows and sample-index candidates
   names.py      joaat/Murmur3 name dictionaries and lookup
   shaders.py    DXBC shader wrapper scanner and validator
   structured.py joined XML/PSIN recovery across stream-split pages
@@ -1075,10 +1479,10 @@ Required decoder constants under `gta6x/bc/` remain part of the runtime package.
 
 ## Development
 
-`python3 -m gta6x selftest` runs 95 synthetic checks covering the AWC header and
+`python3 -m gta6x selftest` runs 140 synthetic checks covering the AWC header and
 tag table, Opus packet records and Ogg pages, RDS5/TTPF validation, PSIN
 containers/fragments, LSCH/LENM schemas, bounded instance values and cross-file
-registry resolution/conflicts, low-ID pools, bounded hash32 arrays and explicit
+registry resolution/conflicts, low-ID pools, bounded hash32 arrays, structure/reference-array links, local reference fields and explicit
 reference/opaque unknowns,
 joined XML recovery,
 Gfx10 2D/cube/array/volume layouts, DDS,

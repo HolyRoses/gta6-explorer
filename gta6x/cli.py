@@ -292,6 +292,23 @@ def cmd_anim(args) -> int:
     """Index animation archive streams and name tables (no clip decode)."""
     from . import anim as anim_mod
 
+    if args.packed_layout:
+        args.clip_components = True
+    if args.clip_components:
+        args.clip_records = True
+
+    if args.max_nodes < 1:
+        eprint("--max-nodes must be positive")
+        return 1
+
+    if not args.full and args.limit <= 0:
+        eprint("--limit must be positive")
+        return 1
+
+    if args.start is not None and args.start < 0:
+        eprint("--start must be nonnegative")
+        return 1
+
     if not args.archive:
         args.archive = ["anim"]
     targets = _scan_targets(args)
@@ -301,28 +318,120 @@ def cmd_anim(args) -> int:
     limit = None if args.full else args.limit * 1024 * 1024
     records: list[anim_mod.AnimRecord] = []
     names: set[str] = set()
+    scan_failed = False
+    resources = []
+    clip_dictionaries = []
+    remaining_nodes = args.max_nodes
     for path in targets:
         count = 0
         try:
-            for record in anim_mod.scan(path, limit=limit):
+            for record in anim_mod.scan(path, limit=limit, start=args.start):
                 records.append(record)
                 count += 1
                 names.update(record.names)
                 if record.name:
                     names.add(record.name)
-        except OSError as exc:
+        except (OSError, ValueError) as exc:
+            scan_failed = True
             eprint(f"skip {path}: {exc}")
             continue
+        if args.resources:
+            from . import anim_resources
+            try:
+                for resource in anim_resources.scan_resources(path, start=args.start, limit=limit, max_nodes=remaining_nodes):
+                    resources.append(resource)
+                    remaining_nodes -= resource.get('summary', {}).get('nodes', 0)
+            except (OSError, ValueError) as exc:
+                eprint(f"resource scan failed for {os.path.basename(path)}: {exc}")
+                return 1
+        if args.clip_records:
+            from . import anim_clips
+            try:
+                for dictionary in anim_clips.scan_dictionaries(path, start=args.start, limit=limit,
+                                                               max_nodes=remaining_nodes, with_components=args.clip_components,
+                                                               with_packed_layout=args.packed_layout):
+                    clip_dictionaries.append(dictionary)
+                    remaining_nodes -= dictionary.get('summary', {}).get('nodes', 0)
+                    names.update(e['name']['value'] for e in dictionary.get('entries', [])
+                                 if e['status'] == 'record_reference')
+                    for entry in dictionary.get('entries', []):
+                        view = entry.get('components', {})
+                        if view.get('status') == 'complete':
+                            names.update(segment['animation']['name']['value']
+                                         for group in view['groups'] for segment in group['segments'])
+            except (OSError, ValueError) as exc:
+                eprint(f"clip scan failed for {os.path.basename(path)}: {exc}")
+                return 1
         eprint(f"{os.path.basename(path):24s} {count:6d} stream(s)")
+    failed = int(scan_failed or any(r['status'] == 'refused' or r.get('summary', {}).get('clips_unresolved', 0)
+                     or r.get('summary', {}).get('component_clips_unresolved', 0)
+                     or r.get('summary', {}).get('packed_layouts_unresolved', 0)
+                     for r in resources + clip_dictionaries))
     if not records:
         print("no animation streams found")
-        return 0
+        return failed
     summary: dict[str, int] = {}
     for record in records:
         summary[record.signature] = summary.get(record.signature, 0) + 1
     clips = sorted(name for name in names if name.endswith(".clip"))
     anims = sorted(name for name in names if name.endswith(".anim"))
     motions = sorted(name for name in names if name.endswith(".motion"))
+    detail = {}
+    if args.resources:
+        detail = dict(resource_summary=dict(
+            candidates=len(resources), metadata_parsed=sum(r['status'] == 'partial' for r in resources),
+            refused=sum(r['status'] == 'refused' for r in resources),
+            nodes=sum(r.get('summary', {}).get('nodes', 0) for r in resources),
+            **{key: sum(r.get('summary', {}).get(key, 0) for r in resources)
+               for key in ('structures', 'fields', 'enums', 'enum_members', 'blocks')}),
+            resources=resources)
+        if not args.json:
+            info = detail['resource_summary']
+            print(f"0DRP: {info['metadata_parsed']:,} metadata parsed, {info['refused']:,} refused; "
+                  f"{info['structures']:,} structures / {info['fields']:,} fields; "
+                  "0DRP payload semantics remain unresolved")
+            for resource in [r for r in resources if r['status'] == 'refused'][:args.max]:
+                print(f"  0DRP at 0x{resource['offset']:x}: {resource['reason']}")
+    if args.clip_records:
+        clip_summary = dict(candidates=len(clip_dictionaries),
+            metadata_parsed=sum(r['status'] == 'partial' for r in clip_dictionaries),
+            refused=sum(r['status'] == 'refused' for r in clip_dictionaries),
+            **{key: sum(r.get('summary', {}).get(key, 0) for r in clip_dictionaries)
+               for key in ('nodes', 'entries', 'clips_linked', 'clips_unresolved')})
+        if args.clip_components:
+            for key in ('component_clips_attempted', 'component_clips_resolved', 'component_clips_unresolved',
+                        'component_groups', 'animation_links', 'payload_spans'):
+                clip_summary[key] = sum(r.get('summary', {}).get(key, 0) for r in clip_dictionaries)
+        if args.packed_layout:
+            for key in ('packed_layouts_attempted', 'packed_layouts_resolved', 'packed_layouts_unresolved',
+                        'packed_buffer_layouts', 'channel_binding_rows', 'packed_auxiliary_rows'):
+                clip_summary[key] = sum(r.get('summary', {}).get(key, 0) for r in clip_dictionaries)
+        detail.update(clip_record_summary=clip_summary, clip_dictionaries=clip_dictionaries)
+        if not args.json:
+            print(f"named clips: {clip_summary['clips_linked']:,} linked, "
+                  f"{clip_summary['clips_unresolved']:,} unresolved; "
+                  f"{clip_summary['refused']:,} dictionary refusals; curves remain unknown")
+            if args.clip_components:
+                print(f"components: {clip_summary['component_clips_resolved']:,} clips resolved, "
+                      f"{clip_summary['component_clips_unresolved']:,} unresolved; "
+                      f"{clip_summary['animation_links']:,} animation links / "
+                      f"{clip_summary['payload_spans']:,} opaque buffer spans")
+            if args.packed_layout:
+                print(f"packed layouts: {clip_summary['packed_layouts_resolved']:,} resolved, "
+                      f"{clip_summary['packed_layouts_unresolved']:,} unresolved; "
+                      f"{clip_summary['channel_binding_rows']:,} raw channel-binding rows; samples remain undecoded")
+            reasons = [(r['offset'], r['reason']) for r in clip_dictionaries if r['status'] == 'refused']
+            reasons += [(r['offset'], e['reason']) for r in clip_dictionaries for e in r.get('entries', [])
+                        if e['status'] == 'unresolved']
+            reasons += [(r['offset'], e['components']['reason']) for r in clip_dictionaries
+                        for e in r.get('entries', []) if e.get('components', {}).get('status') == 'unresolved']
+            reasons += [(r['offset'], segment['animation']['packed_layout']['reason'])
+                        for r in clip_dictionaries for e in r.get('entries', [])
+                        if e.get('components', {}).get('status') == 'complete'
+                        for group in e['components']['groups'] for segment in group['segments']
+                        if segment['animation'].get('packed_layout', {}).get('status') == 'unresolved']
+            for offset, reason in reasons[:args.max]:
+                print(f"  clip dictionary at 0x{offset:x}: {reason}")
     if args.out:
         os.makedirs(args.out, exist_ok=True)
         manifest = os.path.join(args.out, "anim.json")
@@ -330,7 +439,7 @@ def cmd_anim(args) -> int:
             json.dump({"summary": summary,
                        "clips": clips, "anims": anims, "motions": motions,
                        "names": sorted(names),
-                       "records": [r.as_dict() for r in records]}, handle, indent=1)
+                       "records": [r.as_dict() for r in records], **detail}, handle, indent=1)
         names_path = os.path.join(args.out, "anim-names.txt")
         with open(names_path, "w", encoding="utf-8") as handle:
             for name in sorted(names):
@@ -344,8 +453,9 @@ def cmd_anim(args) -> int:
                               "manifest": manifest, "names_file": names_path,
                               "clips_file": clips_path,
                               "clips": len(clips), "anims": len(anims),
-                              "motions": len(motions)}, indent=2))
-            return 0
+                              "motions": len(motions),
+                              **{key: value for key, value in detail.items() if key.endswith("summary")}}, indent=2))
+            return failed
         print(f"{len(records):,} stream(s), {len(names):,} name(s) -> {args.out}")
         print(f"manifest: {manifest}")
         print(f"names: {len(names):,}  clips: {len(clips):,}  "
@@ -355,11 +465,13 @@ def cmd_anim(args) -> int:
         if args.clips:
             for name in clips[:args.max]:
                 print(name)
-        return 0
+        return failed
     if args.json:
         print(json.dumps({"summary": summary, "names": sorted(names),
-                          "records": [r.as_dict() for r in records[:args.max]]}, indent=2))
-        return 0
+                          "records": [r.as_dict() for r in records[:args.max]],
+                          **{key: value[:args.max] if isinstance(value, list) else value
+                             for key, value in detail.items()}}, indent=2))
+        return failed
     rows = []
     for record in records[:args.max]:
         rows.append([f"0x{record.offset:09x}", f"{record.stored:,}", f"{record.size:,}",
@@ -375,7 +487,7 @@ def cmd_anim(args) -> int:
     if args.clips:
         for name in clips[:args.max]:
             print(name)
-    return 0
+    return failed
 
 
 def cmd_movies(args) -> int:
@@ -935,6 +1047,21 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
             if info['instance_hash32_arrays_resolved']:
                 print(f"hash32 arrays: resolved {info['instance_hash32_arrays_resolved']:,}"
                       f"   linked value observations {info['instance_hash32_array_values_decoded']:,}")
+            if info['instance_structure_arrays_resolved']:
+                print(f"structure arrays: resolved {info['instance_structure_arrays_resolved']:,}"
+                      f"   record links {info['instance_structure_array_records_linked']:,}")
+            if info['instance_reference_arrays_resolved']:
+                print(f"reference arrays: resolved {info['instance_reference_arrays_resolved']:,}"
+                      f"   record links {info['instance_reference_array_records_linked']:,}"
+                      f"   null slots {info['instance_reference_array_null_entries']:,}")
+            if info['instance_reference_fields_resolved'] or info['instance_reference_fields_unresolved']:
+                print(f"reference fields: linked {info['instance_reference_fields_linked']:,}"
+                      f"   nulls {info['instance_reference_fields_null']:,}"
+                      f"   unresolved {info['instance_reference_fields_unresolved']:,}")
+            if info['instance_maps_resolved'] or info['instance_maps_unresolved']:
+                print(f"maps: resolved {info['instance_maps_resolved']:,}"
+                      f"   entry links {info['instance_map_entries_linked']:,}"
+                      f"   unresolved {info['instance_maps_unresolved']:,}")
         print(report['interpretation'])
         if registry is not None:
             print(f"registry: {registry.summary()['schema_pairs']:,} schema pairs; local definitions take precedence")
@@ -2497,13 +2624,13 @@ def cmd_selftest(args) -> int:
                     + _s.pack('<4I8sIHH', 0x11223344, 0, 0, 0, b'\xaa' * 8, 16, 0, 2)
                     + _s.pack('<8I', 0x100, 0, 0x4a, 0, 0x87654321, 0, 0x52, 0))
 
-    def array_fixture(word=2, count=2, second=2):
+    def array_fixture(word=2, count=2, second=2, target_type=0x4a, schema=array_schema):
         body = (b'PSIN' + _s.pack('>I', 80)
                 + _s.pack('<II', 0x11223344, 16) + b'\xaa' * 8
-                + _s.pack('<II', 0x4a, 8) + b'\xaa' * 8 + b'p' * 8
+                + _s.pack('<II', target_type, 8) + b'\xaa' * 8 + b'p' * 8
                 + _s.pack('<QHHI', word, count, second, 0)
                 + _s.pack('<II', 0x11111111, 0x22222222) + bytes(8))
-        return instance_fixture(array_schema, body)
+        return instance_fixture(schema, body)
 
     array_data = array_fixture()
     array_report = _instances.decode_instances(array_data)
@@ -2530,6 +2657,373 @@ def cmd_selftest(args) -> int:
     except _instances.InstanceLimitError:
         array_budget_refused = True
     check('PSIN array and pool observations share node budget', array_budget_refused)
+
+    structure_array_schema = (b'LSCH' + _s.pack('>I', 120)
+        + _s.pack('<4I8sIHH', 0x11223344, 0, 0, 0, b'\xaa' * 8, 16, 0, 2)
+        + _s.pack('<4I8sIHH', 0x22334455, 0, 0, 0, b'\xaa' * 8, 4, 0, 1)
+        + _s.pack('<8I', 0x100, 0, 5, 0x22334455, 0x87654321, 0, 0x52, 0)
+        + _s.pack('<4I', 0x12345678, 0, 0x4a, 0))
+    structure_array = _instances.decode_instances(
+        array_fixture(target_type=0x22334455, schema=structure_array_schema))
+    structure_links = structure_array['blocks'][0]['records'][0]['fields'][1]['array']
+    check('PSIN structure arrays select exact existing records',
+          structure_links['mode'] == 'record_links'
+          and [e['record_index'] for e in structure_links['elements']] == [0, 1]
+          and structure_array['summary']['structure_array_records_linked'] == 2)
+    check('PSIN structure-array links do not duplicate decoded values',
+          structure_array['summary']['records'] == 3
+          and structure_array['summary']['decoded_values'] == 2
+          and all(e['status'] == 'record_reference' and 'value' not in e for e in structure_links['elements']))
+    wrong_structure_target = _instances.decode_instances(array_fixture(schema=structure_array_schema))
+    wrong_structure_value = wrong_structure_target['blocks'][0]['records'][0]['fields'][1]
+    check('PSIN structure arrays reject matching-size wrong types',
+          wrong_structure_value['status'] == 'unresolved'
+          and 'differs from' in wrong_structure_value['reason'])
+    missing_structure_schema = bytearray(array_schema)
+    _s.pack_into('<II', missing_structure_schema, 48, 5, 0x22334455)
+    missing_structure_array = _instances.decode_instances(
+        array_fixture(target_type=0x22334455, schema=missing_structure_schema))
+    check('PSIN structure arrays require a unique local target schema',
+          missing_structure_array['summary']['structure_array_records_linked'] == 0
+          and missing_structure_array['blocks'][0]['records'][0]['fields'][1]['status'] == 'unresolved')
+    _s.pack_into('<I', missing_structure_schema, 52, 0x11223344)
+    cycle_body = (b'PSIN' + _s.pack('>I', 48) + _s.pack('<II', 0x11223344, 16)
+                  + b'\xaa' * 8 + b'p' * 8 + _s.pack('<QHHI', 1, 1, 1, 0))
+    linked_cycle = _instances.decode_instances(instance_fixture(missing_structure_schema, cycle_body), max_depth=1)
+    check('PSIN cyclic structure arrays stay finite links',
+          linked_cycle['summary']['records'] == 1
+          and linked_cycle['summary']['structure_array_records_linked'] == 1
+          and linked_cycle['summary']['decoded_values'] == 0)
+
+    reference_array_schema = (b'LSCH' + _s.pack('>I', 168)
+        + _s.pack('<4I8sIHH', 0x11223344, 0, 0, 0, b'\xaa' * 8, 16, 0, 2)
+        + _s.pack('<4I8sIHH', 0x22334455, 0, 0, 0, b'\xaa' * 8, 4, 0, 1)
+        + _s.pack('<4I8sIHH', 0x33445566, 0, 0, 0, b'\xaa' * 8, 4, 0, 1)
+        + _s.pack('<8I', 0x100, 0, 7, 0, 0x87654321, 0, 0x52, 0)
+        + _s.pack('<4I', 0x12345678, 0, 0x4a, 0) * 2)
+
+    def reference_fixture(words=(3, 0, 4)):
+        raw = b''.join(_s.pack('<Q', word) for word in words)
+        body = (b'PSIN' + _s.pack('>I', 128 + ((len(raw) + 15) & ~15))
+            + _s.pack('<II', 0x11223344, 16) + b'\xaa' * 8
+            + _s.pack('<II', 7, len(raw)) + b'\xaa' * 8
+            + _s.pack('<II', 0x22334455, 8) + b'\xaa' * 8
+            + _s.pack('<II', 0x33445566, 4) + b'\xaa' * 8 + b'p' * 8
+            + _s.pack('<QHHI', 2, len(words), len(words), 0)
+            + raw + bytes(-len(raw) % 16)
+            + _s.pack('<II', 0x11111111, 0x22222222) + bytes(8)
+            + _s.pack('<I', 0x33333333) + bytes(12))
+        return instance_fixture(reference_array_schema, body)
+
+    reference_data = reference_fixture()
+    reference_report = _instances.decode_instances(reference_data)
+    references = reference_report['blocks'][0]['records'][0]['fields'][1]['array']
+    check('PSIN reference arrays link mixed local record types',
+          references['mode'] == 'reference_record_links'
+          and [e.get('structure_hash') for e in references['elements']] == ['0x22334455', None, '0x33445566'])
+    check('PSIN reference-array links do not duplicate record values',
+          reference_report['summary']['reference_array_records_linked'] == 2
+          and reference_report['summary']['records'] == 4
+          and reference_report['summary']['decoded_values'] == 3)
+    null_references = _instances.decode_instances(reference_fixture((0, 0)))
+    check('PSIN reference arrays preserve null slots without invented records',
+          null_references['summary']['reference_array_null_entries'] == 2
+          and null_references['summary']['reference_array_records_linked'] == 0)
+    failed_references = _instances.decode_instances(reference_fixture((3, 0, 0xffff)))
+    failed_array = failed_references['blocks'][0]['records'][0]['fields'][1]['array']
+    check('PSIN bad reference-array member discards every prefix link',
+          failed_array['status'] == 'unresolved' and failed_array['elements'] == []
+          and failed_array['failed_element_index'] == 2)
+    try:
+        _instances.decode_instances(reference_data, max_nodes=reference_report['summary']['nodes'] - 1)
+        reference_budget_refused = False
+    except _instances.InstanceLimitError:
+        reference_budget_refused = True
+    check('PSIN reference links and raw pool slots share output budget', reference_budget_refused)
+
+    reference_field_schema = (b'LSCH' + _s.pack('>I', 104)
+        + _s.pack('<4I8sIHH', 0x11223344, 0, 0, 0, b'\xaa' * 8, 8, 0, 1)
+        + _s.pack('<4I8sIHH', 0x22334455, 0, 0, 0, b'\xaa' * 8, 4, 0, 1)
+        + _s.pack('<4I', 0x87654321, 0, 7, 0)
+        + _s.pack('<4I', 0x12345678, 0, 0x4a, 0))
+
+    def reference_field_fixture(word=2):
+        body = (b'PSIN' + _s.pack('>I', 80)
+            + _s.pack('<II', 0x11223344, 8) + b'\xaa' * 8
+            + _s.pack('<II', 0x22334455, 8) + b'\xaa' * 8 + b'p' * 8
+            + _s.pack('<Q', word) + bytes(8)
+            + _s.pack('<II', 0x11111111, 0x22222222) + bytes(8))
+        return instance_fixture(reference_field_schema, body)
+
+    field_data = reference_field_fixture()
+    field_report = _instances.decode_instances(field_data)
+    field_value = field_report['blocks'][0]['records'][0]['fields'][0]
+    check('PSIN standalone reference links existing local records without duplicate values',
+          field_value['reference']['status'] == 'record_reference'
+          and field_value['type_name'] is None and field_report['summary']['decoded_values'] == 2
+          and field_report['summary']['records'] == 3)
+    null_field = _instances.decode_instances(reference_field_fixture(0))
+    check('PSIN standalone zero reference preserves null without an invented target',
+          null_field['summary']['reference_fields_null'] == 1
+          and null_field['blocks'][0]['records'][0]['fields'][0]['reference']['target'] is None)
+    bad_field = _instances.decode_instances(reference_field_fixture(3))
+    check('PSIN bad standalone reference stays unresolved with original bits',
+          bad_field['summary']['reference_fields_unresolved'] == 1
+          and bad_field['blocks'][0]['records'][0]['fields'][0]['reference']['reference_bits'] == '0x0000000000000003')
+    field_cycle_body = (b'PSIN' + _s.pack('>I', 48) + _s.pack('<II', 0x11223344, 8)
+                        + b'\xaa' * 8 + b'p' * 8 + _s.pack('<Q', 1) + bytes(8))
+    field_cycle = _instances.decode_instances(instance_fixture(reference_field_schema, field_cycle_body), max_depth=1)
+    check('PSIN standalone reference cycle is not expanded',
+          field_cycle['summary']['reference_fields_linked'] == 1
+          and field_cycle['summary']['records'] == 1 and field_cycle['summary']['decoded_values'] == 0)
+    try:
+        _instances.decode_instances(field_data, max_nodes=field_report['summary']['nodes'] - 1)
+        field_budget_refused = False
+    except _instances.InstanceLimitError:
+        field_budget_refused = True
+    check('PSIN standalone reference metadata shares output budget', field_budget_refused)
+
+    # Authored map entries; duplicate keys are retained as stored record links.
+    map_schema = (b'LSCH' + _s.pack('>I', 152)
+        + _s.pack('<4I8sIHH', 0x11223344, 0, 0, 0, b'\xaa' * 8, 24, 0, 3)
+        + _s.pack('<4I8sIHH', 0x22334455, 0, 0, 0, b'\xaa' * 8, 8, 0, 2)
+        + _s.pack('<4I', 0x100, 0, 0x4a, 0)
+        + _s.pack('<4I', 0x100, 0, 0x4a, 0)
+        + _s.pack('<4I', 0x87654321, 0, 0x71, 1 << 16)
+        + _s.pack('<4I', 0x12345678, 0, 0x4a, 0)
+        + _s.pack('<4I', 0x23456789, 4, 0x4a, 0))
+
+    def map_fixture(word=2, count=2, prefix=1):
+        body = (b'PSIN' + _s.pack('>I', 96)
+            + _s.pack('<II', 0x11223344, 24) + b'\xaa' * 8
+            + _s.pack('<II', 0x22334455, 16) + b'\xaa' * 8 + b'p' * 8
+            + _s.pack('<QQHHI', prefix, word, count, count, 0) + bytes(8)
+            + _s.pack('<4I', 7, 11, 7, 22))
+        return instance_fixture(map_schema, body)
+
+    map_data = map_fixture()
+    map_report = _instances.decode_instances(map_data)
+    map_value = map_report['blocks'][0]['records'][0]['fields'][2]['map']
+    check('PSIN map entries retain duplicate keys through existing record links',
+          [e['record_index'] for e in map_value['entries']] == [0, 1]
+          and map_report['blocks'][1]['records'][0]['fields'][0]['value']
+              == map_report['blocks'][1]['records'][1]['fields'][0]['value'])
+    check('PSIN map links do not duplicate decoded values',
+          map_report['summary']['decoded_values'] == 4 and map_report['summary']['records'] == 3)
+    empty_map = _instances.decode_instances(map_fixture(0, 0))
+    check('PSIN empty map preserves a null entry target',
+          empty_map['blocks'][0]['records'][0]['fields'][2]['map']['target'] is None)
+    bad_map = _instances.decode_instances(map_fixture(count=3))
+    check('PSIN map span cannot consume target padding or return prefix entries',
+          bad_map['summary']['maps_unresolved'] == 1
+          and bad_map['blocks'][0]['records'][0]['fields'][2]['map']['entries'] == [])
+    zero_map = _instances.decode_instances(map_fixture(0, 0, 0))
+    check('PSIN all-zero map header is unresolved rather than an invented empty map',
+          zero_map['summary']['maps_unresolved'] == 1)
+    try:
+        _instances.decode_instances(map_data, max_nodes=map_report['summary']['nodes'] - 1)
+        map_budget_refused = False
+    except _instances.InstanceLimitError:
+        map_budget_refused = True
+    check('PSIN map headers and links share output budget', map_budget_refused)
+
+    from . import anim_resources as _anim_resources
+    import zlib as _directory_zlib
+
+    def directory_fixture(shift=0):
+        value = bytearray(152 + shift)
+        value[16:20] = b'0DRP'
+        _s.pack_into('<I', value, 20, 122)
+        _s.pack_into('<4Q', value, 40, 0x50000050 + shift, 0, 0x50000070 + shift, 0)
+        _s.pack_into('<4H', value, 72, 1, 0, 1, 9)
+        _s.pack_into('<IIIIQIHH', value, 80 + shift,
+                     0x11223344, 1, 2, 3, 0x50000080 + shift, 8, 4, 1)
+        _s.pack_into('<IIQ', value, 112 + shift, 0x11223344, 8, 0x50000090 + shift)
+        _s.pack_into('<4I', value, 128 + shift, 0x22334455, 0, 0xffff, 7)
+        _s.pack_into('<II', value, 144 + shift, 11, 22)
+        return bytes(value)
+
+    directory_data = directory_fixture()
+    directory = _anim_resources.parse_resource(directory_data)
+    check('0DRP bounded schema and block tables',
+          directory['summary']['fields'] == 1 and directory['blocks'][0]['data_offset'] == 144
+          and directory['blocks'][0]['byte_length'] == 8)
+    check('0DRP unsupported types and unknown header roles stay explicit',
+          directory['status'] == 'partial' and directory['structures'][0]['fields'][0]['type_name'] is None
+          and directory['header']['unknown_4e'] == 9)
+    broken_directory = bytearray(directory_data)
+    _s.pack_into('<Q', broken_directory, 120, (1 << 63) | 0x50000090)
+    try:
+        _anim_resources.parse_resource(bytes(broken_directory))
+        directory_pointer_refused = False
+    except ValueError:
+        directory_pointer_refused = True
+    check('0DRP full-width pointers cannot alias bounded spans', directory_pointer_refused)
+    try:
+        _anim_resources.parse_resource(directory_data, max_nodes=directory['summary']['nodes'] - 1)
+        directory_budget_refused = False
+    except _anim_resources.ResourceLimitError:
+        directory_budget_refused = True
+    check('0DRP metadata shares an explicit output budget', directory_budget_refused)
+    paged_directory = directory_fixture(65536)
+    first_page = _directory_zlib.compress(paged_directory[:65536])
+    with tempfile.TemporaryDirectory() as directory_tmp:
+        directory_path = os.path.join(directory_tmp, 'authored.rpf')
+        with open(directory_path, 'wb') as handle:
+            handle.write(first_page + bytes(-len(first_page) % 16)
+                         + _directory_zlib.compress(paged_directory[65536:]))
+        joined_directory = list(_anim_resources.scan_resources(directory_path, start=0))
+        check('0DRP adjacent zero-padded pages rejoin before bounds checks',
+              len(joined_directory) == 1 and joined_directory[0]['status'] == 'partial'
+              and len(joined_directory[0]['segments']) == 2
+              and joined_directory[0]['blocks'][0]['data_offset'] == 65680)
+        with open(directory_path, 'wb') as handle:
+            handle.write(first_page)
+        missing_directory = list(_anim_resources.scan_resources(directory_path, start=0))
+        check('0DRP missing continuation refuses metadata without prefix output',
+              missing_directory[0]['status'] == 'refused' and 'structures' not in missing_directory[0])
+
+    from . import anim_clips as _anim_clips
+    clip_fixture = bytearray(344)
+    _s.pack_into('<QHHI', clip_fixture, 56, 0x50000070, 8, 9, 1)
+    _s.pack_into('<QIIIIQII', clip_fixture, 72, 0x50000080, 1, 0, 1, 0x01000000, 0, 0x1234abcd, 2)
+    clip_fixture[112:120] = b'authored'
+    _s.pack_into('<Q', clip_fixture, 128, 0x50000088)
+    clip_path = b'pack:/authored.clip'
+    clip_key = _names.joaat('authored')
+    _s.pack_into('<IIQQQ', clip_fixture, 136, clip_key, 0x1234abcd, 0x500000a8, 0, 0)
+    _s.pack_into('<QQI', clip_fixture, 184, 1, 0x50000000, 2)
+    _s.pack_into('<QHHI', clip_fixture, 208, 0x50000138, len(clip_path), len(clip_path) + 1, 1)
+    _s.pack_into('<II', clip_fixture, 256, clip_key, 0x1234abcd)
+    _s.pack_into('<f', clip_fixture, 288, 1.5)
+    clip_fixture[312:312 + len(clip_path)] = clip_path
+    named_clip = _anim_clips.parse_dictionary(bytes(clip_fixture))
+    check('named clip links verify node, record and referenced path stem',
+          named_clip['summary']['clips_linked'] == 1
+          and named_clip['entries'][0]['name']['value'] == 'pack:/authored.clip'
+          and named_clip['entries'][0]['duration_candidate']['status'] == 'candidate'
+          and named_clip['status'] == 'partial')
+    bad_clip = bytearray(clip_fixture)
+    _s.pack_into('<I', bad_clip, 256, 0)
+    unresolved_clip = _anim_clips.parse_dictionary(bytes(bad_clip))['entries'][0]
+    check('named clip hash mismatch preserves an unresolved member without an invented name',
+          unresolved_clip['status'] == 'unresolved' and 'name' not in unresolved_clip)
+    bad_clip = bytearray(clip_fixture)
+    _s.pack_into('<Q', bad_clip, 144, (1 << 63) | 0x500000a8)
+    check('named clip full-width record pointers cannot alias by masking',
+          _anim_clips.parse_dictionary(bytes(bad_clip))['summary']['clips_unresolved'] == 1)
+    bad_clip = bytearray(clip_fixture)
+    _s.pack_into('<Q', bad_clip, 152, 0x50000088)
+    try:
+        _anim_clips.parse_dictionary(bytes(bad_clip))
+        clip_cycle_refused = False
+    except ValueError:
+        clip_cycle_refused = True
+    check('named clip node cycles refuse dictionary output', clip_cycle_refused)
+    try:
+        _anim_clips.parse_dictionary(bytes(clip_fixture), max_nodes=named_clip['summary']['nodes'] - 1)
+        clip_budget_refused = False
+    except _anim_resources.ResourceLimitError:
+        clip_budget_refused = True
+    check('named clip nodes and strings share an explicit budget', clip_budget_refused)
+    with tempfile.TemporaryDirectory() as clip_tmp:
+        clip_tmp_path = os.path.join(clip_tmp, 'authored.rpf')
+        with open(clip_tmp_path, 'wb') as handle:
+            handle.write(_directory_zlib.compress(bytes(clip_fixture) + bytes(65536 - len(clip_fixture))))
+        clip_prefix = list(_anim_clips.scan_dictionaries(clip_tmp_path, start=0))
+        check('named clip metadata can bind a bounded prefix without claiming full file size',
+              clip_prefix[0]['framing'] == 'bounded_metadata_prefix'
+              and clip_prefix[0]['summary']['clips_linked'] == 1
+              and clip_prefix[0]['status'] == 'partial')
+
+    component_fixture = bytearray(clip_fixture) + bytearray(280)
+    _s.pack_into('<QHHI', component_fixture, 272, 0x50000158, 1, 1, 0)
+    _s.pack_into('<QHHIII', component_fixture, 344, 0x50000170, 1, 1, 0, 0x3fc00000, 0)
+    component_path = b'pack:/rig_authored_0.anim'
+    _s.pack_into('<QII', component_fixture, 368, 0x500001a8, _names.joaat('rig_authored_0'), 0)
+    _s.pack_into('<Q', component_fixture, 472, 0x50000218)
+    _s.pack_into('<Q', component_fixture, 496, 48)
+    _s.pack_into('<QHHI', component_fixture, 504, 0x50000238, 1, 1, 0)
+    component_fixture[536:536 + len(component_path)] = component_path
+    _s.pack_into('<Q', component_fixture, 568, 0x50000240)
+    _s.pack_into('<8I', component_fixture, 576, 0x11223344, 16, 0, 0, 0, 0, 0, 0)
+    component_fixture[608:624] = bytes(range(16))
+    components = _anim_clips.parse_dictionary(bytes(component_fixture), with_components=True)
+    component_view = components['entries'][0]['components']
+    check('clip components link checked animation names and opaque buffer spans',
+          component_view['status'] == 'complete' and component_view['animation_links'] == 1
+          and component_view['payload_spans'] == 1
+          and component_view['groups'][0]['segments'][0]['animation']['name']['value'] == component_path.decode())
+    import hashlib as _component_hashlib
+    component_buffer = component_view['groups'][0]['segments'][0]['animation']['buffers'][0]
+    check('clip component buffer lengths and hashes match source bytes',
+          component_buffer['byte_length'] == 48 and component_buffer['data_offset'] == 576
+          and component_buffer['sha256'] == _component_hashlib.sha256(component_fixture[576:624]).hexdigest())
+    bad_component = bytearray(component_fixture)
+    _s.pack_into('<Q', bad_component, 496, 49)
+    mismatched_component = _anim_clips.parse_dictionary(bytes(bad_component), with_components=True)
+    check('clip component length disagreement preserves named links but no prefix buffers',
+          mismatched_component['summary']['clips_linked'] == 1
+          and mismatched_component['entries'][0]['components']['status'] == 'unresolved'
+          and mismatched_component['entries'][0]['components']['groups'] == [])
+    bad_component = bytearray(component_fixture)
+    _s.pack_into('<Q', bad_component, 568, (1 << 63) | 0x50000240)
+    check('clip component buffer references retain full-width bounds',
+          _anim_clips.parse_dictionary(bytes(bad_component), with_components=True)
+          ['summary']['component_clips_unresolved'] == 1)
+    try:
+        _anim_clips.parse_dictionary(bytes(component_fixture), with_components=True,
+                                    max_nodes=components['summary']['nodes'] - 1)
+        component_budget_refused = False
+    except _anim_resources.ResourceLimitError:
+        component_budget_refused = True
+    check('clip component metadata and buffer hashes share the output budget', component_budget_refused)
+    truncated_components = _anim_clips.parse_dictionary(bytes(component_fixture[:608]), with_components=True)
+    check('clip component buffers cannot consume missing bytes or fabricate padding',
+          truncated_components['summary']['clips_linked'] == 1
+          and truncated_components['entries'][0]['components']['status'] == 'unresolved'
+          and truncated_components['entries'][0]['components']['groups'] == [])
+
+    packed_fixture = bytearray(component_fixture) + bytearray(24)
+    _s.pack_into('<HH', packed_fixture, 460, 3, 2)
+    _s.pack_into('<QHHI', packed_fixture, 520, 0x50000270, 2, 2, 0)
+    _s.pack_into('<6I', packed_fixture, 624, 0x11223344, 0x55667788, 0xffffffff,
+                 0x89abcdef, 0xfedcba98, 2)
+    _s.pack_into('<II', packed_fixture, 588, 34, 36)
+    _s.pack_into('<5H2B', packed_fixture, 596, 2, 3, 0, 0, 0, 11, 0x11)
+    _s.pack_into('<BBHHBBHH', packed_fixture, 612, 7, 6, 5, 4, 3, 2, 1, 0)
+    packed_report = _anim_clips.parse_dictionary(bytes(packed_fixture), with_packed_layout=True)
+    packed_view = packed_report['entries'][0]['components']['groups'][0]['segments'][0]['animation']['packed_layout']
+    check('packed animation headers partition source regions and bounded auxiliary rows',
+          packed_view['status'] == 'complete' and packed_view['auxiliary_row_count'] == 2
+          and [x['byte_length'] for x in packed_view['buffers'][0]['regions']] == [32, 2, 2, 12])
+    check('packed channel candidates preserve unknown words without guessed types',
+          packed_view['binding_count'] == 2 and packed_view['bindings'][0]['raw_words'][2] == '0xffffffff'
+          and 'type_name' not in packed_view['bindings'][0])
+    bad_packed = bytearray(packed_fixture)
+    bad_packed[606] = 12
+    refused_layout = _anim_clips.parse_dictionary(bytes(bad_packed), with_packed_layout=True)
+    check('unsupported packed header markers preserve parent buffer associations',
+          refused_layout['summary']['component_clips_resolved'] == 1
+          and refused_layout['summary']['packed_layouts_unresolved'] == 1)
+    bad_packed = bytearray(packed_fixture)
+    _s.pack_into('<I', bad_packed, 588, 31)
+    bad_regions = _anim_clips.parse_dictionary(bytes(bad_packed), with_packed_layout=True)
+    bad_layout = bad_regions['entries'][0]['components']['groups'][0]['segments'][0]['animation']['packed_layout']
+    check('packed invalid region offsets return no prefix layout rows',
+          bad_layout['status'] == 'unresolved' and bad_layout['buffers'] == [] and bad_layout['bindings'] == [])
+    bad_packed = bytearray(packed_fixture)
+    _s.pack_into('<H', bad_packed, 460, 4)
+    check('packed sample-count candidates must reconcile with the animation total',
+          _anim_clips.parse_dictionary(bytes(bad_packed), with_packed_layout=True)
+          ['summary']['packed_layouts_unresolved'] == 1)
+    try:
+        _anim_clips.parse_dictionary(bytes(packed_fixture), with_packed_layout=True,
+                                    max_nodes=packed_report['summary']['nodes'] - 1)
+        packed_budget_refused = False
+    except _anim_resources.ResourceLimitError:
+        packed_budget_refused = True
+    check('packed header and channel rows share the dictionary output budget', packed_budget_refused)
 
     print(f"\n{len(failures)} failure(s)")
     return 0 if not failures else 1
@@ -2589,6 +3083,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max", type=int, default=40, help="rows/stream cap hint")
     p.add_argument("--clips", action="store_true", help="print clip names")
     p.add_argument("--out", help="write anim.json and anim-names.txt")
+    p.add_argument("--resources", action="store_true",
+                   help="join bounded 0DRP resources and export raw schema/block metadata; curves remain unknown")
+    p.add_argument("--max-nodes", type=int, default=100000,
+                   help="total metadata node budget for --resources (default 100000)")
+    p.add_argument("--clip-records", action="store_true",
+                   help="link supported names to bounded clip-record prefixes; curves remain unknown")
+    p.add_argument("--start", type=lambda value: int(value, 0),
+                   help="compressed byte offset per archive for a bounded scan (decimal or 0x hex)")
+    p.add_argument("--clip-components", action="store_true",
+                   help="follow checked animation/component and opaque packed-buffer spans; implies --clip-records")
+    p.add_argument("--packed-layout", action="store_true",
+                   help="inspect bounded packed-header regions and raw channel rows; implies --clip-components")
     p.set_defaults(func=cmd_anim)
 
     p = sub.add_parser("movies", help="Bink2 movie metadata browser and extractor")
@@ -2687,7 +3193,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--schema", action="store_true",
                    help="browse LSCH types and LENM enums in verified resources; joins split pages")
     p.add_argument('--instances', action='store_true',
-                   help='include bounded values, hash32 arrays, low-ID pools and reference diagnostics (implies schema mode)')
+                   help='include bounded values, local array associations, low-ID pools and reference diagnostics (implies schema mode)')
     p.add_argument('--max-nodes', type=int, default=100000,
                    help='instance output budget across the report (default 100000)')
     p.add_argument('--max-depth', type=int, default=16,

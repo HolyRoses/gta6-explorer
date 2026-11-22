@@ -3,8 +3,9 @@
 Local, unambiguous schemas take precedence; an optional user-built registry
 supplies unambiguous cross-file definitions. Scalar/enum/embedded meanings
 remain inferred; unsupported values and references are explicit. Only bounded
-local hash32-array spans are followed, without recursive pointer traversal or
-any GPL implementation. Low-ID pool views distinguish inferred
+local hash32-array spans are followed; checked local fields and structure/reference
+arrays and map entry spans link existing typed records without expanding them. No recursive pointer traversal or GPL
+implementation is used. Low-ID pool views distinguish inferred
 hash/text values, candidate reference words and opaque storage groups.
 """
 from __future__ import annotations
@@ -14,7 +15,7 @@ import hashlib
 import math
 import struct
 
-from . import psin_schema, psin_pools, psin_arrays
+from . import psin_schema, psin_pools, psin_arrays, psin_references, psin_maps
 
 __all__ = ['InstanceBlock', 'InstanceLimitError', 'parse_blocks', 'decode_instances']
 
@@ -97,8 +98,15 @@ def decode_instances(data: bytes, dictionary: dict | None = None, *,
                   unsupported_blocks=0, descriptor_fields=0, pool_blocks=0,
                   pool_elements=0, pool_values_decoded=0, unresolved_pool_elements=0,
                   array_fields_attempted=0, array_fields_unresolved=0,
-                  hash32_arrays_resolved=0, hash32_array_values_decoded=0)
+                  hash32_arrays_resolved=0, hash32_array_values_decoded=0,
+                  structure_arrays_resolved=0, structure_array_records_linked=0,
+                  reference_arrays_resolved=0, reference_array_records_linked=0,
+                  reference_array_null_entries=0, reference_fields_attempted=0,
+                  reference_fields_resolved=0, reference_fields_linked=0,
+                  reference_fields_null=0, reference_fields_unresolved=0,
+                  maps_attempted=0, maps_resolved=0, maps_unresolved=0, map_entries_linked=0)
     type_cache = {}
+    reference_slot_cache = {}
 
     def consume():
         if counts['nodes'] >= max_nodes:
@@ -149,6 +157,23 @@ def decode_instances(data: bytes, dictionary: dict | None = None, *,
             if width is not None and (f.data_offset + width > owner.byte_size
                                       or start + width > block_end):
                 raise ValueError('PSIN field exceeds instance bounds')
+            if f.type_word & 0xffff == 7:
+                consume()  # Bindings and nulls share the existing output budget.
+                counts['reference_fields_attempted'] += 1
+                reference = psin_references.resolve_field(
+                    data, start, f, owner, block_end, blocks,
+                    local_owner=context is None or context.schema is not None,
+                    local_structures=structures, slot_cache=reference_slot_cache)
+                value['reference'] = reference
+                if reference['status'] == 'unresolved':
+                    counts['reference_fields_unresolved'] += 1
+                    unresolved(value, reference['reason'])
+                else:
+                    value['status'] = 'complete'
+                    counts['reference_fields_resolved'] += 1
+                    counts['reference_fields_linked'] += reference['status'] == 'record_reference'
+                    counts['reference_fields_null'] += reference['status'] == 'null_reference'
+                continue
             if kind == 'embedded_structure':
                 target = struct_index.get(f.auxiliary)[0]
                 if target.byte_size == 0:
@@ -164,19 +189,54 @@ def decode_instances(data: bytes, dictionary: dict | None = None, *,
                 continue
             if kind == 'dynamic_array':
                 counts['array_fields_attempted'] += 1
-                array = psin_arrays.resolve_hash32(
-                    data, start, owner, info['element_descriptor_index'], blocks,
-                    local_owner=context is None or context.schema is not None,
-                    local_structures=structures, consume=consume, dictionary=dictionary)
+                descriptor_index = info['element_descriptor_index']
+                descriptor = owner.fields[descriptor_index]
+                local_owner = context is None or context.schema is not None
+                if descriptor.type_word & 0xffff == 5:
+                    array = psin_arrays.resolve_structure_links(
+                        data, start, owner, descriptor_index, blocks, local_owner=local_owner,
+                        local_structures=structures, consume=consume)
+                elif descriptor.type_word & 0xffff == 7:
+                    array = psin_arrays.resolve_reference_links(
+                        data, start, owner, descriptor_index, blocks, local_owner=local_owner,
+                        local_structures=structures, consume=consume)
+                else:
+                    array = psin_arrays.resolve_hash32(
+                        data, start, owner, descriptor_index, blocks, local_owner=local_owner,
+                        local_structures=structures, consume=consume, dictionary=dictionary)
                 value['array'] = array
                 if array['status'] != 'complete':
                     counts['array_fields_unresolved'] += 1
                     unresolved(value, array['reason'])
                 else:
                     value['status'] = 'complete'
-                    counts['hash32_arrays_resolved'] += 1
-                    counts['hash32_array_values_decoded'] += array['count']
-                    counts['decoded_values'] += array['count']
+                    if array['element_type'] == 'structure':
+                        counts['structure_arrays_resolved'] += 1
+                        counts['structure_array_records_linked'] += array['count']
+                    elif array['element_type'] == 'reference':
+                        counts['reference_arrays_resolved'] += 1
+                        counts['reference_array_records_linked'] += array['record_link_count']
+                        counts['reference_array_null_entries'] += array['null_count']
+                    else:
+                        counts['hash32_arrays_resolved'] += 1
+                        counts['hash32_array_values_decoded'] += array['count']
+                        counts['decoded_values'] += array['count']
+                continue
+            if kind == 'map':
+                consume()  # Header associations and entries share the output budget.
+                counts['maps_attempted'] += 1
+                mapping = psin_maps.resolve_entries(
+                    data, start, f, owner, block_end, blocks,
+                    local_owner=context is None or context.schema is not None,
+                    local_structures=structures, consume=consume, slot_cache=reference_slot_cache)
+                value['map'] = mapping
+                if mapping['status'] != 'complete':
+                    counts['maps_unresolved'] += 1
+                    unresolved(value, mapping['reason'])
+                else:
+                    value['status'] = 'complete'
+                    counts['maps_resolved'] += 1
+                    counts['map_entries_linked'] += mapping['count']
                 continue
             if kind not in ('bool8', 'float32', 'hash32', 'enum32'):
                 reason = info.get('reason') or (
@@ -268,8 +328,9 @@ def decode_instances(data: bytes, dictionary: dict | None = None, *,
         row.update(record_count=len(records), records=records,
                    status='complete' if all(r['status'] == 'complete' for r in records) else 'partial')
     return dict(format='gta6x-psin-instances-v1', schema_id=schema.schema_id,
-                interpretation=('Inferred scalar/enum/embedded values, hash/ASCII pools and bounded hash32 arrays; '
-                                'reference candidates and opaque pools remain unresolved; '
+                interpretation=('Inferred scalar/enum/embedded values, hash/ASCII pools, bounded hash32 arrays '
+                                'and bounded local field/array/map-entry record links; '
+                                'bare reference candidates and opaque pools remain unresolved; '
                                 + ('local-first registry resolution; ' if registry is not None else '')
                                 + 'no general pointer traversal or complete object-graph claim.'),
                 status='complete' if all(b['status'] == 'complete' for b in output) else 'partial',
