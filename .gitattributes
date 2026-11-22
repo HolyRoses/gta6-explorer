@@ -12,5 +12,8 @@
 *.db binary
 *.rpf binary
 
+# Authored synthetic BCPack sample; its checksum covers the compressed bytes.
+tests/data/bcpack_sparse_example/*.chunk binary
+
 # Generated browser bundles are one very long line each.
 site/assets/part-*.js linguist-generated=true

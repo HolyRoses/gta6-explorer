@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""Native BCPack BC1 decoder (pure Python, stdlib only).
+"""Native BCPack BC1/BC3/BC4/BC5 decoder (pure Python, stdlib only).
 
-Ported from bcpack-rs (MIT OR Apache-2.0, Copyright (c) 2026 Ahmet Dedeler).
+BC1 and entropy ported from bcpack-rs (MIT OR Apache-2.0, Copyright (c) 2026 Ahmet Dedeler).
 The entropy layer is a port of Microsoft silicon-rans `mdu_minirans.v` (MIT).
 See LICENSES/bcpack-rs-*.txt. Slow (~0.1-0.3 MB/s); use for bounded exports,
 the external helper for bulk runs.
 
-Layers (docs/BCPACK_SPEC.md has the evidence for each):
+BC1 layers (BC3/4/5 use the independently fitted blocks module;
+table metadata records provenance and provisional histories):
   1. Entropy: 12 rANS lanes, each a cycle-level port of the `decoder` module in
      Microsoft's MIT-licensed silicon-rans Verilog (mdu_minirans.v), with its
-     exact model tables (bcpack_tables.py, generated). Lanes share one byte stream:
+     exact model tables (tables.py, generated). Lanes share one byte stream:
      each clock the lanes that request a byte are served in lane order 0..11,
      at most 8 bytes per clock. Symbols leave in lockstep vectors (one per lane).
   2. Endpoints: lane 0 = back-reference distance into the last 256 blocks
@@ -28,11 +29,11 @@ import hashlib
 import os
 import struct
 
-from .bcpack_tables import (BASE_TABLE, FREQ_TABLE, RF_TABLE, RN_TABLE,
+from .tables import (BASE_TABLE, FREQ_TABLE, RF_TABLE, RN_TABLE,
                             RS_TABLE, TABLES_SHA256)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATA = os.path.join(HERE, "bcpack_data")
+DATA = os.path.join(HERE, "data")
 
 L = 1 << 24
 LEGAL = (L, L >> 8, L >> 16)
@@ -45,7 +46,7 @@ BC1_ENDPOINT_WIDTHS = (5, 6, 5, 5, 6, 5)   # lanes 2..7 = R0 G0 B0 R1 G1 B1
 IDLE, HDR0, HDR1, HDR2, PROC, DRAIN = range(6)
 
 
-class BCPackError(Exception):
+class BCPackError(ValueError):
     pass
 
 
@@ -102,7 +103,7 @@ def model(eab, q):
 class Lane:
     __slots__ = ("idx", "ab", "target", "state", "ib", "ib_full", "sym", "sym_full", "in_rem",
                  "out_rem", "p0", "p1", "hdr3", "flush", "q", "eab", "model", "done", "go",
-                 "stall", "syms", "nbytes", "final", "frags")
+                 "stall", "syms", "nbytes", "final", "frags", "fragment_states")
 
     def __init__(self, idx, ab, target):
         self.idx, self.ab, self.target = idx, ab, target
@@ -123,6 +124,7 @@ class Lane:
         self.nbytes = 0
         self.final = None
         self.frags = []        # (header byte, payload budget)
+        self.fragment_states = []
 
     def need_byte(self):
         if self.ib_full:
@@ -136,16 +138,25 @@ class Lane:
         return (f * (x >> 16) + (x & 0xFFFF) - cf) & 0xFFFFFFFF
 
 
-def decode_lanes(data, alphabet_bits, targets, window=FEED_WINDOW, source=None):
+def decode_lanes(data, alphabet_bits, targets, window=FEED_WINDOW, source=None,
+                 *, strict=False):
     """Run the lanes over one shared byte stream.
 
     data: the chunk bytes (trailing zero padding allowed). source: optional
     callable(lane_index) -> next byte, used by the synthetic encoder to learn
     the interleave order (then `data` is ignored and the order is recorded).
     Returns dict(syms, consumed, cycles, lanes, order). Raises BCPackError
-    unless every lane finished with a legal end state.
+    unless every lane finished with a legal end state. ``strict`` additionally
+    checks fragment convergence and symbol bounds for the BC3/4/5 profile.
+    The legacy BC1 caller retains its original state handling.
     """
     n = len(alphabet_bits)
+    if (not 1 <= n <= 12 or len(targets) != n
+            or any(type(t) is not int or t <= 0 for t in targets)
+            or any(type(ab) is not int or not 0 <= ab < len(BASE_TABLE)
+                   for ab in alphabet_bits)
+            or type(window) is not int or not 1 <= window <= FEED_WINDOW):
+        raise BCPackError("invalid lane configuration")
     lanes = [Lane(i, alphabet_bits[i], targets[i]) for i in range(n)]
     slots = [False] * n
     pos = 0
@@ -203,6 +214,9 @@ def decode_lanes(data, alphabet_bits, targets, window=FEED_WINDOW, source=None):
                     ln.hdr3 = bool(b & 0x20)
                     ln.flush = bool(b & 0x10)
                     e = ln.ab - (b >> 6)
+                    if strict and not 0 <= e < len(BASE_TABLE):
+                        raise BCPackError("lane %d: unsupported symbol width %d"
+                                          % (ln.idx, e + 1))
                     if e < 0:
                         e &= 15
                     ln.eab = e if e < 10 else 9
@@ -234,7 +248,11 @@ def decode_lanes(data, alphabet_bits, targets, window=FEED_WINDOW, source=None):
                 ln.p1 = x
                 ln.out_rem = new_out
                 if nsf:
+                    if strict and (x & 0xFFFF) == 0:
+                        raise BCPackError("lane %d: reserved rANS slot zero" % ln.idx)
                     ln.sym = ln.model.inverse(x & 0xFFFF)
+                    if strict and not 0 <= ln.sym < (1 << (ln.eab + 1)):
+                        raise BCPackError("lane %d: symbol outside alphabet" % ln.idx)
                 ln.sym_full = nsf
                 if st == PROC:
                     if will:
@@ -243,6 +261,7 @@ def decode_lanes(data, alphabet_bits, targets, window=FEED_WINDOW, source=None):
                     if ln.in_rem == 0:
                         if new_out > 0:
                             if x == L:
+                                ln.fragment_states.append(x)
                                 ln.state = HDR0
                                 if ln.flush:
                                     ln.p1 = 0
@@ -252,7 +271,11 @@ def decode_lanes(data, alphabet_bits, targets, window=FEED_WINDOW, source=None):
                             ln.done = True
                             ln.state = IDLE
                             ln.final = ln.forward_state(x, ln.sym) if nsf else x
+                            ln.fragment_states.append(ln.final)
                 elif x <= L:
+                    if strict and ln.flush and x not in LEGAL:
+                        raise BCPackError("lane %d: flushed fragment did not converge" % ln.idx)
+                    ln.fragment_states.append(x)
                     if new_out > 0:
                         ln.state = HDR0
                         if ln.flush:
@@ -270,13 +293,20 @@ def decode_lanes(data, alphabet_bits, targets, window=FEED_WINDOW, source=None):
             bad = [ln.idx for ln in lanes if ln.final not in LEGAL]
             if bad:
                 raise BCPackError("lanes %s ended in an illegal state" % bad)
+            if strict:
+                for ln in lanes:
+                    if (len(ln.syms) != ln.target or ln.out_rem != 0
+                            or ln.in_rem != 0 or ln.ib_full
+                            or len(ln.frags) != len(ln.fragment_states)):
+                        raise BCPackError("lane %d: element/byte count mismatch" % ln.idx)
             return dict(syms=[ln.syms for ln in lanes], consumed=pos, cycles=cycle, order=order,
-                        lanes=[dict(nbytes=ln.nbytes, final=ln.final, frags=ln.frags) for ln in lanes])
+                        lanes=[dict(nbytes=ln.nbytes, final=ln.final, frags=ln.frags,
+                                    fragment_states=ln.fragment_states) for ln in lanes])
         prog = (pos, sum(len(ln.syms) for ln in lanes), sum(ln.state for ln in lanes))
         if prog != last_prog:
             last_prog, last_change = prog, cycle
         elif cycle - last_change > 64:
-            raise BCPackError("no progress (stream truncated or not BCPack BC1) at byte %d" % pos)
+            raise BCPackError("no progress (stream truncated or invalid BCPack) at byte %d" % pos)
     raise BCPackError("cycle limit reached")
 
 
@@ -290,12 +320,46 @@ def decode_symbols(chunk, blocks):
     return r["syms"], r
 
 
+def decode_codec_symbols(chunk: bytes, codec: int, out_size: int):
+    """Decode the public BC3/4/5 entropy profile, without rebuilding blocks.
+
+    Returns ``(symbols, diagnostics)``; the latter includes consumed bytes and
+    each lane's byte count, fragment headers and terminal state. No history or
+    index-codebook assumptions are made here.
+    """
+    from .spec import CODECS, element_count
+
+    count = element_count(codec, out_size)
+    if not isinstance(chunk, bytes):
+        raise BCPackError("chunk must be bytes")
+    widths = CODECS[codec]["default_widths"]
+    result = decode_lanes(chunk, tuple(w - 1 for w in widths), [count] * 12,
+                          strict=True)
+    if any(chunk[result["consumed"]:]):
+        raise BCPackError("non-zero bytes after the end of the stream (%d of %d consumed)"
+                          % (result["consumed"], len(chunk)))
+    return result["syms"], result
+
+
+def decode_chunk(chunk: bytes, codec: int, out_size: int) -> bytes:
+    """BC3/4/5 payload -> exact BCn blocks in stored Gfx10 tile order.
+
+    Malformed streams, unsupported profiles and unfitted entries raise
+    ValueError; reconstruction never substitutes a default for missing data.
+    """
+    from .blocks import assemble
+
+    syms, _ = decode_codec_symbols(chunk, codec, out_size)
+    return assemble(syms, codec, out_size)
+
+
 # ---------------------------------------------------------------------------
 # BC1 semantics
 # ---------------------------------------------------------------------------
 def load_window(path=os.path.join(DATA, "bc1_window.json")):
     """256 preset endpoint tuples (unfitted slots read as zeros) + fitted mask."""
-    d = json.load(open(path))
+    with open(path, encoding="utf-8") as handle:
+        d = json.load(handle)
     win = [(0, 0, 0, 0, 0, 0)] * 256
     fitted = [False] * 256
     for s, e in enumerate(d["slots"]):
@@ -307,7 +371,8 @@ def load_window(path=os.path.join(DATA, "bc1_window.json")):
 
 def load_quad_table(path=os.path.join(DATA, "bc1_quad_table.json")):
     """symbol -> codes (TL, TR, BL, BR) of a 2x2 pixel group."""
-    d = json.load(open(path))
+    with open(path, encoding="utf-8") as handle:
+        d = json.load(handle)
     return [tuple(e["codes"]) for e in sorted(d["entries"], key=lambda e: e["sym"])]
 
 

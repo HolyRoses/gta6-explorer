@@ -7,13 +7,12 @@ module turns those descriptors into:
 * a layout (:mod:`gta6x.gfx10`) that maps (mip, slice, x, y) to a byte offset in
   the pool's *virtual* space,
 * a virtual reader that reassembles a texture from the pool's stored/zlib
-  chunks (BC1 BCPack decodes natively with ``decode_bcpack``; other BCPack
-  codecs are reported as unavailable),
+  chunks (BC1/BC3/BC4/BC5 BCPack decode natively with ``decode_bcpack``),
 * a standard DDS file writer, so the result opens in any DDS viewer.
 
-Only formats with 8- or 16-byte elements (BC1-BC7) have a validated Gfx10 bit
-equation, which covers 99.2% of the 328,091 textures in the 1.0.2.1 pools.
-Cube-map copies (tile modes 9-12) are listed but not exported yet.
+Supported 2D/array/cubemap layouts handle 1/2/4/8/16-byte elements. Single-mip
+uncompressed 3D layouts are handled by :mod:`gta6x.volume`. Unsupported formats,
+tile profiles and missing BCPack entries are reported before export.
 """
 
 from __future__ import annotations
@@ -184,12 +183,14 @@ def coverage(index: rds5.TtpIndex, virtual: int, length: int,
 
 def read_virtual(path, index: rds5.TtpIndex, virtual: int, length: int,
                  fh=None, starts: list[int] | None = None,
-                 decode_bcpack: bool = False) -> tuple[bytes, int, int]:
+                 decode_bcpack: bool = False,
+                 decode_errors: list[str] | None = None) -> tuple[bytes, int, int]:
     """Assemble ``length`` bytes of virtual space.
 
     Returns ``(data, bcpack_bytes, uncovered_bytes)``. With ``decode_bcpack``
-    native BC1 BCPack chunks are expanded; other BCPack codecs and gaps are
-    left zero and counted.
+    native BC1/3/4/5 BCPack chunks are expanded. Failed/unsupported chunks and
+    gaps are counted as missing; exporters refuse to write these ranges.
+    ``decode_errors`` optionally collects precise refusal reasons.
     """
     out = bytearray(length)
     if length <= 0:
@@ -214,19 +215,28 @@ def read_virtual(path, index: rds5.TtpIndex, virtual: int, length: int,
             if hi <= lo:
                 continue
             if chunk.codec not in (rds5.CODEC_STORED, rds5.CODEC_ZLIB):
-                if decode_bcpack and chunk.codec == 1:
-                    from . import bcpack as bcpack_mod
+                if decode_bcpack and chunk.codec in (1, 3, 4, 5):
+                    from .bc import decode_bcpack as decode_chunk
                     fh.seek(chunk.source_offset)
                     packed = fh.read(chunk.packed_size)
                     try:
-                        raw = bcpack_mod.decode_bc1(packed, chunk.size // 8)
-                    except (ValueError, IndexError):
+                        if len(packed) != chunk.packed_size:
+                            raise ValueError("truncated packed range")
+                        raw = decode_chunk(packed, chunk.codec, chunk.size)
+                        if len(raw) != chunk.size:
+                            raise ValueError("BCPack output size mismatch")
+                    except (ValueError, IndexError) as exc:
+                        if decode_errors is not None:
+                            decode_errors.append(f"BCPack codec {chunk.codec} at "
+                                                 f"0x{chunk.source_offset:x}: {exc}")
                         bcpack += hi - lo
                         continue
                     start = lo - chunk.virtual_offset
                     out[lo - virtual:hi - virtual] = raw[start:start + hi - lo]
                     covered += hi - lo
                     continue
+                if decode_bcpack and decode_errors is not None:
+                    decode_errors.append(f"BCPack codec {chunk.codec}: native codec unsupported")
                 bcpack += hi - lo
                 continue
             fh.seek(chunk.source_offset)
@@ -340,6 +350,7 @@ def export_texture(path, index: rds5.TtpIndex, texture: rds5.TtpTexture,
               "format": format_name(texture.dxgi_format),
               "mips": texture.mips, "slices": texture.slices, "bytes": 0,
               "skipped": None}
+    decode_errors = []
     if getattr(texture, "dimension", 1) == 3:
         from . import volume
         vol = volume.layout_for(texture)
@@ -348,9 +359,13 @@ def export_texture(path, index: rds5.TtpIndex, texture: rds5.TtpTexture,
             return result
         data, bcpack, uncovered = read_virtual(
             path, index, texture.virtual_offset, vol.total, fh=fh, starts=starts,
-            decode_bcpack=decode_bcpack)
+            decode_bcpack=decode_bcpack, decode_errors=decode_errors)
         if bcpack or uncovered:
-            result["skipped"] = f"{bcpack + uncovered} bytes missing in volume"
+            result["skipped"] = (f"{bcpack} bytes in BCPack chunks; " if bcpack else "") + \
+                f"{uncovered} bytes uncovered in volume"
+            if decode_errors:
+                result["decode_errors"] = decode_errors
+                result["skipped"] += ": " + decode_errors[0]
             return result
         blob = dds_bytes_volume(texture, vol, data)
         dest = os.path.join(out_dir, f"{texture.hash:016x}.dds")
@@ -368,9 +383,12 @@ def export_texture(path, index: rds5.TtpIndex, texture: rds5.TtpTexture,
         return result
     data, bcpack, uncovered = read_virtual(
         path, index, texture.virtual_offset, layout.total, fh=fh, starts=starts,
-        decode_bcpack=decode_bcpack)
+        decode_bcpack=decode_bcpack, decode_errors=decode_errors)
     if bcpack:
         result["skipped"] = f"{bcpack} bytes in BCPack chunks"
+        if decode_errors:
+            result["decode_errors"] = decode_errors
+            result["skipped"] += ": " + decode_errors[0]
         return result
     if uncovered:
         result["skipped"] = f"{uncovered} bytes not covered by any chunk"
@@ -382,8 +400,9 @@ def export_texture(path, index: rds5.TtpIndex, texture: rds5.TtpTexture,
     result["file"] = dest
     result["bytes"] = len(blob)
     if png:
-        from . import bcn, png as png_mod
-        rgba = bcn.decode_rgba(texture.dxgi_format,
+        from .bc import decode_rgba
+        from . import png as png_mod
+        rgba = decode_rgba(texture.dxgi_format,
                                layout.untile_slice(data, 0, 0),
                                texture.width, texture.height)
         if rgba is None:

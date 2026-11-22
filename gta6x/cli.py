@@ -1155,6 +1155,57 @@ def cmd_models(args) -> int:
         return 1
 
 
+def cmd_music(args) -> int:
+    """Extract the audio-config music record table."""
+    from . import music as music_mod
+
+    if not args.archive:
+        args.archive = ["audio"]
+    targets = _scan_targets(args)
+    if not targets:
+        eprint("no archive matched")
+        return 1
+    limit = None if args.full else args.limit * 1024 * 1024
+    rows: list[list[str]] = []
+    records: list[dict] = []
+    for path in targets:
+        try:
+            recs = music_mod.scan_file(path, limit=limit, start=None)
+        except OSError as exc:
+            eprint(f"skip {path}: {exc}")
+            continue
+        selected = [r for r in recs
+                    if args.min_ms <= r.duration_ms <= args.max_ms]
+        for rec in selected:
+            rows.append([os.path.basename(path)[:24], f"0x{rec.config_id:04x}",
+                         f"{rec.duration_ms / 1000:.3f}s",
+                         f"0x{rec.stream_id:08x}", f"0x{rec.hash_b:08x}"])
+            records.append(dict(rec.as_dict(), archive=os.path.basename(path)))
+        eprint(f"{os.path.basename(path):24s} {len(selected):6d} record(s)")
+    if args.out:
+        os.makedirs(args.out, exist_ok=True)
+        dest = os.path.join(args.out, "music.json")
+        with open(dest, "w", encoding="utf-8") as out:
+            json.dump(records, out, indent=1)
+        if args.json:
+            print(json.dumps({"records": len(records), "manifest": dest}, indent=2))
+        else:
+            print(f"{len(records):,} music record(s) -> {dest}")
+        return 0
+    if args.json:
+        print(json.dumps(records[:args.max], indent=2))
+        return 0
+    if not rows:
+        print("no music records found")
+        return 0
+    print(table(rows[:args.max], ["archive", "id", "duration", "stream", "hashB"],
+                align="llrll"))
+    total = sum(r["duration_ms"] for r in records) / 1000
+    print(f"\n{len(records):,} record(s), {total:,.1f}s total; "
+          f"{len({r['config_id'] for r in records}):,} distinct ids")
+    return 0
+
+
 def cmd_awc(args) -> int:
     """List the streams inside AWC containers, optionally extracting payloads."""
     targets = _scan_targets(args)
@@ -1294,7 +1345,7 @@ def _find_pools(root: str, wanted: list[str]) -> list[str]:
 
 def _skip_category(reason: str) -> str:
     if "BCPack" in reason:
-        return "BCPack chunks (no decoder)"
+        return "BCPack chunks (unsupported or decode failed)"
     if "not covered" in reason:
         return "uncovered virtual range"
     if "cube" in reason:
@@ -1421,9 +1472,9 @@ def _cmd_embedded_textures(args) -> int:
                                    "file": dest, "bytes": len(blob),
                                    "exported_mips": mip_count})
                     if args.png:
-                        from . import bcn as bcn_mod, png as png_mod
-                        rgba = bcn_mod.decode_rgba(tex.dxgi_format, linear,
-                                                   tex.width, tex.height)
+                        from .bc import decode_rgba
+                        from . import png as png_mod
+                        rgba = decode_rgba(tex.dxgi_format, linear, tex.width, tex.height)
                         if rgba is not None:
                             png_dest = os.path.splitext(dest)[0] + ".png"
                             png_mod.write_png(png_dest, tex.width, tex.height, rgba)
@@ -1603,41 +1654,38 @@ def cmd_textures(args) -> int:
                         record = texture_mod.export_texture(
                             pool, index, tex, args.out, fh=fh, starts=starts,
                             png=args.png, decode_bcpack=args.bcpack)
-                        if label:
-                            record["name"] = label
-                        exported += 1 if record["file"] else 0
-                        if record["skipped"]:
-                            key = _skip_category(record["skipped"])
-                            skipped[key] = skipped.get(key, 0) + 1
-                        records.append(record)
                     else:
-                        helper = args.bcpack_helper
-                        if helper and "BCPack" in (reason or ""):
-                            import subprocess
-                            dest = os.path.join(args.out, f"{tex.hash:016x}.dds")
-                            try:
-                                proc = subprocess.run(
-                                    [sys.executable, "-I", helper, "export", pool,
-                                     str(tex.index), dest, "--force"],
-                                    capture_output=True, text=True, timeout=120)
-                            except (OSError, subprocess.TimeoutExpired) as exc:
-                                proc = None
-                                eprint(f"bcpack {tex.hash:016x}: {exc}")
-                            if proc is not None and proc.returncode == 0 and os.path.isfile(dest):
-                                record = {"file": dest, "hash": f"{tex.hash:016x}",
-                                          "width": tex.width, "height": tex.height,
-                                          "format": texture_mod.format_name(tex.dxgi_format),
-                                          "mips": tex.mips, "slices": tex.slices,
-                                          "bytes": os.path.getsize(dest),
-                                          "skipped": None, "bcpack": True}
-                                if names_index is not None and label:
-                                    record["name"] = label
-                                records.append(record)
-                                exported += 1
-                                continue
-                        key = _skip_category(reason)
+                        record = {"file": None, "hash": f"{tex.hash:016x}",
+                                  "skipped": reason}
+                    # A native refusal can still use the explicitly selected
+                    # external exporter. Both flags may be used together.
+                    native_reason = record.get("skipped")
+                    helper = args.bcpack_helper
+                    if helper and "BCPack" in (native_reason or ""):
+                        import subprocess
+                        dest = os.path.join(args.out, f"{tex.hash:016x}.dds")
+                        try:
+                            proc = subprocess.run(
+                                [sys.executable, "-I", helper, "export", pool,
+                                 str(tex.index), dest, "--force"],
+                                capture_output=True, text=True, timeout=120)
+                        except (OSError, subprocess.TimeoutExpired) as exc:
+                            proc = None
+                            eprint(f"bcpack {tex.hash:016x}: {exc}")
+                        if proc is not None and proc.returncode == 0 and os.path.isfile(dest):
+                            record.update({"file": dest, "width": tex.width,
+                                           "height": tex.height,
+                                           "format": texture_mod.format_name(tex.dxgi_format),
+                                           "mips": tex.mips, "slices": tex.slices,
+                                           "bytes": os.path.getsize(dest), "skipped": None,
+                                           "bcpack": True, "native_skipped": native_reason})
+                    if label:
+                        record["name"] = label
+                    exported += 1 if record.get("file") else 0
+                    if record.get("skipped"):
+                        key = _skip_category(record["skipped"])
                         skipped[key] = skipped.get(key, 0) + 1
-                        records.append({"hash": f"{tex.hash:016x}", "skipped": reason})
+                    records.append(record)
                 else:
                     row = [
                         os.path.basename(pool)[:30], f"{tex.hash:016x}",
@@ -1796,7 +1844,7 @@ def cmd_selftest(args) -> int:
     from . import rds5 as _rds5
     from . import shaders as _shaders
     from . import audio as _audio
-    from . import bcn as _bcn
+    from .bc import bcn as _bcn
     from . import embedded as _embedded
     from . import names as _names
     from . import anim as _anim_mod
@@ -1972,6 +2020,19 @@ def cmd_selftest(args) -> int:
     check("dds payload", len(dds) == _texture.DDS_HEADER_BYTES + 8
           and dds[_texture.DDS_HEADER_BYTES:] == block)
 
+    # Authored public BCn layouts and signed-component display conventions.
+    bc2 = b"\xff" * 8 + _s.pack("<HHI", 0xf800, 0, 0)
+    check("BC2 alpha before colour", _bcn.decode_rgba(74, bc2, 4, 4)
+          == bytes((255, 0, 0, 255)) * 16)
+    check("BC4 signed minimum", _bcn.decode_rgba(81, b"\x80\x7f" + b"\0" * 6, 4, 4)
+          == bytes((0, 0, 0, 255)) * 16)
+    bc5 = b"\x7f\x81" + b"\0" * 6 + b"\x80\x7f" + b"\0" * 6
+    check("BC5 signed channels", _bcn.decode_rgba(84, bc5, 4, 4)
+          == bytes((255, 0, 0, 255)) * 16)
+    check("signed 8-bit preview mapping",
+          _bcn.decode_rgba(32, bytes((128, 129, 0, 127)), 1, 1) == bytes((0, 0, 128, 255))
+          and _bcn.decode_rgba(31, bytes((128, 129, 0, 127)), 1, 1) == bytes((0, 1, 128, 255)))
+
     # Shader wrapper: name prefix, sizes, magic, raw deflate DXBC payload.
     dxbc = bytearray(64)
     dxbc[:4] = b"DXBC"
@@ -2078,10 +2139,22 @@ def cmd_selftest(args) -> int:
           and set(sample_names.names) == {"pack:/a.clip", "pack:/b.anim"})
     clip = _anim_mod.classify(_s.pack("<I", 2) + b"\x01\x01\x00\x00" + b"\x00" * 16, 0, 1)
     check("anim clip stream classifies", clip.signature == "clip-stream")
-    from . import bcpack as _bcpack
-    from . import bc7 as _bc7
+    from .bc.bcpack import decoder as _bcpack
+    from .bc import bc7 as _bc7
+    from .bc import bc6h as _bc6h
     check("bcpack model tables", _bcpack.tables_ok())
     check("bc7 decoder", _bc7.decode_block(b"\x00" * 16) == [(0, 0, 0, 0)] * 16)
+    from . import music as _music
+    _mrec = _s.pack("<I", 30000) + b"\x0c\x01" + _s.pack("<H", 0xB422)
+    _mrec += b"\x02\x00\x0c\x00" + _s.pack("<II", 1, 0x031EEAF6)
+    _mrec += b"\x00\x00\x02\x23" + b"\x00" * 22
+    _mfound = list(_music.scan(_mrec))
+    check("music record parser",
+          len(_mfound) == 1 and _mfound[0].config_id == 0xB422
+          and _mfound[0].stream_id == 0x031EEAF6)
+    check("bc6h decoder", _bc6h.decode_block(
+        bytes.fromhex("cee15065fdf96d84c07a79f92f6b113b"))[0]
+        == (16753, 10274, 11206))
     from . import volume as _volume
 
     class _VolumeStub:
@@ -2340,6 +2413,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--textures", action="store_true", help="also export embedded textures")
     p.set_defaults(func=cmd_models)
 
+    p = sub.add_parser("music", help="extract the audio-config music record table")
+    p.add_argument("files", nargs="*", help="specific audio archives (default: audio)")
+    p.add_argument("--archive", action="append", default=[],
+                   help="archive fragment (default: audio)")
+    p.add_argument("--limit", type=int, default=64,
+                   help="MiB of archive to carve (default 64)")
+    p.add_argument("--full", action="store_true", help="carve the whole archive")
+    p.add_argument("--min-ms", type=int, default=20000,
+                   help="minimum duration (default 20000)")
+    p.add_argument("--max-ms", type=int, default=2000000,
+                   help="maximum duration (default 2000000)")
+    p.add_argument("--out", help="write music.json here")
+    p.add_argument("--max", type=int, default=40, help="rows to display")
+    p.set_defaults(func=cmd_music)
+
     p = sub.add_parser("awc", help="list streams inside AWC audio containers")
     p.add_argument("files", nargs="*", help="specific .rpf files")
     p.add_argument("--archive", action="append", default=[], help="archive name fragment")
@@ -2393,11 +2481,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max", type=int, default=100, help="maximum textures (default 100)")
     p.add_argument("--all", action="store_true", help="no limit")
     p.add_argument("--png", action="store_true",
-                   help="also write PNG previews (BC1/BC2/BC3/BC4/BC5/RGBA8)")
+                   help="also write PNG previews (BC1-BC7 and 8-bit R/RG/RGBA/BGRA)")
     p.add_argument("--bcpack", action="store_true",
-                   help="decode BC1 BCPack chunks natively (slow, pure Python)")
+                   help="decode BC1/BC3/BC4/BC5 BCPack natively (slow, pure Python)")
     p.add_argument("--bcpack-helper", default=os.environ.get("GTA6X_BCPACK"),
-                   help="external BCPack TTPF exporter (e.g. Leonida tools/ttpf_mips.py)")
+                   help="optional external TTPF exporter, also used after native BCPack refusals")
     p.add_argument("--hash-prefix", default="", help="only hashes starting with this")
     p.add_argument("--min-size", type=int, default=0,
                    help="minimum width*height in pixels")

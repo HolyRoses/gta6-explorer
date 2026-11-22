@@ -6,7 +6,7 @@ payloads are zlib streams, media carriers are stored in the clear, and texture
 pools carry their own indexes.
 
 All numbers below were measured on this package with the parsers in `gta6x/`.
-They are observations, not format guarantees; the tool's `selftest` (57 checks)
+They are observations, not format guarantees; the tool's `selftest` (59 checks)
 covers the structural rules without game data.
 
 ## Package profile
@@ -27,7 +27,7 @@ covers the structural rules without game data.
 | Zlib payloads | 176,971 checksum-verified assets in one catalogue sweep; 4.12 GB packed → 26.34 GB inflated | `catalog --db`, `get` |
 | Complete XML | `common.rpf`: 259 documents, **79 joined** from split pages | `structured` |
 | Complete PSIN | 16 MiB of `data.rpf`: 1,048 containers, **28 joined** | `structured` |
-| Streamed textures | 357,115 descriptors: **305,954 zlib/raw complete** (+47,695 BC1 BCPack); 127 arrays, 567 cubemaps, 3 volumes; native PNG covers BC1-BC5/BC7 (zlib/raw mips); backend only for BC6H | `textures --png`, `--via sixng` |
+| Streamed textures | 357,115 descriptors: **305,954 zlib/raw complete** (+47,695 BC1 BCPack); 127 arrays, 567 cubemaps, 3 volumes; native PNG covers BC1-BC7 (BC6H tone-mapped); backend only for models/world | `textures --png`, `--via sixng` |
 | Embedded txd textures | **1,345 dictionaries / 3,155 textures** native; leading mip chains native (512² BC3 → 3 mips, 1024² BC3 → 4) | `textures --embedded` |
 | Movies | 515 Bink2 titles in `movies.rpf`: 8.83 GB, 3.94 h total | `movies` |
 | AWC audio | 238 containers in the first 48 MiB; per-stream Opus metadata, native payloads and Ogg remux | `awc`, `scan` |
@@ -182,9 +182,38 @@ smaller mips and is tiled in 16×16-element blocks.
 
 * **RPF9 index key.** Deferred per project direction; archive members are
   obtained by carving, not through the TOC.
-* **BCPack.** BC1 is decoded natively (`--bcpack`, vendored MIT `bcpack-rs`);
-  BC3/BC4/BC5 use the external helper; BC6H/BC7 BCPack rebuilders remain
-  unavailable.
+* **BCPack.** Native `--bcpack` supports BC1 plus independently fitted BC3/BC4/BC5
+  reconstruction. BC3 stores alpha first; its colour block always uses four
+  colours. BC3/BC5 reference nibbles interleave even/odd bits. All three codecs
+  have distinct 64-entry index-pair tables. Fitted history coverage is
+  35/256 BC3, 55/256 BC4, 214/256 BC5; unknown slots are refused. BC3 slots
+  29/37/71/166 and BC5 16/112 are provisional and native use warns. Two source
+  pools were explicitly promoted, consuming the prior holdout. The replacement
+  retains three BC3 and 13 BC5 adapter agreements plus 75 BC4 oracle refusals.
+  These are agreements with the legacy provisional adapter, not confirmed
+  ground truth; it implements no strict/report interface. Eight plain-lower-mip
+  wrong-order controls pass, with only one directly exercising two of the six
+  provisional slots. Historical scores are archived. Black-box BC4 controls
+  isolate the refusal to history references: 75/75 altered UI controls match,
+  while all original UI inputs remain refused. No missing values were inferred
+  from those controls and no natural held-out BC4 accuracy is claimed. The optional helper can follow a
+  native refusal. BC6H/BC7 BCPack rebuilders remain unavailable. See the
+  clean-room provenance record for sources, counts and limitations.
+  The five promoted BC3/BC5 chunks now agree with their provisional fitting
+  outputs, and are no longer validation cases. The fit has 293 distinct chunks;
+  all prior constants/codebooks are unchanged apart from the six new entries.
+  Replacement held-out outputs remain excluded from fitting. BC4 UI uses
+  117 currently missing tuples; the smallest pilot
+  needs six. Exact original-output and independent-pair requests are in
+  `docs/bcpack_data_requests.md`. Sparse endpoint sidecars can now be
+  ingested under the replacement lock. Provisional evidence currently requires
+  explicitly labelled full pairs; independent confirmation remains outstanding.
+  A further BC4 dependency audit checked all 77 original inputs: two training
+  decodes and 75 UI history refusals. Unknown histories affect 123,605 of 193,536
+  UI blocks and every compressed UI mip. Index-only searches of 7,543 plain BC4
+  mips and compatible embedded channels found no counterpart. No new history
+  value, provisional status or held-out score was added; see
+  `docs/bcpack_bc4_investigation.md`.
 * **Animation.** The archive/containers are indexed and named; `anim-clips.txt`
   lists `.clip` paths. Upstream followed two clips to page-0 records (duration
   and 0x48-byte track arrays), but the page→packed-stream join and keyframes
@@ -197,12 +226,14 @@ smaller mips and is tiled in 16×16-element blocks.
   export as six-face DDS; 127/127 2D arrays and 3/3 3D volumes are laid out
   natively. Gfx10 equations cover 1/2/4/8/16-byte elements; 5 descriptors use
   unsupported DXGI formats. Native PNG previews cover
-  BC1-BC5/BC7 and RGBA8; BC6H stays DDS-only natively but is covered by the
-  backend `textures --via sixng` route.
+  BC1-BC7 and RGBA8; BC6H previews are tone-mapped (DDS keeps exact half-float).
 * **64-bit texture hashes.** Solved: low 64 bits of MurmurHash3 x64 128 (seed
   0) over the exact UTF-8 name. The dictionary resolves 19 real texture names
   (13 recovered + 6 embedded txd). Remaining hash gaps are 128-bit `LSNS`/
   `LGID`, 29-bit audio ids and 15-bit surface ids.
+* **Music record table.** The audio config holds **1,589** 46-byte music
+  records, **1,589** distinct config ids and **272,442.8 s** total; `music`
+  extracts duration/hash A/hash B/stream id. Names and play order are absent.
 * **Audio decode.** Streams and music channels are catalogued; native
   payloads are written and Opus (including per-channel music) is remuxed
   losslessly to Ogg. PCM/WAV decoding and XMA2 transcoding are not implemented

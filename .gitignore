@@ -113,6 +113,11 @@ TODO.md
 names.json
 names/
 
+# Local documentation, tests, fixtures and research tools
+/docs/
+/tests/
+/tools/
+
 # Carved media carriers
 *.bk2
 *.bik

@@ -10,7 +10,7 @@ dual-plane alpha and index rotation. It returns tightly packed RGBA8.
 
 from __future__ import annotations
 
-from .bc7_tables import (
+from .tables.bc7 import (
     ANCHOR2, ANCHOR3_1, ANCHOR3_2, MODE_FROM_BYTE, PARTITION2, PARTITION3,
 )
 
