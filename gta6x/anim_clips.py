@@ -24,7 +24,7 @@ def is_dictionary(data):
             and data[16:56] == bytes(40) and struct.unpack_from('<I', data, 108)[0] == 2)
 
 
-def parse_dictionary(data: bytes, *, max_nodes=100000, with_components=False, with_packed_layout=False):
+def parse_dictionary(data: bytes, *, max_nodes=100000, with_components=False, with_packed_layout=False, with_channels=False, with_storage=False, with_payloads=False):
     """Return inferred named record links, retaining explicit unresolved members.
 
     Malformed dictionaries and exhausted budgets raise ValueError without
@@ -33,6 +33,12 @@ def parse_dictionary(data: bytes, *, max_nodes=100000, with_components=False, wi
     curve or independently confirmed time value. No hash-bucket formula or
     complete object size is inferred from this profile.
     """
+    if with_payloads:
+        with_storage = True
+    if with_storage:
+        with_channels = True
+    if with_channels:
+        with_packed_layout = True
     if with_packed_layout:
         with_components = True
     if max_nodes < 1:
@@ -132,7 +138,7 @@ def parse_dictionary(data: bytes, *, max_nodes=100000, with_components=False, wi
                              record_prefix_byte_length=PREFIX, name=name, duration_candidate=duration)
                 if with_components:
                     entry['components'] = anim_components.resolve(data, rec, consume=consume,
-                                                                  hash_cache=payload_hash_cache, with_packed_layout=with_packed_layout)
+                                                                  hash_cache=payload_hash_cache, with_packed_layout=with_packed_layout, with_channels=with_channels, with_storage=with_storage, with_payloads=with_payloads)
             except resources.ResourceLimitError:
                 raise
             except ValueError as exc:
@@ -173,11 +179,50 @@ def parse_dictionary(data: bytes, *, max_nodes=100000, with_components=False, wi
             packed_auxiliary_rows=sum(v['auxiliary_row_count'] for v in complete))
         report['interpretation'] = ('Inferred name/component/buffer associations and bounded packed/header/channel-candidate '
                                     'metadata; identifiers, codecs, timing and sample values remain unconfirmed.')
+    if with_channels:
+        views = [buffer['channel_layout'] for layout in layouts
+                 if layout['status'] == 'complete' for buffer in layout['buffers']]
+        complete = [view for view in views if view['status'] == 'complete']
+        report['summary'].update(channel_layouts_attempted=len(views),
+            channel_layouts_resolved=len(complete), channel_layouts_unresolved=len(views) - len(complete),
+            channel_groups=sum(view['group_count'] for view in complete),
+            channel_slots=sum(view['active_slot_count'] for view in complete))
+        report['interpretation'] = ('Inferred bounded clip, buffer and slot-directory associations; '
+                                    'group meanings, channel identifiers, codecs, timing and samples remain unknown.')
+    if with_storage:
+        views = [buffer['storage_layout'] for layout in layouts
+                 if layout['status'] == 'complete' for buffer in layout['buffers']]
+        complete = [view for view in views if view['status'] == 'complete']
+        bits = [view['sample_bit_layout'] for view in complete]
+        report['summary'].update(storage_layouts_attempted=len(views),
+            storage_layouts_resolved=len(complete), storage_layouts_unresolved=len(views) - len(complete),
+            stored_sample_rows=sum(view['sample_rows']['row_count'] for view in complete),
+            sample_bit_layouts_resolved=sum(view['status'] == 'complete' for view in bits),
+            sample_bit_layouts_unresolved=sum(view['status'] == 'unresolved' for view in bits))
+        report['interpretation'] = ('Bounded clip, buffer, slot and fixed-stride storage associations; '
+                                    'unsupported bit grammars, codec meanings and sample values remain unknown.')
+    if with_payloads:
+        views = [buffer['payload_layout'] for layout in layouts
+                 if layout['status'] == 'complete' for buffer in layout['buffers']]
+        complete = [view for view in views if view['status'] == 'complete']
+        report['summary'].update(payload_layouts_attempted=len(views),
+            payload_layouts_resolved=len(complete), payload_layouts_unresolved=len(views) - len(complete),
+            payload_word_records=sum(view['record_count'] for view in complete),
+            payload_words=sum(view['word_count'] for view in complete),
+            payload_slot_candidates=sum(view['slot_candidate_count'] for view in complete))
+        report['interpretation'] = ('Bounded storage and supported raw payload-word inventories; '
+                                    'word/slot associations, numeric types, codec and sample meanings remain unconfirmed.')
     return report
 
 
-def scan_dictionaries(path, *, start=None, limit=None, max_nodes=100000, with_components=False, with_packed_layout=False):
+def scan_dictionaries(path, *, start=None, limit=None, max_nodes=100000, with_components=False, with_packed_layout=False, with_channels=False, with_storage=False, with_payloads=False):
     """Follow dictionary candidates across checked pages, sharing a node budget."""
+    if with_payloads:
+        with_storage = True
+    if with_storage:
+        with_channels = True
+    if with_channels:
+        with_packed_layout = True
     if with_packed_layout:
         with_components = True
     if max_nodes < 0:
@@ -193,7 +238,7 @@ def scan_dictionaries(path, *, start=None, limit=None, max_nodes=100000, with_co
         # Naming metadata may fit before an exact-page boundary. This proves
         # only its required spans, not the file/curve payload's full extent.
         try:
-            summary = parse_dictionary(data, max_nodes=remaining, with_components=with_components, with_packed_layout=with_packed_layout)['summary']
+            summary = parse_dictionary(data, max_nodes=remaining, with_components=with_components, with_packed_layout=with_packed_layout, with_channels=with_channels, with_storage=with_storage, with_payloads=with_payloads)['summary']
             return (summary['clips_unresolved'] == 0 and not summary.get('component_clips_unresolved', 0)
                     and not summary.get('packed_layouts_unresolved', 0))
         except ValueError:
@@ -203,7 +248,7 @@ def scan_dictionaries(path, *, start=None, limit=None, max_nodes=100000, with_co
             is_start=is_dictionary, independent_start=independent, label='clip dictionary', stop_when=ready):
         if error is None:
             try:
-                parsed = parse_dictionary(data, max_nodes=remaining, with_components=with_components, with_packed_layout=with_packed_layout)
+                parsed = parse_dictionary(data, max_nodes=remaining, with_components=with_components, with_packed_layout=with_packed_layout, with_channels=with_channels, with_storage=with_storage, with_payloads=with_payloads)
                 remaining -= parsed['summary']['nodes']
                 row.update(parsed)
             except ValueError as exc:

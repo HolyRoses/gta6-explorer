@@ -6,7 +6,7 @@ payloads are zlib streams, media carriers are stored in the clear, and texture
 pools carry their own indexes.
 
 All numbers below were measured on this package with the parsers in `gta6x/`.
-They are observations, not format guarantees; the tool's `selftest` (140 checks)
+They are observations, not format guarantees; the tool's `selftest` (180 checks)
 covers the structural rules without game data.
 
 ## Package profile
@@ -35,16 +35,25 @@ covers the structural rules without game data.
 | PSIN structure-array links | 25,656 array fields / 15,685 bounded links to existing local typed rows; partial targets stay explicit; no duplicate value observations or recursive expansion | `psin --instances` |
 | PSIN reference-array links | 34,185 array fields / 55,819 local record links / 14 explicit null slots; both pointer levels bounded; all prior values/array associations preserved | `psin --instances` |
 | PSIN reference fields | 113,913 local field observations bound: 33,821 record links / 80,092 explicit nulls; all prior arrays/values preserved; no global primitive type claim | `psin --instances` |
+| Enum-record PSIN arrays | 41 arrays/260 links to existing local enum rows; no duplicated values | `psin --instances` |
+| Enum-key PSIN maps | 61 additional maps/182 links to existing records; local LENM membership, no duplicated values | `psin --instances` |
 | PSIN map-entry links | 15,274 discovery / 3,782 supplementary-validation fields, linking 29,366 / 22,469 existing records; unsupported profiles and budget refusals explicit | `psin --instances` |
 | Streamed textures | 357,115 descriptors: **305,954 zlib/raw complete** (+47,695 BC1 BCPack); 127 arrays, 567 cubemaps, 3 volumes; native PNG covers BC1-BC7 (BC6H tone-mapped); backend only for models/world | `textures --png`, `--via sixng` |
-| Embedded txd textures | **1,347 dictionaries / 3,167 descriptors**; 3,020 supported 2D descriptors; all 31 mipmapped 2D textures export 253 levels including packed tails | `textures --embedded` |
+| Embedded txd textures | **1,347 dictionaries / 3,167 descriptors**; 3,020 2D descriptors + 34 BCn arrays supported; arrays retain 155 layers/169 subresources; 113 volumes supported; all 31 mipmapped 2D textures export 253 levels including packed tails | `textures --embedded` |
 | Movies | 515 Bink2 titles in `movies.rpf`: 8.83 GB, 3.94 h total | `movies` |
+| Opus PCM WAV | Optional libopus, standalone mono 48 kHz; 16 selected real decodes with explicit assumed trim; stereo/music/XMA2 remain unsupported | `awc --wav-out` |
 | AWC audio | 238 containers in the first 48 MiB; per-stream Opus metadata, native payloads and Ogg remux | `awc`, `scan` |
 | DXBC shaders | **9,089** validated in the first 64 MiB of `shaders.rpf` | `shaders` |
 | Models | `packs.rpf`: 80,424 entries, **75,135 model resources**, 27,288 named → glTF/GLB | `models` (SixNG backend) |
+| Native RBF0 metadata | One 21-page resource, 56,796 tokens/nine descriptors; searchable 1,126 sets/6,677 entries/3,669 literal Rig strings, runtime meanings unknown | `rbf --rig-sets` |
 | Animation resource metadata | 618/377 discovery/validation 0DRP candidates parsed; 175/271 joined, local raw schemas/enums/block spans exported with unknowns explicit | `anim --resources` |
 | Named animation clip records | 191/170 discovery/validation dictionaries; 1,277/1,432 bounded name/node/record-prefix links, no curve decoding | `anim --clip-records` |
 | Animation component/buffer links | 1,277/1,432 discovery/validation clips; 3,794/3,946 animation links and 4,956/5,617 opaque buffer references, all bounded/hashed; contents undecoded | `anim --clip-components` |
+| Animation storage rows | 879/908 discovery/validation distinct buffers partition exactly; conditional bit rows in 496/497, other bit grammars unknown | `anim --storage-layout` |
+| Raw animation word inventory | Narrow source-word profile in 12/879 discovery and 9/908 validation buffers; slot association/numeric meaning unknown | `anim --payload-layout` |
+| MoVE root storage | All 212/112 discovery/validation views; 179 relative targets and 288 descriptors, opaque child bodies | `move --objects` |
+| MoVE envelopes | 212/112 discovery/validation counted envelopes; all parse unchanged, payload motion meanings unknown | `move` |
+| Animation slot directories | 879/908 discovery/validation distinct buffers; all 4,956/5,617 aliased directories resolve; eleven unknown slot groups, no sample decoding | `anim --channel-layout` |
 | Packed animation metadata | 3,794/3,946 discovery/validation layouts; 223,879/236,886 raw channel-binding candidate rows; bounded header/auxiliary/sample-index views, no value decoding | `anim --packed-layout` |
 | Animation | 130,771 streams / 2,327 names; `0DRP`, `MoVE`, 1,788 candidate packed-header matches, `RBF0`; clip identities/curves unverified | `anim` |
 | World data | placements, collision, navmesh, paths, lights, interiors, vehicles, meta/PSO, shader census | `world` (SixNG backend) |
@@ -156,14 +165,50 @@ tables, a per-stream u32 table and 64-bit tags `{type:8, size:28, rel:28}`.
 Tag types `0x76`/`0x55`/`0x48` are format/data/music and give the exact
 container length. The first four containers carry 58 Opus 48 kHz streams. Opus packets are `[u16 length][packet]` records inside 2 KiB blocks; `awc --ogg-out` remuxes them losslessly into Ogg Opus, which `ffprobe` reads as Opus 48 kHz with the expected duration. Music banks use a `0x48` descriptor (block count, chunk size, 16-byte channel records); `awc --music-out` walks per-block 24-byte channel tables and writes one Ogg per Opus channel. A 100 MiB scan found 559 containers / 8,683 streams / 53 music channels.
 
+### Optional Opus PCM/WAV export
+
+`awc --wav-out` uses the installed BSD libopus public API for standalone mono
+48 kHz Opus. Strict full-2-KiB framing validates every packet and trailing zero
+padding; no truncated records, concealment or missing samples are substituted.
+Input is capped at 64 MiB and decoded PCM processing/output at 128 MiB per stream.
+Raw/Ogg/music exports retain their existing paths. Missing libraries and decode
+failures produce explicit reasons/nonzero exit; unsupported codec profiles skip
+with reasons. The CLI exported six real WAVs from the first selected container.
+
+The trim policy skips an assumed 312 frames then keeps declared mono samples;
+`--wav-pre-skip` makes overrides explicit. Metadata records actual decoded and
+output frames, discarded tail and library version. This is not a recovered
+encoder delay or confirmed in-game alignment. Music/stereo AWC/XMA2 remain
+unsupported. Selftests use authored framing/PCM without requiring libopus.
+
+A content-hash 171/67-container split was frozen before packet research, on
+previously indexed audio. All 3,349/1,310 supported mono streams pass framing;
+nine validation stereo streams were not fitted/promoted. Eight selected streams
+per role decode to 1,561,860 total requested frames. All 32 allocation/framing
+controls refuse. FFmpeg forced to the same libopus backend agrees within one
+PCM16 unit (three byte-identical cases); this is wrapper interoperability rather
+than independent codec confirmation. The separate native FFmpeg decoder differs
+substantially (held-out maximum 17,282 units), and all 16 legacy Ogg durations differ.
+No runtime alignment tuning followed those comparisons. Legacy timing remains
+unchanged and explicitly unconfirmed; further independent evidence is needed.
+
 ### PSIN
 
 Seven tagged sections (`PSIN`, `LSCH`, `LENM`, `LSNS`, `LGID`, `LRSC`, `CHKS`)
 tile the blob exactly; `CHKS` is 20 bytes and repeats the total length, a stored
 checksum and a platform tag. Section 1 is the instance-table body
-(`PSIN | size | fieldA | fieldB | AA-fill entries | pppp | payload`). Pages that
+(`PSIN | size | (type,length,AA8)* | PP8 | aligned blocks`). Pages that
 declare a section longer than the available stream are stream-split fragments,
 not a second format.
+
+Ordinary body summaries now use the same verified parser as instance blocks,
+including the first type/length pair at +8. Existing raw compatibility keys
+remain; entries count blocks, not records. Missing table terminators leave
+payload bounds unknown; exact lengths, AA/PP markers, zero padding and EOF
+are checked. The 821/223/1,012 frozen discovery/comparison/script bodies all
+match strict extents, with 15,217/2,232/4,901 blocks. All 2,056 extra-byte and
+12 prefix controls pass. These are reused structural cohorts, not new semantic
+ground truth. Schema checksum gates are unchanged.
 
 Section roles from the observed layouts: `LSCH` schema headers/fields, `LENM`
 enum name/value records, `LSNS` 128-bit name records, `LGID` global 128-bit id
@@ -606,6 +651,177 @@ All previous component-mode outputs remain identical; PSIN/BCPack artifacts,
 or external decoder consulted. Next: prove channel/codec/compressed-section
 relationships before implementing values or keyframe quantization.
 
+### Packed animation slot directories
+
+`anim --channel-layout` adds an optional bounded suffix view without changing
+prior packed output. The suffix starts with eleven u16 counts, then eleven
+increasing slot-index groups padded to four with sentinel `4 * binding_count`.
+A unique candidate must account for the entire suffix; duplicate candidates,
+bad counts, active ranges/order and padding refuse with empty groups. The
+arithmetic binding/sub-index association is exported; group meanings, channel
+IDs, codecs, samples and preceding bytes remain unknown. Cross-group repeats
+occur in 705/879 discovery and 715/908 validation distinct buffers, so groups
+are not assumed to be exclusive codec assignments.
+
+Frozen-profile results: 879/908 distinct buffers, 153,264/161,382 active slot
+observations; all 4,956/5,617 alias views resolve. Zero content-hash overlap.
+All 1,787 malformed-count and 1,787 bad-padding controls refuse. Previous packed
+views compare exactly. Validation rules were not changed; cohorts had prior
+structural exposure and do not supply independent semantic confirmation.
+Output shares the node budget; candidate search is separately capped at 64 KiB.
+
+### Enum-record array links
+
+The nonempty enum32-array profile requires one exact local synthetic descriptor
+and local LENM definition, equal u16 header words/zero tail, and a whole bounded
+span in a unique local four-byte row schema. That schema has one named enum32
+field at zero with the same enum hash. Every selected word must match LENM
+before source-ordered links escape. Empty/untyped/ambiguous/imported layouts
+refuse. Values and signed/alias annotations remain in their already decoded
+rows, with no duplicated scalar output or global low-ID pool interpretation.
+
+Frozen discovery/supplementary validation adds 41 arrays/260 links (19/27, 22/233).
+All 2,142,630 previous values, 110,056 arrays, 196,274 reference fields and 19,117
+previous maps remain unchanged; three pre-existing budget refusals persist.
+All 41 bad-member and 41 misaligned-offset controls refuse. Wrong-endian controls
+discriminate 244/260 words, with 16 nondiscriminatory cases. The initial raw-storage
+hypothesis was rejected before implementation after checking target authority.
+Existing source splits, registry and BCPack labels are unchanged; reused-source
+structural regression supplies no independent semantic oracle.
+
+### Enum-key map-entry extension
+
+A separate nonempty enum32-key/local-structure map profile requires an exact
+local key descriptor, one representable local LENM definition and membership
+of every stored key. The target entry schema must match key/value descriptors
+exactly; declared offsets and whole-stride spans remain authoritative. Unknown
+keys refuse before links escape. Empty enum maps remain unsupported. Hash32
+map behavior and all existing typed values remain unchanged.
+
+The frozen extension adds 61 maps/182 links: 2/9 discovery, 59/173 supplementary
+validation. 136 links target still-partial records. All 61 bad-key controls
+refuse. All 2,142,630 earlier values, 110,056 array associations, 196,274 reference
+fields and 19,056 previous maps are preserved. The same three pre-existing
+250,000-node source budget refusals persist, with none added. There are 17 other
+unsupported discovery maps. No registry borrowing, validation promotion or
+semantic-oracle accuracy claim; all key checks use local authority.
+
+### Packed-animation storage rows
+
+`anim --storage-layout` adds a bounded byte-storage view. The exact directory
+start is `32 + raw_u32_0c + row_count * row_stride`; count/stride come from
+u16 words at +0x16/+0x18. This refines the earlier raw-offset partition by
+using the end of the 32-byte header as origin. Prior generic packed/channel
+views remain unchanged. Five regions account for the entire buffer: header,
+body prefix, opaque fixed-stride sample rows, slot directory and auxiliary tail.
+
+For raw u16+0x1a zero, stride equals four times ceil(u16+0x1c/32), and every
+high padding bit is zero. Other +0x1a values retain unknown bit grammar with
+bounded rows. There are no decoded floats, quantization, codec IDs, channel
+meanings or time units. Base-profile failures yield no prefix regions.
+
+Frozen discovery/validation: 879/908 distinct buffers, all 4,956/5,617 alias
+views partition; conditional bit rows resolve in 496/497 distinct buffers,
+with 383/411 opaque grammars. Wrong-origin controls refuse all 879/908 cases;
+applicable bad-padding controls refuse all 443/442. Prior outputs compare
+exactly for 3,794/3,946 animation views; source memberships/hashes and splits
+are unchanged. These reused cohorts provide structural regression, not semantic
+confirmation. Native eight-MiB discovery CLI: 857 storage views/451,610 aliased
+sample rows, zero base-profile failures and 241 unknown bit grammars.
+
+### Narrow raw animation payload inventory
+
+`anim --payload-layout` adds source-ordered twelve-byte records with three raw
+LE words and a separate list of same-ordinal slot candidates. The supported
+profile requires only group zero, one sub-index-zero slot per binding, no
+stored sample rows/auxiliary bytes, and prefix length 12 times the group count.
+It does not decode constants, floats, transforms, samples or codecs. Candidate
+slot associations remain unconfirmed; swapping records still passes structural
+checks and is explicitly not semantic-order validation.
+
+Frozen discovery/validation support 12/879 and 9/908 distinct buffers (26/4,956
+and 12/5,617 alias views), with 456/342 distinct-buffer raw records. Other layouts
+refuse with empty inventories while parent metadata survives. All previous
+3,794/3,946 parent animation views compare exactly. Source memberships/hashes
+and frozen cohorts are unchanged. Broader group-zero-first association guesses
+agree for only 1,154/2,651 repeated observations, so were not generalized.
+
+### Native MoVE envelopes
+
+`move` browses raw files and checked archive pages. The version-word-19 profile
+contains two counted u32 tables, one counted five-byte (u32,u8) table, raw
+control/prelude fields and opaque payload metadata. Whole-region partitions,
+counts and the redundant total-length equation must agree before emission.
+Rows and regions share the output budget; input is capped at 16 MiB. Status remains
+partial: names, references, motion, pose and timing semantics are unknown.
+Unsupported headers/counts/framing produce reasons without prefix tables.
+
+Before grammar inspection, 324 candidates outside every original animation
+validation interval were content-hash grouped into 212 discovery and 112
+validation resources. Zero cross-role content-hash overlap; prior full-archive
+index exposure is recorded. All 212/112 envelopes pass unchanged after the
+profile freeze, yielding 822/408 ordinary word rows and 170/102 tagged rows.
+One validation resource joins two pages; raw/scan metadata agrees for all 324.
+All 1,620 corruption controls refuse. These prove a bounded envelope profile,
+not independently confirmed motion/object decoding. Existing splits unchanged.
+
+### MoVE root storage
+
+`move --objects` adds independent object_layout metadata while preserving default
+envelope output. Root kind 1 has bounded immediate field-relative offsets; child
+headers repeat each reference hash/ordinal. Root kind 22 has ordered, bounded
+length-prefixed descriptors, four groups of raw 16-/8-byte cells, and counted
+u16-length subblocks. Source spans, count/length redundancies and region bounds
+are checked. Child bodies and tails stay opaque; no recursive motion tree or
+numeric/pose/timing meaning is inferred. Unsupported deeper profiles retain
+empty lists and reasons with independently parsed envelope metadata.
+
+All 212/112 frozen resources pass unchanged: 44/19 immediate-reference roots
+provide 122/57 targets; 168/93 descriptor roots provide 186/102 records, 536/284
+fixed cells and 16/5 subblocks. All 324 raw/scan and old-envelope comparisons agree.
+All 1,884 structural controls refuse. Opaque mutations 324/324 deliberately remain
+undetected. Recursive interpretation failed 25 discovery resources and was not
+enabled. A reporting-offset fix was recorded with preserved v1/v2 freezes and
+unchanged grammar/counts; it does not adapt rules to held-out motion data.
+
+### Native RBF0 structural browser
+
+`rbf` reads raw files and checked contiguous archive pages into a bounded flat
+indexed tree. The observed profile carries reusable name descriptors, object
+attributes/children, inline text, opaque bytes and raw eight-byte values. Token
+kinds outside this profile, unknown or mismatched descriptors, malformed text,
+nonzero reserved object words, unbalanced/truncated trees and trailing bytes
+refuse the whole candidate. Input/node/text/depth budgets apply; nesting is
+capped at 128. Names and raw kinds do not prove application semantics.
+
+The eligible animation discovery resource joins 21 pages/1,348,436 bytes and
+consumes exactly: 56,796 tokens plus nine descriptors, 28,962 objects, 1,126
+inline text values, 20,031 byte leaves and 6,677 raw64 values. Its observed
+rig-set manager hierarchy contains 1,126 top-level and 6,677 entry items.
+Only one eligible container exists; full-container grammar discovery supplies
+no independent held-out accuracy. Existing animation validation windows and
+all other frozen artifacts remain unchanged. No GPL implementation or upstream
+game-decoder source was consulted.
+
+### Literal RBF rig-set inventory
+
+`rbf --rig-sets` adds a separately validated candidate view over the generic
+tree: 1,126 key rows (56 empty), 6,677 entry rows, 3,669 exact Rig strings,
+zero duplicate source keys. Dictionary/Rig/Group fields retain literal labels
+and text; Priority is eight raw bytes without numeric or runtime meaning.
+Source node identities retain duplicate/aliased occurrences, and the reverse
+index maps each exact Rig string to its source entries. `--name` is literal
+case-sensitive key-substring matching; `--rig` uses exact text. Whole-tree
+ownership, ordering, descriptors, bounds and field correspondence are validated
+before any filter. Unsupported profiles preserve the generic tree and return
+no normalized prefix.
+
+All 1,126 keys, 20,031 text fields and 6,677 Priority fields round-trip against
+source bytes. All 6,677 reverse occurrences agree; 14 malformed controls and
+one under-budget control refuse. Combined generic/normalized output uses
+74,955 nodes. One discovery container was already exposed; there is no
+independent holdout or runtime rig-schema claim. No source split changed.
+
 ### DXBC shader wrappers
 
 `shaders.rpf` stores shaders as
@@ -642,6 +858,46 @@ addressing won 92/95 tail comparisons in the original 22-texture subset, with
 three ambiguous NPOT blank-image comparisons. No decoder oracle was used.
 Bounds checks refuse truncated allocations and mismatched footprints rather
 than filling missing elements with zero. BCPack data and holdouts are unchanged.
+
+### Embedded BCn arrays
+
+Descriptor byte +0x3e is retained as a shape tag: 1 for observed 2D/arrays, 3 for
+volume-like resources. Tag 1 plus depth > 1 supplies a 2D array layer count; six
+layers do not imply a cubemap. Each array layer uses a complete public non-XOR
+S4K hardware chain, with its own tail. Native DDS retains every layer/mip;
+PNG selects layer 0 and labels it. Preview failures preserve valid DDS output.
+
+34 arrays (33 BC3 discovery, one BC7 validation) add 155 layers/169 subresources.
+All 3,020 prior 2D full DDS hashes match. The resource-grouped shape split was frozen
+before payload inspection and not rebalanced: five discovery resources and one validation
+resource. The held-out two-layer/eight-mip array has 14 adjacent-level comparisons:
+ten beat deliberately wrong level-major order, four tie, none are worse. Discovery
+spatial controls improve 148/153 layers, with five worse; these content-dependent checks are
+not independent byte ground truth. Cubemaps and non-BC arrays/chains remain
+refused; single-mip volume support is described below. No oracle or upstream game-decoder implementation was consulted.
+
+### Embedded single-mip volumes
+
+Explicit shape 3, swizzle 5, uncompressed single-mip descriptors use the existing
+public 3D S4K coordinate rules. Native DDS retains all depth planes with a 3D
+header, correct depth/volume flags and array size one. Allocation footprints
+must match exactly; full padding must exist even for a selected preview plane.
+`volume_linear` returns x-fastest/y/z bytes; `volume_slice` selects an explicit
+XY plane. Implicit 2D mip access and slice-only DDS mislabeling refuse.
+
+All 113 measured volumes export: 110 RGBA16F 17³, two R10G10B10A2 and one RGBA8
+32³. Totals: 1,966 planes, 638,734 voxels, 4,716,656 logical bytes. All 3,054
+previous 2D/array DDS hashes are unchanged; all 3,167 observed descriptors now
+export natively. All 339 truncated/size-change controls refuse. All 113 RGB
+neighbor-continuity checks beat wrong linear storage (zero ties/worse), which
+is content consistency rather than byte confirmation.
+
+Both volume-bearing resources were already discovery and previously read in
+array work; no independent volume holdout exists. The public algorithm/tests
+were frozen before volume pixels were evaluated; no rule changed afterward.
+BC/multi-mip volumes, unknown shapes/swizzles and non-BC arrays/chains remain
+refused. Native PNG uses explicit Z=0 with png_z_index where format conversion
+exists; missing preview support preserves the complete DDS.
 
 ## Open questions
 
@@ -688,9 +944,9 @@ than filling missing elements with zero. BCPack data and holdouts are unchanged.
   are not decoded.
 * **Native model decoding.** Geometry is exported through the optional SixNG
   backend; no native mesh/meshlet decoder is included.
-* **Embedded shapes.** Full BCn 2D S4K mip chains are implemented. The 147
-  measured depth/array descriptors, non-BC mip chains and other swizzles remain
-  unvalidated and are refused. Single-level non-BC 2D export remains available.
+* **Embedded shapes.** Full BCn 2D/array chains and single-mip uncompressed
+  volumes cover all 3,167 measured descriptors. Cubemaps, BC/multi-mip volumes,
+  non-BC arrays/chains and other swizzles remain unvalidated and refused.
 * **Texture layouts.** Cubemaps use six slice-major S4K faces: **567/567**
   export as six-face DDS; 127/127 2D arrays and 3/3 3D volumes are laid out
   natively. Gfx10 equations cover 1/2/4/8/16-byte elements; 5 descriptors use

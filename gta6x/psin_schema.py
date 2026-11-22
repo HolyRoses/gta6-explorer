@@ -417,6 +417,7 @@ def inspect_sources(paths: list[str], *, limit: int | None,
         summary['instance_values_decoded'] = sum(i.get('summary', {}).get('decoded_values', 0)
                                                 for i in inspections)
         for key in ('hash32_arrays_resolved', 'hash32_array_values_decoded',
+                    'enum32_arrays_resolved', 'enum32_array_records_linked',
                     'structure_arrays_resolved', 'structure_array_records_linked',
                     'reference_arrays_resolved', 'reference_array_records_linked', 'reference_array_null_entries',
                     'reference_fields_resolved', 'reference_fields_linked', 'reference_fields_null', 'reference_fields_unresolved',

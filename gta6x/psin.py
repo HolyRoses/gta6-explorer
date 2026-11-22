@@ -20,20 +20,18 @@ length"); we reproduced it on 261 of 300 sampled ``psin-page`` assets.
 
 The ``PSIN`` section body
 -------------------------
-The first section is itself structured -- an entry table with fill padding::
+The supported block table begins at +8. Each little-endian (type identifier,
+byte length) pair is followed by eight AA bytes. Eight literal ``p`` bytes end
+the table. Block payloads follow in table order, each padded to 16 bytes with
+zeroes, and exactly exhaust the section. Type identifiers are raw values, not
+proof of scalar or schema meanings. A table entry describes a block, not a
+record within that block.
 
-    +0x00  "PSIN"
-    +0x04  u32 BE  declared size / upper bound      (528, 544, 2144, ...)
-    +0x08  u32 LE  field A                          (256, 512, ...)
-    +0x0c  u32 LE  field B                          (16, 24, ...)
-    +0x10  entries, 8 bytes each: (u32 a, u32 b)
-           unused slots are filled with 0xAAAAAAAA, and the table ends with a
-           0x70707070 ("pppp") fill run
-    ...    payload
-
-An earlier version of this module treated that body as a standalone container
-format.  It is not: it is section 1 of the tagged container, which is why the
-``PSIN`` section length (not a small "declared size") is what appears at +0x04.
+The compatibility fields ``field_a`` and ``field_b`` expose the raw words at
++8/+12: normally the first block's type and length, or the terminator words for
+an empty body. ``entries`` and ``record_count`` now count verified table pairs,
+including the first pair. Missing table terminators leave payload bounds unknown.
+Unsupported bodies remain explicit even inside checksum-verified containers.
 
 Fragments
 ---------
@@ -53,13 +51,15 @@ from __future__ import annotations
 import struct
 from dataclasses import dataclass, field
 
+from .psin_blocks import InstanceBlock, parse_blocks
+
 MAGIC = b"PSIN"
 CONTAINER_TAGS = (b"PSIN", b"LSCH", b"LENM", b"LSNS", b"LGID", b"LRSC", b"CHKS")
 CHKS_LENGTH = 20
 CHKS_SEED = 0x3FAC7125
 
 ENTRY_STRIDE = 16          # measured: 8 bytes of data + 8 bytes of 0xAA fill
-TABLE_BASE = 0x20          # entry table starts after the 32-byte body header
+TABLE_BASE = 8             # first type/byte-length pair follows the section header
 FILL_AA = 0xAAAAAAAA
 FILL_PP = 0x70707070
 HEADER_SIZE = 0x10
@@ -68,7 +68,7 @@ ENTRY_SIZE = 8
 __all__ = [
     "MAGIC", "CONTAINER_TAGS", "CHKS_SEED", "PsinSection", "PsinBody",
     "PsinContainer", "PsinFragment", "joaat_checksum", "container_checksum",
-    "parse", "parse_container", "parse_body", "parse_page", "is_psin",
+    "parse", "parse_container", "parse_body", "parse_page", "parse_fragment", "is_psin",
     "summarise",
 ]
 
@@ -85,7 +85,12 @@ class PsinSection:
 
 @dataclass
 class PsinBody:
-    """The entry-table body inside the ``PSIN`` section."""
+    """Block framing inside the ``PSIN`` section, including partial prefixes.
+
+    ``record_count`` is a compatibility alias for verified table-pair count;
+    it does not count typed instance records. Payload sizes describe the
+    declared physical span; incomplete tables leave them unknown.
+    """
 
     declared_size: int
     field_a: int
@@ -95,13 +100,23 @@ class PsinBody:
     record_count: int = 0
     has_terminator: bool = False
     field_a_kind: str = "unknown"
-    payload_offset: int = HEADER_SIZE
-    payload_size: int = 0
+    payload_offset: int | None = None
+    payload_size: int | None = None
     fill: str = "none"
     total_size: int = 0
     truncated: bool = False
     confident: bool = False
     kind: str = "body"
+    status: str = "unresolved"
+    reason: str | None = None
+    table_complete: bool = False
+    blocks: list[InstanceBlock] = field(default_factory=list)
+    logical_payload_size: int | None = None
+    padding_size: int | None = None
+
+    @property
+    def block_count(self) -> int | None:
+        return len(self.entries) if self.table_complete else None
 
     def as_dict(self) -> dict:
         return {
@@ -120,6 +135,16 @@ class PsinBody:
             "total_size": self.total_size,
             "truncated": self.truncated,
             "confident": self.confident,
+            "status": self.status,
+            "reason": self.reason,
+            "table_offset": TABLE_BASE,
+            "table_complete": self.table_complete,
+            "block_count": self.block_count,
+            "logical_payload_size": self.logical_payload_size,
+            "padding_size": self.padding_size,
+            "blocks": [dict(index=b.index, table_offset=b.table_offset,
+                            type_hash=b.type_hash, byte_length=b.byte_length,
+                            data_offset=b.data_offset) for b in self.blocks],
         }
 
 
@@ -250,68 +275,80 @@ def parse_container(data: bytes) -> PsinContainer | None:
 
 
 def parse_body(data: bytes) -> PsinBody | None:
-    """Parse the ``PSIN`` section body (entry table + fill + payload)."""
-    if len(data) < HEADER_SIZE or data[:4] != MAGIC:
+    """Inspect supported block framing; preserve explicit incomplete/unknown states.
+
+    Prefix entries require a complete pair and AA marker. Payload bytes are
+    never searched for table-like words. Complete bodies use the same exact
+    bounds/padding validator as the instance reader.
+    """
+    if not is_psin(data):
         return None
     declared = struct.unpack_from(">I", data, 4)[0]
-    field_a, field_b = struct.unpack_from("<2I", data, 8)
+    field_a, field_b = struct.unpack_from("<2I", data, 8) if len(data) >= 16 else (0, 0)
+    body = PsinBody(declared, field_a, field_b, total_size=len(data),
+                    truncated=declared > len(data))
 
-    def is_fill(a: int, b: int) -> bool:
-        return a in (FILL_AA, FILL_PP, 0) and b in (FILL_AA, FILL_PP, 0)
+    def fail(reason: str, *, incomplete: bool = False) -> PsinBody:
+        body.status = "partial" if incomplete else "unresolved"
+        body.reason = reason
+        return body
 
-    slots: list[tuple[int, int, int]] = []
-    pos = HEADER_SIZE
-    while pos + ENTRY_SIZE <= len(data):
-        a, b = struct.unpack_from("<2I", data, pos)
-        slots.append((pos, a, b))
-        pos += ENTRY_SIZE
-
-    # Payload starts at the first non-fill slot that has a non-fill successor
-    # and follows padding -- that is where the entry table ends.
-    payload_at = len(data)
-    for k in range(len(slots) - 1):
-        a, b = slots[k][1], slots[k][2]
-        na, nb = slots[k + 1][1], slots[k + 1][2]
-        if is_fill(a, b) or is_fill(na, nb):
-            continue
-        if k == 0 or is_fill(slots[k - 1][1], slots[k - 1][2]):
-            payload_at = slots[k][0]
+    if declared < 16:
+        return fail("PSIN body is shorter than the supported empty table")
+    if declared < len(data):
+        return fail("bytes follow the declared PSIN body")
+    end = min(declared, len(data))
+    position = TABLE_BASE
+    while True:
+        if position + 8 > end:
+            return fail("incomplete PSIN block-table terminator", incomplete=body.truncated)
+        if data[position:position + 8] == b"p" * 8:
+            position += 8
+            body.table_complete = body.has_terminator = True
+            body.payload_offset = position
+            body.payload_size = declared - position
+            body.fill = "AA/70" if body.entries else "70"
+            body.field_a_kind = "first-block-type" if body.entries else "terminator"
             break
+        if position + 16 > end:
+            return fail("incomplete PSIN block-table entry", incomplete=body.truncated)
+        if data[position + 8:position + 16] != b"\xaa" * 8:
+            return fail("unsupported PSIN block-table marker")
+        if len(body.entries) >= 65536:
+            return fail("PSIN block count exceeds limit")
+        key, size = struct.unpack_from("<II", data, position)
+        if not size:
+            return fail("zero-sized PSIN instance block is not validated")
+        body.entries.append((key, size))
+        body.record_count = len(body.entries)
+        body.field_a_kind = "first-block-type"
+        body.fill = "AA"
+        position += ENTRY_STRIDE
 
-    entries = [(a, b) for p, a, b in slots
-               if p < payload_at and not is_fill(a, b)]
-    fill = "none"
-    for p, a, b in slots:
-        if p >= payload_at:
-            break
-        if FILL_AA in (a, b):
-            fill = "AA"
-        elif FILL_PP in (a, b):
-            fill = "70"
-
-    body = PsinBody(
-        declared_size=declared,
-        field_a=field_a,
-        field_b=field_b,
-        entries=entries,
-        payload_offset=payload_at,
-        payload_size=max(0, len(data) - payload_at),
-        fill=fill,
-        total_size=len(data),
-        truncated=declared > len(data),
-    )
-    span = max(0, body.payload_offset - TABLE_BASE)
-    body.record_count = span // ENTRY_STRIDE
-    body.has_terminator = (span % ENTRY_STRIDE) == 8
-    body.field_a_kind = ("type-tag" if field_a <= 0x10000 else
-                         "hash-or-float" if field_a else "zero")
-    body.confident = (
-        0 < declared <= max(len(data), 1 << 20)
-        and body.payload_size > 0
-        and body.payload_offset <= len(data)
-        and len(entries) <= 512
-        and not body.truncated
-    )
+    # Compute only declared extents, then check every available padding byte.
+    logical = 0
+    for index, (key, size) in enumerate(body.entries):
+        block_end = position + size
+        aligned = (block_end + 15) & ~15
+        if aligned > declared:
+            return fail("PSIN block or padding exceeds declared body")
+        if any(data[block_end:min(aligned, end)]):
+            return fail("nonzero PSIN instance block padding is not validated")
+        body.blocks.append(InstanceBlock(index, TABLE_BASE + index * ENTRY_STRIDE,
+                                         key, size, position))
+        logical += size
+        position = aligned
+    if position != declared:
+        return fail("unaccounted PSIN instance body bytes")
+    body.logical_payload_size = logical
+    body.padding_size = body.payload_size - logical
+    if body.truncated:
+        return fail("PSIN block payload or padding is incomplete", incomplete=True)
+    try:
+        body.blocks = parse_blocks(data)
+    except ValueError as exc:
+        return fail(str(exc))
+    body.status, body.reason, body.confident = "complete", None, True
     return body
 
 
@@ -324,7 +361,7 @@ def parse(data: bytes) -> PsinContainer | PsinBody | None:
 
     A stream-split fragment (declared section longer than the data) is parsed
     with :func:`parse_fragment` instead, so callers that want fragment support
-    should use it explicitly or accept a body with ``truncated=True``.
+    should use it explicitly.
     """
     container = parse_container(data)
     if container:
@@ -332,7 +369,7 @@ def parse(data: bytes) -> PsinContainer | PsinBody | None:
     body = parse_body(data)
     if body and body.declared_size == len(data):
         return body
-    return body if body and not body.truncated else None
+    return None
 
 
 def parse_fragment(data: bytes) -> PsinFragment | None:
@@ -340,7 +377,7 @@ def parse_fragment(data: bytes) -> PsinFragment | None:
     if not is_psin(data):
         return None
     declared = struct.unpack_from(">I", data, 4)[0]
-    if declared <= len(data) - 8:
+    if declared <= len(data):
         return None
     field_a, field_b = struct.unpack_from("<2I", data, 8) if len(data) >= 16 else (0, 0)
     return PsinFragment(declared_size=declared, available=len(data),
@@ -367,13 +404,17 @@ def summarise(items: list[PsinContainer | PsinBody | PsinFragment]) -> dict:
             tags[sec.tag] += 1
     decl = collections.Counter(b.declared_size for b in body_objs)
     fills = collections.Counter(b.fill for b in body_objs)
-    entries = [len(b.entries) for b in body_objs]
-    payloads = [b.payload_size for b in body_objs]
+    entries = [b.block_count for b in body_objs if b.block_count is not None]
+    payloads = [b.payload_size for b in body_objs if b.payload_size is not None]
+    statuses = collections.Counter(b.status for b in body_objs)
     return {
         "total": len(items),
         "containers": len(containers),
         "fragments": len(fragments),
         "bodies": len(body_objs),
+        "body_statuses": dict(statuses),
+        "bodies_with_known_table": len(entries),
+        "bodies_with_known_payload": len(payloads),
         "confident": (sum(1 for i in items if i.kind == "container")
                       + sum(1 for i in items if i.kind == "body" and i.confident)),
         "section_tags": tags.most_common(),

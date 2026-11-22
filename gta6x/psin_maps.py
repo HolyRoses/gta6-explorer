@@ -9,15 +9,17 @@ from __future__ import annotations
 
 import struct
 
-from . import psin_references
+from . import psin_references, psin_schema
 
 
 def resolve_entries(data, start, field, owner, block_end, blocks, *, local_owner,
-                    local_structures, consume, slot_cache=None):
+                    local_structures, consume, slot_cache=None, local_enums=None):
     """Bind the observed hash32-key map profile to complete local entry spans.
 
     Exact local descriptors authorize hash32, bool8 or embedded-structure
-    values. The selected block's two-field schema supplies the value offset;
+    values. A separate nonempty enum32-key/structure-value profile requires a
+    unique local LENM definition and matching stored keys. The selected block's
+    two-field schema supplies the value offset;
     neither field hashes nor presumed alignment select a layout. Failed checks
     return no entry links. Every output link uses the caller's node budget.
     """
@@ -48,8 +50,20 @@ def resolve_entries(data, start, field, owner, block_end, blocks, *, local_owner
     key, value = owner.fields[ki], owner.fields[vi]
     if any(d.name_hash != 0x100 or d.data_offset != 0 for d in (key, value)):
         return refuse('map requires local synthetic descriptors at offset zero')
-    if key.type_word != 0x4a or key.auxiliary != 0:
-        return refuse('unsupported map key descriptor; requires exact hash32 profile')
+    enum_keys = None
+    if key.type_word == 0x4a and key.auxiliary == 0:
+        key_type = 'hash32'
+    elif key.type_word == 0x62 and value.type_word == 5:
+        definitions = (local_enums or {}).get(key.auxiliary, [])
+        info = psin_schema._type_info(key, owner, local_structures, local_enums)
+        if len(definitions) != 1 or info['name'] != 'enum32':
+            return refuse('map requires a unique representable local enum32 key definition')
+        enum_keys = {member.value_bits & 0xffffffff for member in definitions[0].members}
+        key_type = 'enum32'
+        result.update(candidate_profile='local_enum32_structure_map_entries_v1',
+                      key_enum_hash=f'0x{key.auxiliary:08x}')
+    else:
+        return refuse('unsupported map key descriptor; requires exact hash32 or enum32/structure profile')
     if value.type_word in (1, 0x4a) and value.auxiliary == 0:
         width = 1 if value.type_word == 1 else 4
         result['value_type'] = 'bool8' if value.type_word == 1 else 'hash32'
@@ -61,11 +75,13 @@ def resolve_entries(data, start, field, owner, block_end, blocks, *, local_owner
         result.update(value_type='structure', value_structure_hash=f'0x{value.auxiliary:08x}')
     else:
         return refuse('unsupported map value descriptor')
-    result['key_type'] = 'hash32'
+    result['key_type'] = key_type
     if prefix != 1 or a != b or tail != 0:
         return refuse('unvalidated map header: requires leading word one, equal u16 words and zero tail')
     result['count'] = a  # Equal observed words, without count/capacity role claims.
     if a == 0:
+        if enum_keys is not None:
+            return refuse('empty enum-key map profile is not validated')
         if word != 0:
             return refuse('empty map with nonzero entry reference is not validated')
         result['target'] = None
@@ -92,6 +108,12 @@ def resolve_entries(data, start, field, owner, block_end, blocks, *, local_owner
         at, length = target.data_offset + offset, a * stride
         if at < 0 or at + length > len(data):
             raise ValueError('PSIN map entry span exceeds container bounds')
+        if enum_keys is not None:
+            # Check the entire key span before publishing any links. Values
+            # stay in the existing typed entry rows, including partial rows.
+            for i in range(a):
+                if struct.unpack_from('<I', data, at + i * stride)[0] not in enum_keys:
+                    return refuse('stored map key is absent from the local enum32 definition')
         result.update(stride=stride, entry_structure_hash=f'0x{entry.name_hash:08x}',
                       key_field_index=0, value_field_index=1,
                       target=dict(block_id=number, block_index=target.index,

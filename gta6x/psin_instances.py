@@ -10,70 +10,15 @@ hash/text values, candidate reference words and opaque storage groups.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import math
 import struct
 
-from . import psin_schema, psin_pools, psin_arrays, psin_references, psin_maps
+from . import psin_schema, psin_pools, psin_arrays, psin_references, psin_maps, psin_enum_arrays
+from .psin_blocks import InstanceBlock, InstanceLimitError, parse_blocks
 
 __all__ = ['InstanceBlock', 'InstanceLimitError', 'parse_blocks', 'decode_instances']
 
-
-class InstanceLimitError(ValueError):
-    """The requested instance output exceeds its explicit node budget."""
-
-
-@dataclass(frozen=True)
-class InstanceBlock:
-    index: int
-    table_offset: int
-    type_hash: int
-    byte_length: int
-    data_offset: int
-
-
-def parse_blocks(body: bytes, *, max_blocks: int = 65536) -> list[InstanceBlock]:
-    """Parse an exact PSIN body, refusing other layouts and nonzero padding.
-
-    Entries start at +8, including the first type/length pair. Each is followed
-    by eight AA bytes. An eight-PP terminator precedes aligned block payloads.
-    """
-    if max_blocks < 1:
-        raise ValueError('max_blocks must be positive')
-    if (len(body) < 16 or body[:4] != b'PSIN'
-            or struct.unpack_from('>I', body, 4)[0] != len(body)):
-        raise ValueError('instance reader requires an exact PSIN body')
-    position = 8
-    entries = []
-    while True:
-        if position + 8 > len(body):
-            raise ValueError('missing PSIN block-table terminator')
-        if body[position:position + 8] == b'pppppppp':
-            position += 8
-            break
-        if position + 16 > len(body) or body[position + 8:position + 16] != b'\xaa' * 8:
-            raise ValueError('unsupported PSIN instance block-table layout')
-        if len(entries) >= max_blocks:
-            raise InstanceLimitError('PSIN block count exceeds limit')
-        key, size = struct.unpack_from('<II', body, position)
-        if size == 0:
-            raise ValueError('zero-sized PSIN instance block is not validated')
-        entries.append((position, key, size))
-        position += 16
-    blocks = []
-    for index, (table_offset, key, size) in enumerate(entries):
-        end = position + size
-        aligned = (end + 15) & ~15
-        if aligned > len(body):
-            raise ValueError('truncated PSIN instance block or padding')
-        if any(body[end:aligned]):
-            raise ValueError('nonzero PSIN instance block padding is not validated')
-        blocks.append(InstanceBlock(index, table_offset, key, size, position))
-        position = aligned
-    if position != len(body):
-        raise ValueError('unaccounted PSIN instance body bytes')
-    return blocks
 
 
 def decode_instances(data: bytes, dictionary: dict | None = None, *,
@@ -99,6 +44,7 @@ def decode_instances(data: bytes, dictionary: dict | None = None, *,
                   pool_elements=0, pool_values_decoded=0, unresolved_pool_elements=0,
                   array_fields_attempted=0, array_fields_unresolved=0,
                   hash32_arrays_resolved=0, hash32_array_values_decoded=0,
+                  enum32_arrays_resolved=0, enum32_array_records_linked=0,
                   structure_arrays_resolved=0, structure_array_records_linked=0,
                   reference_arrays_resolved=0, reference_array_records_linked=0,
                   reference_array_null_entries=0, reference_fields_attempted=0,
@@ -200,6 +146,10 @@ def decode_instances(data: bytes, dictionary: dict | None = None, *,
                     array = psin_arrays.resolve_reference_links(
                         data, start, owner, descriptor_index, blocks, local_owner=local_owner,
                         local_structures=structures, consume=consume)
+                elif descriptor.type_word & 0xffff == 0x62:
+                    array = psin_enum_arrays.resolve(
+                        data, start, owner, descriptor_index, blocks, local_owner=local_owner,
+                        local_structures=structures, local_enums=enums, consume=consume)
                 else:
                     array = psin_arrays.resolve_hash32(
                         data, start, owner, descriptor_index, blocks, local_owner=local_owner,
@@ -217,6 +167,9 @@ def decode_instances(data: bytes, dictionary: dict | None = None, *,
                         counts['reference_arrays_resolved'] += 1
                         counts['reference_array_records_linked'] += array['record_link_count']
                         counts['reference_array_null_entries'] += array['null_count']
+                    elif array['element_type'] == 'enum32':
+                        counts['enum32_arrays_resolved'] += 1
+                        counts['enum32_array_records_linked'] += array['count']
                     else:
                         counts['hash32_arrays_resolved'] += 1
                         counts['hash32_array_values_decoded'] += array['count']
@@ -228,7 +181,8 @@ def decode_instances(data: bytes, dictionary: dict | None = None, *,
                 mapping = psin_maps.resolve_entries(
                     data, start, f, owner, block_end, blocks,
                     local_owner=context is None or context.schema is not None,
-                    local_structures=structures, consume=consume, slot_cache=reference_slot_cache)
+                    local_structures=structures, consume=consume, slot_cache=reference_slot_cache,
+                    local_enums=enums)
                 value['map'] = mapping
                 if mapping['status'] != 'complete':
                     counts['maps_unresolved'] += 1

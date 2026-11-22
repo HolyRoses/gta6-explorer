@@ -15,16 +15,16 @@ This module assembles those resources from their zlib streams without any key:
 * The following zlib streams are contiguous at 16-byte boundaries, separated by
   zero padding; they are appended until the declared graphics allocations are
   covered. Descriptor +0x08 counts format elements, including allocation padding.
-* BCn 2D textures use Gfx10 S4K placement, with ceil-divided hardware mip
+* BCn 2D textures and explicitly tagged 2D arrays use Gfx10 S4K placement, with ceil-divided hardware mip
   dimensions, smallest-first macroblocks and a shared 4 KiB tail. Logical DDS
   dimensions are cropped to floor-divided pixel dimensions. Full declared mip
   chains are exported after checking the allocation footprint exactly.
+* Array layers contain consecutive complete hardware mip chains. DDS output
+  retains every layer; selecting a layer for preview is explicit in the API.
 * Single-level non-BC 2D textures retain the measured 16x16-element layout.
-  Non-BC mip chains and depth/array resources are refused pending validation.
-
-The shape is the one documented by SixNG; rpf9-explorer's older dictionary
-walk targets a different resource generation and does not find these pages in
-1.0.2.1.
+* Single-level uncompressed 3D textures with shape tag 3 use the public
+  non-XOR S4K volume equations. DDS retains every depth plane. Non-BC mip
+  chains, cubemaps and unknown shape tags are refused.
 """
 
 from __future__ import annotations
@@ -33,8 +33,9 @@ import os
 import struct
 from dataclasses import dataclass, field
 from typing import Iterator
+from types import SimpleNamespace
 
-from . import gfx10, rpf, texture, zlibcarve
+from . import gfx10, rpf, texture, volume, zlibcarve
 
 SYSTEM_MAX_PACKED = 256 * 1024
 MAX_SYSTEM = 32 * 1024 * 1024
@@ -52,8 +53,8 @@ DEFAULT_PATTERN = ((True, 0), (False, 0), (True, 1), (False, 1), (True, 2),
                    (False, 2), (True, 3), (False, 3))
 
 __all__ = ["EmbeddedTexture", "EmbeddedResource", "parse_system", "iter_resources",
-           "mip0", "mip_linear", "exportable_mips", "dds_bytes", "dds_mips",
-           "format_name"]
+           "mip0", "mip_linear", "exportable_mips", "dds_bytes", "dds_mips", "dds_mip0",
+           "format_name", "volume_linear", "volume_slice"]
 
 
 @dataclass
@@ -68,6 +69,18 @@ class EmbeddedTexture:
     size_field: int
     struct_off: int
     swizzle_mode: int = 5
+    shape_tag: int | None = None
+
+    @property
+    def shape(self) -> str:
+        if self.shape_tag == 1 or (self.shape_tag is None and self.depth == 1):
+            return "2d_array" if self.depth > 1 else "2d"
+        return "3d" if self.shape_tag == 3 else "unknown"
+
+    @property
+    def slices(self) -> int:
+        """2D array layer count; volumes have no validated 2D slices."""
+        return self.depth if self.shape in ("2d", "2d_array") else 0
 
     @property
     def element_size(self) -> int:
@@ -94,6 +107,9 @@ class EmbeddedTexture:
             "size_field": self.size_field,
             "struct_offset": self.struct_off,
             "swizzle_mode": self.swizzle_mode,
+            "shape_tag": self.shape_tag,
+            "shape": self.shape,
+            "slices": self.slices,
         }
 
 
@@ -171,7 +187,8 @@ def parse_system(system: bytes) -> list[EmbeddedTexture]:
                     mips=mips, dxgi_format=fmt,
                     data_off=_u64(system, at + 0x18) & 0x0FFFFFFF,
                     size_field=_u32(system, at + 8), struct_off=at,
-                    swizzle_mode=_u16(system, at + 0x40)))
+                    swizzle_mode=_u16(system, at + 0x40),
+                    shape_tag=system[at + 0x3E]))
                 at += 0x70
                 continue
         at += 8
@@ -337,21 +354,36 @@ def _deswizzle(src: bytes, ew: int, eh: int, bpe: int) -> bytes:
     return bytes(out)
 
 
-def _layout(tex: EmbeddedTexture) -> gfx10.Layout | None:
+def _layout(tex: EmbeddedTexture) -> gfx10.Layout | volume.VolumeLayout | None:
     """Validate the shape and allocation before selecting a measured layout."""
     if tex.element_size not in (1, 2, 4, 8, 16):
         raise ValueError(f"unsupported DXGI format {tex.dxgi_format}")
     if (tex.width < 1 or tex.height < 1 or tex.mips < 1 or tex.mips > 15
             or tex.mips > max(tex.width, tex.height).bit_length()):
         raise ValueError("invalid embedded dimensions or mip count")
-    if tex.depth != 1:
-        raise ValueError("embedded depth/array layout is not validated")
+    # Older authored descriptors omitted this field. Preserve their 2D API,
+    # but never infer an array or cube solely from a depth of six.
+    if tex.shape not in ("2d", "2d_array", "3d") or not 1 <= tex.depth <= 256:
+        raise ValueError("embedded depth/array shape tag is not validated")
     if tex.swizzle_mode != 5:
         raise ValueError("embedded swizzle mode is not validated")
     allocated = tex.size_field * tex.element_size
     if tex.data_off < 0 or allocated <= 0 or tex.data_off + allocated > MAX_GFX:
         raise ValueError("invalid embedded graphics allocation")
+    if tex.shape == "3d":
+        if tex.mips != 1:
+            raise ValueError("embedded volume mip layout is not validated")
+        if tex.is_bc:
+            raise ValueError("embedded BC volume layout is not validated")
+        layout = volume.layout_for(_volume_descriptor(tex))
+        if layout is None:
+            raise ValueError("embedded volume format is not validated")
+        if layout.total != allocated:
+            raise ValueError("embedded volume S4K footprint does not match allocation")
+        return layout
     if not tex.is_bc:
+        if tex.depth != 1:
+            raise ValueError("embedded non-BC array layout is not validated")
         if tex.mips != 1:
             raise ValueError("embedded non-BC mip layout is not validated")
         required = -(-tex.width // 16) * -(-tex.height // 16) * 256 * tex.element_size
@@ -365,22 +397,31 @@ def _layout(tex: EmbeddedTexture) -> gfx10.Layout | None:
     if tex.mips == 1:
         # A non-mipmapped resource has no tail, including tiny solid textures.
         layout.mips[0].tail = None
+    # Public non-XOR S4K subresource addressing advances by the complete
+    # hardware chain size per array layer, including that layer's mip tail.
+    layout.slices = tex.depth
+    layout.slice_major = True
+    layout.total = layout.slice_bytes * tex.depth
     if layout.total != allocated:
         raise ValueError("embedded S4K footprint does not match allocation")
     return layout
 
 
 def exportable_mips(tex: EmbeddedTexture) -> int:
-    """All declared levels of a validated 2D allocation, or ValueError."""
+    """All declared levels of a validated allocation, or ValueError."""
     _layout(tex)
     return tex.mips
 
 
-def mip_linear(tex: EmbeddedTexture, gfx: bytes, mip: int) -> bytes:
-    """Linear (untiled) bytes of one mip, in the texture's own format."""
+def mip_linear(tex: EmbeddedTexture, gfx: bytes, mip: int, *, slice_index: int = 0) -> bytes:
+    """One mip of one 2D layer, in the texture's own format (default layer 0)."""
     layout = _layout(tex)
+    if tex.shape == "3d":
+        raise ValueError("embedded volume plane requires volume_slice with an explicit z index")
     if not isinstance(mip, int) or mip < 0 or mip >= tex.mips:
         raise ValueError("embedded mip index out of range")
+    if not isinstance(slice_index, int) or not 0 <= slice_index < tex.slices:
+        raise ValueError("embedded slice index out of range")
     element = tex.element_size
     end = tex.data_off + tex.size_field * element
     if end > len(gfx):
@@ -396,7 +437,7 @@ def mip_linear(tex: EmbeddedTexture, gfx: bytes, mip: int) -> bytes:
         out = bytearray(ew * eh * element)
         for y in range(eh):
             for x in range(ew):
-                at = tex.data_off + layout.addr(mip, 0, x, y)
+                at = tex.data_off + layout.addr(mip, slice_index, x, y)
                 if at < tex.data_off or at + element > end:
                     raise ValueError("embedded mip address exceeds allocation")
                 dst = (y * ew + x) * element
@@ -407,14 +448,18 @@ def mip_linear(tex: EmbeddedTexture, gfx: bytes, mip: int) -> bytes:
     return _deswizzle(gfx[start:start + padded], ew, eh, element)
 
 
-def mip0(tex: EmbeddedTexture, gfx: bytes) -> bytes:
-    """Linear (untiled) bytes of mip 0, in the texture's own format."""
-    return mip_linear(tex, gfx, 0)
+def mip0(tex: EmbeddedTexture, gfx: bytes, *, slice_index: int = 0) -> bytes:
+    """Mip 0 of one 2D layer (default layer 0); DDS exports retain all layers."""
+    return mip_linear(tex, gfx, 0, slice_index=slice_index)
 
 
 def dds_bytes(tex: EmbeddedTexture, linear: bytes) -> bytes:
     """DDS with a single mip (mip 0)."""
     _layout(tex)
+    if tex.shape == "3d":
+        raise ValueError("embedded volume DDS requires every depth plane; use dds_mip0")
+    if tex.slices != 1:
+        raise ValueError("embedded array DDS requires all layers; use dds_mip0")
     if len(linear) != _mip_bytes(tex, 0):
         raise ValueError("embedded mip 0 byte count mismatch")
     header = texture.dds_header(tex.width, tex.height, 1, 1, tex.dxgi_format)
@@ -424,8 +469,61 @@ def dds_bytes(tex: EmbeddedTexture, linear: bytes) -> bytes:
 def dds_mips(tex: EmbeddedTexture, gfx: bytes) -> tuple[bytes, int]:
     """Native DDS with the complete declared mip chain; no partial output."""
     count = exportable_mips(tex)
+    if tex.shape == "3d":
+        return texture.dds_header_volume(_volume_descriptor(tex)) + volume_linear(tex, gfx), count
     payload = bytearray()
-    for mip in range(count):
-        payload.extend(mip_linear(tex, gfx, mip))
-    return (texture.dds_header(tex.width, tex.height, count, 1,
+    for layer in range(tex.slices):
+        for mip in range(count):
+            payload.extend(mip_linear(tex, gfx, mip, slice_index=layer))
+    return (texture.dds_header(tex.width, tex.height, count, tex.slices,
                                tex.dxgi_format) + payload, count)
+
+
+def dds_mip0(tex: EmbeddedTexture, gfx: bytes) -> bytes:
+    """DDS containing mip 0 of every validated array layer or volume plane."""
+    _layout(tex)
+    if tex.shape == "3d":
+        return texture.dds_header_volume(_volume_descriptor(tex)) + volume_linear(tex, gfx)
+    payload = b"".join(mip0(tex, gfx, slice_index=i) for i in range(tex.slices))
+    return texture.dds_header(tex.width, tex.height, 1, tex.slices,
+                              tex.dxgi_format) + payload
+
+
+def _volume_descriptor(tex: EmbeddedTexture):
+    """Adapt depth to the existing public volume-layout/DDS helper interface."""
+    return SimpleNamespace(width=tex.width, height=tex.height, slices=tex.depth,
+                           mips=tex.mips, dxgi_format=tex.dxgi_format, dimension=3)
+
+
+def _volume_planes(tex: EmbeddedTexture, gfx: bytes, z_start: int, z_count: int) -> bytes:
+    layout = _layout(tex)
+    if tex.shape != "3d":
+        raise ValueError("embedded texture is not a validated volume")
+    if type(z_start) is not int or not 0 <= z_start < tex.depth:
+        raise ValueError("embedded volume z index out of range")
+    end = tex.data_off + layout.total
+    if end > len(gfx):
+        raise ValueError("truncated embedded volume graphics allocation")
+    # Do not use VolumeLayout.untile's pool zero-fill policy. Even a selected
+    # preview plane requires the complete declared allocation to be present.
+    element = tex.element_size
+    out = bytearray(tex.width * tex.height * z_count * element)
+    for z in range(z_start, z_start + z_count):
+        for y in range(tex.height):
+            for x in range(tex.width):
+                at = tex.data_off + layout.addr(x, y, z)
+                if at < tex.data_off or at + element > end:
+                    raise ValueError("embedded volume address exceeds allocation")
+                dst = (((z - z_start) * tex.height + y) * tex.width + x) * element
+                out[dst:dst + element] = gfx[at:at + element]
+    return bytes(out)
+
+
+def volume_linear(tex: EmbeddedTexture, gfx: bytes) -> bytes:
+    """Complete single-mip volume, x fastest followed by y and then z."""
+    return _volume_planes(tex, gfx, 0, tex.depth)
+
+
+def volume_slice(tex: EmbeddedTexture, gfx: bytes, z_index: int) -> bytes:
+    """One explicit XY plane; the complete volume allocation must be present."""
+    return _volume_planes(tex, gfx, z_index, 1)

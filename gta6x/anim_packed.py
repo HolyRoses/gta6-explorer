@@ -14,7 +14,7 @@ from . import anim_resources as resources
 BASE = resources.VIRTUAL_BASE
 
 
-def inspect_animation(data, animation_start, buffers, *, consume):
+def inspect_animation(data, animation_start, buffers, *, consume, with_channels=False, with_storage=False, with_payloads=False):
     """Inspect one bounded animation's header/channel metadata atomically.
 
     Invalid or unsupported layouts return no prefix binding/buffer rows. Parent
@@ -22,6 +22,10 @@ def inspect_animation(data, animation_start, buffers, *, consume):
     propagates to discard dictionary output. All offsets refer to the original
     joined dictionary; region offsets are also retained relative to each buffer.
     """
+    if with_payloads:
+        with_storage = True
+    if with_storage:
+        with_channels = True
     consume()
     result = dict(status='unresolved', interpretation='candidate',
                   candidate_profile='packed_animation_layout_v1', bindings=[], buffers=[])
@@ -108,6 +112,18 @@ def inspect_animation(data, animation_start, buffers, *, consume):
                     u8_1e=w[10], u8_1f=flag),
                 regions=regions, auxiliary_high_nibble=flag >> 4, auxiliary_low_nibble=flag & 15,
                 auxiliary_rows=rows, sample_index_span=sample))
+            if with_channels:
+                from . import anim_channels
+                layouts[-1]['channel_layout'] = anim_channels.inspect_buffer(
+                    data, at, length, len(bindings), consume=consume)
+            if with_storage:
+                from . import anim_storage
+                layouts[-1]['storage_layout'] = anim_storage.inspect_buffer(
+                    data, at, length, len(bindings), consume=consume)
+            if with_payloads:
+                from . import anim_payloads
+                layouts[-1]['payload_layout'] = anim_payloads.inspect_buffer(
+                    data, at, length, len(bindings), consume=consume)
             samples.append(sample)
             auxiliary_count += aux_rows
         context = {}
