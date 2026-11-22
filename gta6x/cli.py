@@ -288,6 +288,96 @@ def _scan_targets(args) -> list[str]:
     return archives
 
 
+def cmd_anim(args) -> int:
+    """Index animation archive streams and name tables (no clip decode)."""
+    from . import anim as anim_mod
+
+    if not args.archive:
+        args.archive = ["anim"]
+    targets = _scan_targets(args)
+    if not targets:
+        eprint("no archive matched")
+        return 1
+    limit = None if args.full else args.limit * 1024 * 1024
+    records: list[anim_mod.AnimRecord] = []
+    names: set[str] = set()
+    for path in targets:
+        count = 0
+        try:
+            for record in anim_mod.scan(path, limit=limit):
+                records.append(record)
+                count += 1
+                names.update(record.names)
+                if record.name:
+                    names.add(record.name)
+        except OSError as exc:
+            eprint(f"skip {path}: {exc}")
+            continue
+        eprint(f"{os.path.basename(path):24s} {count:6d} stream(s)")
+    if not records:
+        print("no animation streams found")
+        return 0
+    summary: dict[str, int] = {}
+    for record in records:
+        summary[record.signature] = summary.get(record.signature, 0) + 1
+    clips = sorted(name for name in names if name.endswith(".clip"))
+    anims = sorted(name for name in names if name.endswith(".anim"))
+    motions = sorted(name for name in names if name.endswith(".motion"))
+    if args.out:
+        os.makedirs(args.out, exist_ok=True)
+        manifest = os.path.join(args.out, "anim.json")
+        with open(manifest, "w", encoding="utf-8") as handle:
+            json.dump({"summary": summary,
+                       "clips": clips, "anims": anims, "motions": motions,
+                       "names": sorted(names),
+                       "records": [r.as_dict() for r in records]}, handle, indent=1)
+        names_path = os.path.join(args.out, "anim-names.txt")
+        with open(names_path, "w", encoding="utf-8") as handle:
+            for name in sorted(names):
+                handle.write(name + "\n")
+        clips_path = os.path.join(args.out, "anim-clips.txt")
+        with open(clips_path, "w", encoding="utf-8") as handle:
+            for name in clips:
+                handle.write(name + "\n")
+        if args.json:
+            print(json.dumps({"summary": summary, "names": len(names),
+                              "manifest": manifest, "names_file": names_path,
+                              "clips_file": clips_path,
+                              "clips": len(clips), "anims": len(anims),
+                              "motions": len(motions)}, indent=2))
+            return 0
+        print(f"{len(records):,} stream(s), {len(names):,} name(s) -> {args.out}")
+        print(f"manifest: {manifest}")
+        print(f"names: {len(names):,}  clips: {len(clips):,}  "
+              f"anim: {len(anims):,}  motion: {len(motions):,}")
+        for key, value in sorted(summary.items(), key=lambda kv: -kv[1]):
+            print(f"  {key:16s} {value:7,}")
+        if args.clips:
+            for name in clips[:args.max]:
+                print(name)
+        return 0
+    if args.json:
+        print(json.dumps({"summary": summary, "names": sorted(names),
+                          "records": [r.as_dict() for r in records[:args.max]]}, indent=2))
+        return 0
+    rows = []
+    for record in records[:args.max]:
+        rows.append([f"0x{record.offset:09x}", f"{record.stored:,}", f"{record.size:,}",
+                     record.signature, record.name[:32],
+                     str(record.count) if record.count is not None else "-"])
+    print(table(rows, ["offset", "stored", "size", "signature", "name", "count"],
+                align="lrrllr"))
+    print(f"\n{len(records):,} stream(s), {len(names):,} name(s): "
+          f"{len(clips):,} clips, {len(anims):,} anim, {len(motions):,} motion")
+    print("clip payloads are indexed, not decoded")
+    for key, value in sorted(summary.items(), key=lambda kv: -kv[1]):
+        print(f"  {key:16s} {value:7,}")
+    if args.clips:
+        for name in clips[:args.max]:
+            print(name)
+    return 0
+
+
 def cmd_movies(args) -> int:
     """List Bink2 movie metadata and optionally extract the selected payloads."""
     if not args.archive:
@@ -1077,6 +1167,7 @@ def cmd_awc(args) -> int:
     records: list[dict] = []
     written = 0
     ogg_written = 0
+    music_written = 0
     for path in targets:
         hits = _collect(path, ("awc",), limit, args)
         with open(path, "rb") as fh:
@@ -1116,6 +1207,28 @@ def cmd_awc(args) -> int:
                             out.write(buf[at:at + length])
                         record["files"].append(dest)
                         written += 1
+                if args.music_out:
+                    from . import audio as audio_mod
+                    os.makedirs(args.music_out, exist_ok=True)
+                    stem = os.path.splitext(os.path.basename(path))[0]
+                    for stream in streams:
+                        if not stream.get("music"):
+                            continue
+                        for channel in audio_mod.music_channels(buf, stream):
+                            if channel.get("codec") != 0x0B:
+                                continue
+                            name = (f"{stem}_{hit.offset:09x}_s{stream['index']}"
+                                    f"_c{channel['index']}.opus")
+                            dest = os.path.join(args.music_out, name)
+                            try:
+                                blob = audio_mod.extract_music_ogg(
+                                    buf, stream, channel["index"], title=name)
+                            except ValueError:
+                                continue
+                            with open(dest, "wb") as out:
+                                out.write(blob)
+                            record.setdefault("music_files", []).append(dest)
+                            music_written += 1
                 if args.ogg_out:
                     from . import audio as audio_mod
                     os.makedirs(args.ogg_out, exist_ok=True)
@@ -1147,8 +1260,9 @@ def cmd_awc(args) -> int:
                 align="llrrll"))
     print(f"\n{scanned} container(s) shown; {sum(len(r['streams']) for r in records):,} stream(s)"
           + (f"; {written} raw payload(s) written to {args.raw_out}" if args.raw_out else "")
-          + (f"; {ogg_written} Ogg Opus file(s) written to {args.ogg_out}" if args.ogg_out else ""))
-    print("raw payloads keep their native codec; --ogg-out remuxes Opus losslessly")
+          + (f"; {ogg_written} Ogg Opus file(s) written to {args.ogg_out}" if args.ogg_out else "")
+          + (f"; {music_written} music-channel Ogg file(s) written to {args.music_out}" if args.music_out else ""))
+    print("raw payloads keep their native codec; --ogg-out remuxes Opus losslessly; --music-out extracts one Ogg per music channel")
     return 0
 
 
@@ -1288,7 +1402,7 @@ def _cmd_embedded_textures(args) -> int:
                 if args.out:
                     try:
                         linear = embedded_mod.mip0(tex, resource.gfx)
-                        blob = embedded_mod.dds_bytes(tex, linear)
+                        blob, mip_count = embedded_mod.dds_mips(tex, resource.gfx)
                     except ValueError as exc:
                         reason = str(exc)
                         skipped[reason] = skipped.get(reason, 0) + 1
@@ -1304,7 +1418,8 @@ def _cmd_embedded_textures(args) -> int:
                     record.update({"archive": resource.archive,
                                    "resource": resource.name,
                                    "resource_offset": resource.offset,
-                                   "file": dest, "bytes": len(blob)})
+                                   "file": dest, "bytes": len(blob),
+                                   "exported_mips": mip_count})
                     if args.png:
                         from . import bcn as bcn_mod, png as png_mod
                         rgba = bcn_mod.decode_rgba(tex.dxgi_format, linear,
@@ -1436,6 +1551,13 @@ def cmd_textures(args) -> int:
     if not pools:
         eprint("no .ttpf pools found under <root>/data/ttdb")
         return 1
+    from . import names as names_mod
+    names_index = None
+    if args.names and os.path.isfile(args.names):
+        try:
+            names_index = names_mod.load(args.names)
+        except (OSError, ValueError) as exc:
+            eprint(f"cannot read names dictionary {args.names}: {exc}")
     if args.out:
         os.makedirs(args.out, exist_ok=True)
     limit = None if args.all else args.max
@@ -1458,6 +1580,10 @@ def cmd_textures(args) -> int:
                 if tex.width * tex.height < args.min_size:
                     continue
                 seen += 1
+                label = ""
+                if names_index is not None:
+                    found = names_mod.lookup64(names_index, tex.hash)
+                    label = found[0][0] if found else ""
                 layout = texture_mod.layout_for(tex)
                 missing = uncovered = 0
                 if layout is not None:
@@ -1473,26 +1599,55 @@ def cmd_textures(args) -> int:
                 elif uncovered:
                     reason = f"{uncovered:,} B uncovered"
                 if args.out:
-                    if reason is None:
+                    if reason is None or (args.bcpack and "BCPack" in (reason or "")):
                         record = texture_mod.export_texture(
                             pool, index, tex, args.out, fh=fh, starts=starts,
-                            png=args.png)
+                            png=args.png, decode_bcpack=args.bcpack)
+                        if label:
+                            record["name"] = label
                         exported += 1 if record["file"] else 0
                         if record["skipped"]:
                             key = _skip_category(record["skipped"])
                             skipped[key] = skipped.get(key, 0) + 1
                         records.append(record)
                     else:
+                        helper = args.bcpack_helper
+                        if helper and "BCPack" in (reason or ""):
+                            import subprocess
+                            dest = os.path.join(args.out, f"{tex.hash:016x}.dds")
+                            try:
+                                proc = subprocess.run(
+                                    [sys.executable, "-I", helper, "export", pool,
+                                     str(tex.index), dest, "--force"],
+                                    capture_output=True, text=True, timeout=120)
+                            except (OSError, subprocess.TimeoutExpired) as exc:
+                                proc = None
+                                eprint(f"bcpack {tex.hash:016x}: {exc}")
+                            if proc is not None and proc.returncode == 0 and os.path.isfile(dest):
+                                record = {"file": dest, "hash": f"{tex.hash:016x}",
+                                          "width": tex.width, "height": tex.height,
+                                          "format": texture_mod.format_name(tex.dxgi_format),
+                                          "mips": tex.mips, "slices": tex.slices,
+                                          "bytes": os.path.getsize(dest),
+                                          "skipped": None, "bcpack": True}
+                                if names_index is not None and label:
+                                    record["name"] = label
+                                records.append(record)
+                                exported += 1
+                                continue
                         key = _skip_category(reason)
                         skipped[key] = skipped.get(key, 0) + 1
                         records.append({"hash": f"{tex.hash:016x}", "skipped": reason})
                 else:
-                    rows.append([
+                    row = [
                         os.path.basename(pool)[:30], f"{tex.hash:016x}",
                         f"{tex.width}x{tex.height}", texture_mod.format_name(tex.dxgi_format),
                         str(tex.mips), str(tex.slices), f"0x{tex.virtual_offset:x}",
                         reason or "decodable",
-                    ])
+                    ]
+                    if names_index is not None:
+                        row.insert(2, label)
+                    rows.append(row)
                 if limit is not None and seen >= limit:
                     break
         finally:
@@ -1529,8 +1684,11 @@ def cmd_textures(args) -> int:
     if not rows:
         print("no matching textures")
         return 0
-    print(table(rows, ["pool", "hash", "size", "format", "mips", "slices",
-                       "virtual", "status"], align="lllrrlll"))
+    headers = ["pool", "hash", "size", "format", "mips", "slices",
+               "virtual", "status"]
+    if names_index is not None:
+        headers.insert(2, "name")
+    print(table(rows, headers, align="lllrrlll"))
     print(f"\n{len(rows):,} texture(s) shown; pass --out DIR to export DDS files")
     return 0
 
@@ -1556,7 +1714,8 @@ def cmd_names(args) -> int:
             return 0
         print(f"wrote {out}")
         print(f"  hashes: {len(dictionary['hashes']):,}  "
-              f"case-sensitive: {len(dictionary['exact']):,}")
+              f"case-sensitive: {len(dictionary['exact']):,}  "
+              f"64-bit: {len(dictionary.get('hashes64', {})):,}")
         for source, count in sorted(dictionary["counts"].items()):
             print(f"  {source}: {count:,} identifiers")
         return 0
@@ -1640,6 +1799,7 @@ def cmd_selftest(args) -> int:
     from . import bcn as _bcn
     from . import embedded as _embedded
     from . import names as _names
+    from . import anim as _anim_mod
     from . import png as _png
     from . import structured as _structured
     from . import texture as _texture
@@ -1751,6 +1911,12 @@ def cmd_selftest(args) -> int:
     _s.pack_into("<Q", pool, 24, (source0 // 256) | (1 << 30))
     _s.pack_into("<Q", pool, 32, (file_size // 256) | ((virtual // 4096) << 30))
     _s.pack_into("<4sIII", pool, etpf_at, b"ETPF", _rds5.ETPF_VERSION, 1, 16)
+    # One valid 4x4 BC1 descriptor: packed_mips=0, non_tail=0, dimension=2D,
+    # SW_4KB_S tile mode, first page 2.
+    _d0 = 3 | (3 << 14)
+    _d1 = (71 << 3) | (1 << 21) | (1 << 24)
+    _s.pack_into("<IIQ", pool, etpf_at + 16, _d0, _d1, 2)
+    _s.pack_into("<Q", pool, etpf_at + 32, 0x123456789ABCDEF0)
     with tempfile.NamedTemporaryFile(suffix=".ttpf", delete=False) as fh:
         fh.write(pool)
         pool_path = fh.name
@@ -1906,6 +2072,38 @@ def cmd_selftest(args) -> int:
     check("png preview writes",
           _png.png_bytes(2, 1, bytes((255, 0, 0, 255, 0, 255, 0, 255)))
           .startswith(b"\x89PNG\r\n\x1a\n"))
+    sample_names = _anim_mod.classify(b"pack:/a.clip\x00pack:/b.anim\x00", 0, 1)
+    check("anim name table classifies",
+          sample_names.signature == "name-table"
+          and set(sample_names.names) == {"pack:/a.clip", "pack:/b.anim"})
+    clip = _anim_mod.classify(_s.pack("<I", 2) + b"\x01\x01\x00\x00" + b"\x00" * 16, 0, 1)
+    check("anim clip stream classifies", clip.signature == "clip-stream")
+    from . import bcpack as _bcpack
+    from . import bc7 as _bc7
+    check("bcpack model tables", _bcpack.tables_ok())
+    check("bc7 decoder", _bc7.decode_block(b"\x00" * 16) == [(0, 0, 0, 0)] * 16)
+    from . import volume as _volume
+
+    class _VolumeStub:
+        dimension = 3
+        mips = 1
+        width = 32
+        height = 32
+        slices = 32
+        dxgi_format = 10
+
+    _vol = _volume.layout_for(_VolumeStub())
+    check("3D volume layout", _vol is not None and _vol.total == 262144
+          and len(_vol.untile(bytes(262144))) == 262144)
+    _win = [tuple((slot * 7 + k * 13) % (1 << _bcpack.BC1_ENDPOINT_WIDTHS[k])
+                  for k in range(6)) for slot in range(256)]
+    _tab = [tuple((slot >> (2 * k)) & 3 for k in range(4)) for slot in range(256)]
+    _chunk = bytes.fromhex("15141b1bdf1013143d3e0911032814030101f51c011005117117b7af000ffd546cd2eaa47468dc766c102bed1d6501f41b1891e3c1741b181c27031cd50549282123f3a681061d6bab65db8a93dca83da80466f51a543ddf1a934a771b363c936022312ac4a3259f97e1fca17966d0bba11828c4c727ae63d6dc02edbb720a0a2faef42ae4ec11a791d6c23d1f5fe9e9f57134c7521acb80d40a22fd095bf964ef543aaa20930639841501ff6dc74cba235d2b5d255e3db2451915498be65eb9082a450c74da1af0d71601bcce47f079f31a58e96adf0377271173850de4830100636bbf674385cd75223f3b0c4d0beadcf70903010cf50ba316883d93202516b7d82c59e89f04872e7e04c16b42fc1597b515132b1860017207c456e012a7f4c79c8e7bfbfba01196077c347d05db970b3299dff62cdef05d2149643d6a7e206bf9b1792220b694644fa3d20d841e447009518b3e6736077a9abb357994030f248f7711afcd1d0534df3985578986c5a27ad4139aed76526f2c253de0231df3a2ee66b84e333af3caa4422c882bb43fd1916af12750045d96b6c41feb95caf603010448119f6d23f61e50817efb91180eb7a84e5609f6e835e1f352170a01ae4b3defff85a559da2e66066ff630362d99b05f8625d5b3462762f2d0d287f796009c35d22b8814856b20888760f0c10c7772d3d32003e53d9720463194e0a4c080f64c")
+    _out = _bcpack.decode_bc1(_chunk, 64, window=_win, table=_tab)
+    import hashlib as _hashlib
+    check("bcpack BC1 synthetic vector",
+          _hashlib.sha256(_out).hexdigest() == "2cd7ef1ec482d1c09b2420b821cda81166c49170d69aa8c8a313852fcd258fca")
+    check("murmur3 64-bit hash", _names.hash64("rope") == 0xC875C99D196B2F1C)
     check("joaat known hashes",
           _names.joaat("standard") == 0xBCF03FC1
           and _names.joaat("diffusetex") == 0xC8E8C282)
@@ -1969,6 +2167,18 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--spread", type=int, default=0,
                        help="sample N evenly spaced windows instead of the file head "
                             "(carriers cluster; suggested: 4)")
+
+    p = sub.add_parser("anim", help="index animation streams and name tables")
+    p.add_argument("files", nargs="*", help="specific archives (default: anim)")
+    p.add_argument("--archive", action="append", default=[],
+                   help="archive fragment (default: anim)")
+    p.add_argument("--limit", type=int, default=64,
+                   help="MiB to scan per archive (default 64)")
+    p.add_argument("--full", action="store_true", help="scan whole archives")
+    p.add_argument("--max", type=int, default=40, help="rows/stream cap hint")
+    p.add_argument("--clips", action="store_true", help="print clip names")
+    p.add_argument("--out", help="write anim.json and anim-names.txt")
+    p.set_defaults(func=cmd_anim)
 
     p = sub.add_parser("movies", help="Bink2 movie metadata browser and extractor")
     p.add_argument("files", nargs="*", help="specific archives (default: movies)")
@@ -2138,6 +2348,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max", type=int, default=20, help="maximum containers (default 20)")
     p.add_argument("--raw-out", help="write each stream payload to this directory")
     p.add_argument("--ogg-out", help="remux Opus streams to playable .opus files")
+    p.add_argument("--music-out", help="extract one Ogg per AWC music channel")
     p.set_defaults(func=cmd_awc, spread=0, quiet=False, no_padding=False,
                    no_align=False, align=0x1000)
 
@@ -2171,6 +2382,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--full", action="store_true",
                    help="scan whole archives for --embedded")
     p.add_argument("--name", default="", help="regex on dictionary/texture names")
+    p.add_argument("--names", default="names.json",
+                   help="name dictionary for 64-bit hash annotation")
     p.add_argument("--out", help="export .dds files into this directory")
     p.add_argument("--via", choices=["native", "sixng"], default="native",
                    help="embedded path: native decoder (default) or SixNG backend")
@@ -2181,6 +2394,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--all", action="store_true", help="no limit")
     p.add_argument("--png", action="store_true",
                    help="also write PNG previews (BC1/BC2/BC3/BC4/BC5/RGBA8)")
+    p.add_argument("--bcpack", action="store_true",
+                   help="decode BC1 BCPack chunks natively (slow, pure Python)")
+    p.add_argument("--bcpack-helper", default=os.environ.get("GTA6X_BCPACK"),
+                   help="external BCPack TTPF exporter (e.g. Leonida tools/ttpf_mips.py)")
     p.add_argument("--hash-prefix", default="", help="only hashes starting with this")
     p.add_argument("--min-size", type=int, default=0,
                    help="minimum width*height in pixels")

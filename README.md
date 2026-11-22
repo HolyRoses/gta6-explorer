@@ -23,11 +23,11 @@ to directories you name.
 | RPF9 header map: index size, constants, fingerprint, nesting | **yes**, 22/22 archives |
 | RDS5/TTPF pool index: chunks, codecs, virtual space, ETPF descriptors | **yes**, 57/57 pools validate |
 | List TTPF textures and export **DDS** files | **yes**, 305,095 of 357,115 descriptors (incl. cube maps) |
-| **PNG previews** for streamed/embedded textures | **yes**, native BC1/2/3/4/5 + RGBA8 (77.6%); backend covers BC6H/BC7 and all formats |
-| List and export embedded **txd** textures (DDS) | **yes**, native (mip 0) or SixNG backend (multi-mip) |
+| **PNG previews** for streamed/embedded textures | **yes**, native BC1/2/3/4/5/**7** + RGBA8; backend only for BC6H and exotic formats |
+| List and export embedded **txd** textures (DDS) | **yes**, native (leading mip chain) or SixNG backend |
 | Find and extract **Bink2** video | **yes**, exact lengths |
 | Browse movie metadata (resolution, fps, duration, bitrate) | **yes**, `movies`; 515 titles in `movies.rpf` |
-| Find and extract **AWC** audio; list/extract streams | **yes**, exact lengths, native payloads |
+| Find and extract **AWC** audio; list/extract streams and music channels | **yes**, exact lengths, native payloads |
 | Remux Opus streams into playable **Ogg Opus** | **yes**, lossless, no re-encode |
 | Bink1 video | **experimental** |
 | PSIN containers, section bodies, stream-split fragments | **yes**, checksums verified (JOOAT) |
@@ -35,10 +35,11 @@ to directories you name.
 | Recover complete **XML/PSIN** resources split across zlib pages | **yes**, 259 XML / 1,048 PSIN in 16 MiB samples |
 | Carve zlib streams; catalogue; browser; reports; TUI | **yes** |
 | List/extract **models** to glTF/GLB | **yes**, via optional SixNG backend |
+| Index **animation archive** containers and clip/bone names | **yes**, `anim`; clips not decoded |
 | Extract **world/map data** (placements, collision, navmesh, paths, lights, interiors, vehicles, meta/PSO) | **yes**, via optional SixNG backend |
 | Build a local **joaat name dictionary** and resolve 32-bit hashes | **yes**, ~50k names from XML/text, shaders and paths |
 | Decrypt the RPF9 index | **no** — the AES key is not in the package |
-| Decode BCPack texture payloads | **no** — no public decoder |
+| Decode BCPack texture payloads | **partial** — native BC1; external helper for BC3/BC4/BC5 |
 | Transcode Opus/XMA2 audio to WAV | **no** — Opus is remuxed to Ogg, not decoded |
 | Native model decoding (no external tool) | **no** — use the backend |
 
@@ -95,11 +96,11 @@ options (`--root`, `--json`) go before the subcommand.
 | `info` | Package overview, store identity, chunk counts, composition by type | `--json` |
 | `headers` | RPF9 header table: index size, constants, fingerprint, encryption test | `--json`, explicit files |
 | `resources` | TTPF pool index: header fields, chunks, codecs, virtual size, ETPF, validation | `--json` |
-| `textures` | TTPF pools and embedded txd dictionaries; export DDS/PNG | `--pool`, `--embedded`, `--archive`, `--via`, `--out`, `--png`, `--max`, `--all`, `--hash-prefix`, `--min-size` |
+| `textures` | TTPF pools and embedded txd dictionaries; export DDS/PNG | `--pool`, `--embedded`, `--archive`, `--via`, `--out`, `--png`, `--bcpack`, `--bcpack-helper`, `--max`, `--all`, `--hash-prefix`, `--min-size` |
 | `scan` | Find validated Bink2/Bink1/AWC carriers | `--kind`, `--limit`, `--full`, `--spread`, `--no-padding`, `--no-align`, `--max` |
 | `movies` | Movie metadata browser; optional extraction | `--archive`, `--limit`, `--full`, `--min/max-duration`, `--min-width/height`, `--sort`, `--out` |
 | `extract` | Carve carriers; writes `extract-index.json` | `--out`, `--max-hits`, plus `scan` options |
-| `awc` | Streams inside AWC containers; extract payloads or Ogg Opus | `--archive`, `--limit`, `--max`, `--raw-out`, `--ogg-out` |
+| `awc` | Streams inside AWC containers; extract payloads, Ogg Opus, or per-channel music Ogg | `--archive`, `--limit`, `--max`, `--raw-out`, `--ogg-out`, `--music-out` |
 | `models` | Index, list or export drawables/fragments (SixNG backend) | `info\|index\|list\|extract`, `--archive`, `--kind`, `--name`, `--max`, `--out`, `--backend`, `--work` |
 | `zlib` | Carve non-overlapping zlib streams and classify them | `--archive`, `--limit`, `--full`, `--out`, `--max` |
 | `catalog` | Carve + verify + index assets into JSON or SQLite | `--out`, `--db`, `--limit`, `--full`, `--skip-done`, `--archive` |
@@ -133,19 +134,26 @@ python3 -m gta6x --root <pkg> textures --pool vehicles --out ./textures --all
 python3 -m gta6x --root <pkg> textures --hash-prefix 006c --out ./one
 python3 -m gta6x --root <pkg> textures --min-size 1048576 --out ./big --max 50
 
-# DDS plus PNG previews (BC1/BC2/BC3/BC4/BC5, RGBA8/BGRA8/R8)
+# DDS plus PNG previews (BC1/BC2/BC3/BC4/BC5/BC7, RGBA8/BGRA8/R8)
 python3 -m gta6x --root <pkg> textures --pool vehicles --out ./textures --png --all
+
+# native BC1 BCPack (pure Python, slow; no external tool)
+python3 -m gta6x --root <pkg> textures --pool graphics --out ./textures --bcpack
+
+# optional: BC3/BC4/BC5 via an external helper
+python3 -m gta6x --root <pkg> textures --pool graphics --out ./textures \
+        --bcpack-helper /path/to/Leonida/tools/ttpf_mips.py
 ```
 
 Output is `<hash>.dds` plus `textures.json`, one record per candidate with a
 `skipped` reason. `--png` also writes `<hash>.png` previews: a small stdlib
 decoder handles BC1, BC2, BC3, BC4, BC5 and RGBA8/BGRA8/R8, which is **77.6%**
-of descriptors. BC6H/BC7 (about 21.8%) stay DDS-only natively, as do the
+of descriptors. BC6H stays DDS-only natively, as do the
 unmapped 1/2/4-byte layouts. Without `--out` the command only lists
 descriptors.
 
 For the remaining formats, `--via sixng` delegates TTPF decoding to the backend,
-which handles BC6H/BC7 and exports PNGs for every texture it can decode:
+which handles BC6H and exports PNGs for every texture it can decode:
 
 ```bash
 python3 -m gta6x --root <pkg> textures --via sixng --pool vehicles \
@@ -161,8 +169,10 @@ backend writes `<hash>_m<mip>_s<slice>.png` and reports its own metadata.
 Measured on 1.0.2.1 (see [Verified numbers](#verified-numbers)): **99.0%** of
 descriptors have a supported layout and **84.6%** are fully readable.
 
-Limits: **BCPack** is the Xbox hardware texture codec and has no public decoder,
-so textures whose mips live in BCPack chunks are reported and skipped. Cube maps
+Limits: **BCPack** is the Xbox hardware texture codec. `--bcpack` decodes BC1
+natively (vendored MIT/Apache `bcpack-rs` reference; slow pure Python).
+`--bcpack-helper` remains for BC3/BC4/BC5 (Leonida, GPL-3.0, external).
+Unsupported BCPack codecs and BC6H are reported and skipped. Cube maps
 (tile modes 9–12) use the S4K cube-copy layout and export as six-face DDS:
 **563 of 567** work. All 1/2/4-byte elements now have their Gfx10 ``SW_4KB_S``
 and ``SW_64KB_D`` equations (R8/RGBA8/R16 families); only **8 descriptors**
@@ -178,7 +188,9 @@ compressed graphics pages. `textures --embedded` extracts them without a key.
 **Native decoder (default)** — recognises a system page by its texture structs
 and name pointer, appends the contiguous graphics streams (16-byte boundaries,
 zero padding), deswizzles the 16x16-element tiles, and writes a DDS containing
-**mip 0** (the smaller mips sit in a packed tail whose layout is not solved).
+**leading mip chain** (mip 0 through the last level whose element grid is at
+least 32x32; smaller levels sit in a packed tail whose layout is not solved).
+A 512x512 BC texture exports 3 mips and a 1024x1024 BC texture 4, natively.
 
 ```bash
 # list embedded textures
@@ -193,10 +205,11 @@ Measured on 1.0.2.1: `textures.rpf` yields **1,345 dictionaries / 3,155
 textures** natively (a full archive scan takes ~15 s). A sample dictionary
 (`non_break_glass_decals`) recovers seven textures — two BC3 and three BC7 at
 512², one BC3 at 1024² — matching the backend's descriptor list. Unsupported
-element sizes are reported and skipped, and only mip 0 is written.
+element sizes are reported and skipped, and the leading mip chain is written;
+smaller tail mips are omitted.
 
-**SixNG backend** — delegates to the same backend used for models, which exports
-complete mip chains and its own metadata:
+**SixNG backend** — delegates to the same backend used for models, with its own
+metadata output:
 
 ```bash
 python3 -m gta6x --root <pkg> textures --embedded --via sixng --archive textures \
@@ -205,10 +218,10 @@ python3 -m gta6x --root <pkg> textures --embedded --via sixng --archive textures
 
 It requires an index (`gta6x models index --archive textures`, stored in
 `--work`, default `.sixng-work`). The sample dictionary produced 7 DDS files
-with 3–4 mips each, three times the pixel data of the native mip-0 output.
+with 3–4 mips each, comparable to the native leading-mip output.
 
-Use native when you want a self-contained, dependency-free path; use the backend
-when you need full mip chains or broader format coverage.
+Use native for the self-contained path; use the backend when you need BC6H
+or its metadata. Neither path solves the small packed mip tail.
 
 ## Audio (AWC)
 
@@ -223,6 +236,8 @@ python3 -m gta6x --root <pkg> awc --archive audio --limit 64 --max 5 \
         --raw-out ./audio-streams
 python3 -m gta6x --root <pkg> awc --archive audio --limit 64 \
         --ogg-out ./audio
+python3 -m gta6x --root <pkg> awc --archive audio --limit 100 --max 1000 \
+        --music-out ./music
 ```
 
 `--raw-out` keeps the native payloads (`<archive>_<offset>_s<index>.opus`,
@@ -231,6 +246,13 @@ standard Ogg Opus files: the original packets wrapped in `OpusHead`/`OpusTags`
 pages with correct granules and CRCs, losslessly and without re-encoding.
 `ffprobe` reads the output as `opus`, 48 kHz, with the expected channel count
 and duration. No PCM/WAV decoding is attempted.
+
+Music banks use a separate `0x48` descriptor: block count, chunk size, then one
+16-byte record per channel. `--music-out` walks each block's 24-byte channel
+table, honours the per-channel subblock counts/start and skip, and writes one
+Ogg Opus file per channel. A 100 MiB `audio.rpf` sample produced **559 AWC
+containers, 8,683 streams and 53 music-channel Ogg files**; `ffprobe` reports
+`opus`, 48 kHz, mono, 42.03 s for the first channel.
 
 ## Video and media carriers
 
@@ -410,7 +432,7 @@ Filters: `--name`/`--exclude-name` (regex), `--min-size`, `--limit`, and
 an index the backend reports which archive to index; without a backend the
 command prints the build instructions.
 
-## Name hashes (joaat)
+## Name hashes (joaat + Murmur3)
 
 Shaders, shader parameters, meta/PSO fields and many material names are stored
 as 32-bit Jenkins one-at-a-time (`joaat`) hashes. GTA VI does not ship the
@@ -427,14 +449,63 @@ python3 -m gta6x names lookup bcf03fc1 --index names.json
 ```
 
 The dictionary stores the lower-case hash and, for capitalised names, the
-case-sensitive hash (meta field names). It is generated locally and never
-shipped. Measured on 1.0.2.1: **50,864 lower-case hashes**, **36,943
-case-sensitive hashes**, from 47,642 common identifiers, 4,512 shader
-identifiers and 3,212 path identifiers.
+case-sensitive hash (meta field names). It also stores 64-bit texture/archetype
+keys: the **low 64 bits of MurmurHash3 x64 128** over the exact UTF-8 name
+(seed 0), confirmed against the package and the latest upstream research.
 
-Limits: this covers 32-bit joaat names. TTPF/embedded texture hashes are 64-bit
-and do **not** match joaat32 (0 matches across 5,000 sampled descriptors), so
-they remain numeric until a 64-bit name-hash algorithm is established.
+```bash
+# resolve a texture hash
+python3 -m gta6x names lookup c875c99d196b2f1c --index names.json
+# rope  [shaders]
+
+# annotate TTPF listings/exports with resolved names
+python3 -m gta6x --root <pkg> textures --pool vehicles --max 20 --names names.json
+```
+
+Measured on 1.0.2.1: **50,864 lower-case hashes**, **36,943 case-sensitive
+hashes**, **87,807 64-bit hashes**, from 47,642 common identifiers, 4,512
+shader identifiers and 3,212 path identifiers. Real 64-bit hits include `rope`,
+`temp`, `sclera`, `mapdetail_atlas`, `veh_detail_atlas_control` and
+`blank_black`.
+
+Remaining hash gaps: 128-bit `LSNS`/`LGID` IDs look like opaque reference IDs;
+29-bit audio stream ids use `joaat(normalized name) & 0x1FFFFFFF` but the names
+are not recovered; 15-bit collision surface ids still have no candidate
+function.
+
+## Animation archive
+
+`anim` indexes the animation archive's zlib streams and classifies the
+containers that are measurable today. It does **not** decode clips yet.
+
+```bash
+python3 -m gta6x --root <pkg> anim --limit 64 --max 20
+python3 -m gta6x --root <pkg> anim --full --out ./anim
+```
+
+Full `anim.rpf` scan (about 3.4 minutes in Python): **130,771 streams** and
+**2,327 names**:
+
+| Signature | Count | Meaning |
+|---|---:|---|
+| zero-prefix | 78,809 | zero-prefixed pages, often with pointers/name data |
+| raw | 25,273 | unclassified payloads |
+| page-directory | 22,904 | `0DRP` at +0x10 |
+| clip-stream | 1,788 | `u32 2/3` + `01 01 00 00` packed clips |
+| typehash | 1,379 | 16-byte type/chunk tables |
+| move | 324 | `MoVE` motion containers |
+| name-table | 274 | `pack:/…` path tables (`.clip`, `.anim`, `.motion`) |
+| psin | 18 | PSIN metadata containers |
+| skeleton-names | 1 | `SKEL_*` bone table |
+| rbf0 | 1 | rig-set metadata |
+
+`--out` writes `anim.json`, `anim-names.txt` and `anim-clips.txt` (game data
+stays local); `--clips` prints the `.clip` paths directly. Upstream's full
+census is 2,012 `.clip`, 274 `.anim` and 12 `.motion` paths. It also followed
+`breakout_quick_front` and `idle` to page-0 clip records: duration `f32` at
+record `+0x78`/`+0x68`, 0x48-byte track records with `type = 0xFFFF0001` and
+two hashes, plus 63/38-entry and 12/38-entry bone masks. The page→packed-stream
+join and keyframe values remain open; our browser does not guess them.
 
 ## Payload carving, catalogue and browser
 
@@ -480,16 +551,16 @@ above. These are observations, not format guarantees.
 | `info` | 108 files, 223,880,932,870 bytes (208.51 GiB), 22 RPF9 archives, 57 RDS5 pools, identity `RockstarGamesInc.28872443D20A7` v1.0.2.1 |
 | `headers` | 22/22 show magic `0x52504639`, stamp `0x047A00`, the 32-byte constant block, and an encrypted index |
 | `resources` | 57/57 TTPF pools validate: header, chunk table, sentinel, embedded ETPF 634 |
-| `textures` | 357,115 descriptors in all 57 pools; 357,107 (99.998%) with a supported layout; 305,095 (85.4%) fully exportable to DDS; 277,297 (77.6%) native PNG; backend PNG verified on a BC7 texture (256×64); 563 of 567 cube maps export; 8 unsupported descriptors |
+| `textures` | 357,115 descriptors: 127 2D arrays, 567 cubemaps, 3 3D volumes; corrected 11-bit depth / 7-bit format / mip formula; native zlib/raw complete **305,954** + **47,695** BC1-BCPack; 3,461 partial (other BCPack); 5 unsupported DXGI formats; native PNG includes BC7; cubemaps 567/567 and arrays 127/127 validated; volumes 3/3 export |
 | `textures` sample | 200 vehicle descriptors → 183 DDS exported; the rest BCPack-only or unmapped |
 | `movies` | full `movies.rpf`: 515 Bink2 titles, 8.83 GB, 3.94 h total; 65 s scan |
-| `awc` | 238 containers in the first 48 MiB of `audio.rpf`, zero overlaps; sampled containers end in zero padding; first 4 containers = 58 Opus 48 kHz streams; `--ogg-out` verified with `ffprobe` (Opus 48 kHz, 1.27 s first stream) |
+| `awc` | 238 containers in the first 48 MiB of `audio.rpf`; a 100 MiB scan found 559 containers / 8,683 streams / 53 music-channel Ogg files; music descriptor block/channel parsing and `--music-out` verified with `ffprobe` (Opus 48 kHz mono, 42.03 s) |
 | `psin` | 8 MiB `data.rpf`: 788 stream-local containers + 10 fragments, **788/788 checksums verified**; `structured` joins 821 complete; 817 bodies, 0–134 entries (avg 20.0), `0x70` fill |
 | `models` | `packs.rpf` index: 80,424 entries, 75,135 model resources, 27,288 recovered names, ~40–60 s; sample GLBs 480 / 972 / 96 triangles |
 | `shaders` | 9,089 validated DXBC shaders in the first 64 MiB of `shaders.rpf`; 2,174 in the first 16 MiB |
 | `structured` | `common.rpf`: 259 complete XML (79 joined); 16 MiB of `data.rpf`: 1,048 complete PSIN (28 joined) |
-| `textures --embedded` | native: 1,345 txd dictionaries / 3,155 textures in `textures.rpf`; sample dictionary 7 textures; backend: 7 DDS with 3–4 mips |
-| `selftest` | 50 checks, all passing (AWC, Ogg, RDS5, PSIN, XML, gfx10 1/2/4-byte/cube/array, DDS, PNG, shaders, txd, joaat); backend features are not self-tested |
+| `textures --embedded` | native: 1,345 txd dictionaries / 3,155 textures in `textures.rpf`; native sample dictionary 7 textures, 512x512 BC3 8 mips → 3 exported mips, 1024x1024 BC3 11 mips → 4 exported mips; backend comparison optional |
+| `selftest` | 57 checks, all passing (AWC, Ogg, RDS5, PSIN, XML, gfx10 1/2/4-byte/cube/array, DDS, PNG, shaders, txd, joaat/Murmur3, anim, BCPack, BC7); backend features are not self-tested |
 
 The local SQLite catalogue used during development holds 176,971 checksum-
 verified assets across 20 archives; that file is generated output, not part of
@@ -556,8 +627,9 @@ stream-split pages are fragments. See [PSIN metadata](#psin-metadata).
   package. `f2`, `f3`, `h1`/`h2`, `f4`, the `0x20..0x40` words and the key
   itself remain unresolved. `f1` is verified because the payload area is
   visible.
-* **BCPack** texture payloads require the Xbox hardware codec; no public
-  decoder exists, so those textures are skipped rather than approximated.
+* **BCPack** texture payloads: BC1 decodes natively from the vendored MIT
+  `bcpack-rs` reference; BC3/BC4/BC5 need the external helper; BC6H remains
+  unsupported.
 * **Texture tile coverage**: Gfx10 equations cover 1/2/4/8/16-byte elements
   (SW_4KB_S and SW_64KB_D); 8 descriptors remain unsupported. Cube maps export
   as six-face DDS (563 of 567).
@@ -583,7 +655,8 @@ gta6x/
   embedded.py   native txd (embedded texture dictionary) decoder and DDS export
   media.py      Bink1/Bink2/AWC detection, validation, carving, stream metadata
   audio.py      Opus packet extraction and lossless Ogg remux
-  bcn.py        BC1-BC5/RGBA8 decoders for PNG previews
+  bcn.py        BC1-BC7/RGBA8 decoders for PNG previews
+  bc7.py        native BC7 (BPTC) block decoder
   png.py        minimal PNG writer
   psin.py       PSIN containers, section bodies, stream-split fragments
   models.py     optional SixNG backend: index, list, glTF/GLB export
@@ -615,7 +688,7 @@ own package with the commands above:
 
 ## Development
 
-`python3 -m gta6x selftest` runs 50 synthetic checks covering the AWC header and
+`python3 -m gta6x selftest` runs 57 synthetic checks covering the AWC header and
 tag table, Opus packet records and Ogg pages, RDS5/TTPF validation, both PSIN
 grammars, joined XML recovery, Gfx10 1/2/4-byte/cube/array/DDS round-tripping, BC1/PNG
 previews, joaat hashes, the shader wrapper/DXBC validator and embedded txd
@@ -630,7 +703,8 @@ documented rule was checked across the archives named in the tables above.
 ## License
 
 Released under the [MIT License](LICENSE). Copyright (c) 2026 the gta6x
-contributors.
+contributors. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the
+vendored BCPack decoder and tables (MIT/Apache-2.0, Microsoft silicon-rans).
 
 This repository contains the analysis tool only: no game data, keys or
 executables. The tool reads a package you already own and writes only to paths
@@ -642,4 +716,12 @@ you choose.
   model decoding and glTF export (GPL-3.0, not bundled).
 * [rpf9-explorer](https://github.com/breadbbbb/rpf9-explorer) — RPF9/TTPF, AWC,
   PSIN and texture-layout research used as a cross-check.
+* [Leonida](https://github.com/ItsNotRexed/Leonida) — Murmur3 64-bit name
+  hashes, audio-config and animation research; optional external BCPack helper
+  for BC3/BC4/BC5 (GPL-3.0, not bundled).
+* [bcpack-rs](https://github.com/Ahmet-Dedeler/bcpack-rs) — MIT/Apache-2.0
+  clean-room BCPack entropy/BC1 decoder; vendored under `gta6x/bcpack*.py` with
+  notices (see `THIRD_PARTY_NOTICES.md`).
+* [bc7decomp](https://github.com/richgel999/bc7enc_rdo) — MIT/public-domain BC7
+  decoder (Richard Geldreich, Jr.); ported under `gta6x/bc7*.py`.
 * The RPF format references maintained by the GTA modding community.

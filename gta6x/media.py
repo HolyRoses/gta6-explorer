@@ -234,7 +234,8 @@ def validate_awc(buf: bytes) -> dict | None:
         packed = _u32(buf, info_at + i * 4)
         entry: dict = {"index": i, "id": ids[i], "tags": packed >> 29,
                        "codec": None, "sample_rate": None, "channels": None,
-                       "samples": None, "data_offset": None, "data_bytes": 0}
+                       "samples": None, "data_offset": None, "data_bytes": 0,
+                       "music": None}
         fmt = None
         for _ in range(packed >> 29):
             tag = _u64(buf, cursor)
@@ -253,6 +254,7 @@ def validate_awc(buf: bytes) -> dict | None:
                 fmt = (rel, size)
             elif tag_type == AWC_TAG_MUSIC:
                 entry["music_offset"] = rel
+                entry["music_size"] = size
             extent = max(extent, rel + size)
         if fmt and fmt[0] + 32 <= len(buf):
             at = fmt[0]
@@ -265,6 +267,40 @@ def validate_awc(buf: bytes) -> dict | None:
                               "channels": channels, "samples": samples,
                               "duration": round(samples / rate, 3),
                               "codec_name": AWC_CODECS.get(codec, f"0x{codec:02x}")})
+        music_at = entry.get("music_offset")
+        music_size = entry.get("music_size") or 0
+        if music_at is not None and 12 <= music_size and music_at + 12 <= len(buf):
+            blocks = _u32(buf, music_at)
+            chunk_bytes = _u32(buf, music_at + 4)
+            music_channels = _u32(buf, music_at + 8)
+            parsed = {"blocks": blocks, "chunk_bytes": chunk_bytes,
+                      "channels": []}
+            if (0 < blocks <= 131072 and 2048 <= chunk_bytes <= 16 * 1024 * 1024
+                    and 0 < music_channels <= 32
+                    and music_at + 12 + music_channels * 16 <= len(buf)
+                    and music_at + music_size <= len(buf)):
+                for channel in range(music_channels):
+                    at = music_at + 12 + channel * 16
+                    channel_id = _u32(buf, at) & 0x1FFFFFFF
+                    samples = _u32(buf, at + 4)
+                    rate = _u16(buf, at + 10)
+                    codec = buf[at + 12]
+                    parsed["channels"].append({
+                        "index": channel, "id": channel_id,
+                        "samples": samples, "sample_rate": rate,
+                        "codec": codec,
+                        "codec_name": AWC_CODECS.get(codec, f"0x{codec:02x}"),
+                        "duration": round(samples / rate, 3) if rate else None,
+                    })
+                entry["music"] = parsed
+                durations = [c["duration"] for c in parsed["channels"]
+                             if c.get("duration")]
+                entry["codec_name"] = "music"
+                if durations:
+                    entry["duration"] = max(durations)
+            else:
+                parsed["error"] = "invalid music block dimensions"
+                entry["music"] = parsed
         stream_list.append(entry)
     if extent > MAX_AWC_SIZE:
         return None

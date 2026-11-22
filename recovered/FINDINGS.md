@@ -6,7 +6,7 @@ payloads are zlib streams, media carriers are stored in the clear, and texture
 pools carry their own indexes.
 
 All numbers below were measured on this package with the parsers in `gta6x/`.
-They are observations, not format guarantees; the tool's `selftest` (50 checks)
+They are observations, not format guarantees; the tool's `selftest` (57 checks)
 covers the structural rules without game data.
 
 ## Package profile
@@ -27,14 +27,15 @@ covers the structural rules without game data.
 | Zlib payloads | 176,971 checksum-verified assets in one catalogue sweep; 4.12 GB packed → 26.34 GB inflated | `catalog --db`, `get` |
 | Complete XML | `common.rpf`: 259 documents, **79 joined** from split pages | `structured` |
 | Complete PSIN | 16 MiB of `data.rpf`: 1,048 containers, **28 joined** | `structured` |
-| Streamed textures | 357,115 descriptors, **305,095 exportable** to DDS (85.4%, incl. 563 cube maps); **277,297** native PNG (77.6%); backend PNG covers BC6H/BC7 | `textures --png`, `--via sixng` |
-| Embedded txd textures | **1,345 dictionaries / 3,155 textures** native; full mip chains via backend | `textures --embedded` |
+| Streamed textures | 357,115 descriptors: **305,954 zlib/raw complete** (+47,695 BC1 BCPack); 127 arrays, 567 cubemaps, 3 volumes; native PNG covers BC1-BC5/BC7 (zlib/raw mips); backend only for BC6H | `textures --png`, `--via sixng` |
+| Embedded txd textures | **1,345 dictionaries / 3,155 textures** native; leading mip chains native (512² BC3 → 3 mips, 1024² BC3 → 4) | `textures --embedded` |
 | Movies | 515 Bink2 titles in `movies.rpf`: 8.83 GB, 3.94 h total | `movies` |
 | AWC audio | 238 containers in the first 48 MiB; per-stream Opus metadata, native payloads and Ogg remux | `awc`, `scan` |
 | DXBC shaders | **9,089** validated in the first 64 MiB of `shaders.rpf` | `shaders` |
 | Models | `packs.rpf`: 80,424 entries, **75,135 model resources**, 27,288 named → glTF/GLB | `models` (SixNG backend) |
+| Animation | 130,771 streams / 2,327 names; `0DRP`, `MoVE`, 1,788 packed clips, `RBF0`; clips not decoded | `anim` |
 | World data | placements, collision, navmesh, paths, lights, interiors, vehicles, meta/PSO, shader census | `world` (SixNG backend) |
-| Name hashes | 50,864 joaat hashes / 36,943 case-sensitive, built from common + shaders + paths | `names` |
+| Name hashes | 50,864 joaat hashes / 36,943 case-sensitive / 87,807 Murmur3-64 hashes | `names` |
 
 The catalogue sweep is not exhaustive: per-archive limits vary, and only
 `common.rpf`, `script.rpf`, `textures.rpf`, `shaders.rpf` and the smaller archives
@@ -140,7 +141,7 @@ inflates exactly to its virtual size.
 `0xFF02`, `0xFF25`), u32 stream count, u32 header size, optional index/extra
 tables, a per-stream u32 table and 64-bit tags `{type:8, size:28, rel:28}`.
 Tag types `0x76`/`0x55`/`0x48` are format/data/music and give the exact
-container length. The first four containers carry 58 Opus 48 kHz streams. Opus packets are `[u16 length][packet]` records inside 2 KiB blocks; `awc --ogg-out` remuxes them losslessly into Ogg Opus, which `ffprobe` reads as Opus 48 kHz with the expected duration.
+container length. The first four containers carry 58 Opus 48 kHz streams. Opus packets are `[u16 length][packet]` records inside 2 KiB blocks; `awc --ogg-out` remuxes them losslessly into Ogg Opus, which `ffprobe` reads as Opus 48 kHz with the expected duration. Music banks use a `0x48` descriptor (block count, chunk size, 16-byte channel records); `awc --music-out` walks per-block 24-byte channel tables and writes one Ogg per Opus channel. A 100 MiB scan found 559 containers / 8,683 streams / 53 music channels.
 
 ### PSIN
 
@@ -179,28 +180,33 @@ smaller mips and is tiled in 16×16-element blocks.
 
 ## Open questions
 
-* **RPF9 index key.** The table of contents remains AES ciphertext. `f2`, `f3`,
-  `h1`/`h2`, `f4`, the `0x20..0x40` words and the key itself are unresolved;
-  archive members cannot be listed from the index, only carved.
-* **BCPack.** Textures whose mips live in BCPack chunks have no public decoder
-  (Xbox hardware texture codec) and are skipped.
+* **RPF9 index key.** Deferred per project direction; archive members are
+  obtained by carving, not through the TOC.
+* **BCPack.** BC1 is decoded natively (`--bcpack`, vendored MIT `bcpack-rs`);
+  BC3/BC4/BC5 use the external helper; BC6H/BC7 BCPack rebuilders remain
+  unavailable.
+* **Animation.** The archive/containers are indexed and named; `anim-clips.txt`
+  lists `.clip` paths. Upstream followed two clips to page-0 records (duration
+  and 0x48-byte track arrays), but the page→packed-stream join and keyframes
+  are not decoded.
 * **Native model decoding.** Geometry is exported through the optional SixNG
   backend; no native mesh/meshlet decoder is included.
-* **Embedded mip tail.** The native txd path exports mip 0 only; small mips in
-  the packed tail are not untiled. The backend exports full chains.
-* **Texture layouts.** Cube maps use the S4K cube-copy layout: **563 of 567**
-  export as six-face DDS; four descriptors remain unsupported. Gfx10
-  equations now cover 1/2/4/8/16-byte elements (SW_4KB_S and SW_64KB_D); only
-  eight descriptors remain unsupported. Native PNG previews cover
-  BC1/BC2/BC3/BC4/BC5 and RGBA8
-  (77.6%); BC6H/BC7 (21.8%) stay DDS-only natively but are covered by the
+* **Embedded mip tail.** The native txd path exports the leading mip chain; small mips in
+  the packed tail are not untiled. The backend remains optional for comparison.
+* **Texture layouts.** Cubemaps use six slice-major S4K faces: **567/567**
+  export as six-face DDS; 127/127 2D arrays and 3/3 3D volumes are laid out
+  natively. Gfx10 equations cover 1/2/4/8/16-byte elements; 5 descriptors use
+  unsupported DXGI formats. Native PNG previews cover
+  BC1-BC5/BC7 and RGBA8; BC6H stays DDS-only natively but is covered by the
   backend `textures --via sixng` route.
-* **64-bit texture hashes.** TTPF/embedded texture hashes do not match 32-bit
-  joaat (0/5,000 sampled), so the name dictionary cannot resolve them yet; the
-  64-bit name-hash algorithm is unknown.
-* **Audio decode.** Streams are catalogued, native payloads written, and Opus
-  is remuxed losslessly to Ogg. PCM/WAV decoding (and Opus/XMA2 transcoding)
-  is not implemented in `gta6x`.
+* **64-bit texture hashes.** Solved: low 64 bits of MurmurHash3 x64 128 (seed
+  0) over the exact UTF-8 name. The dictionary resolves 19 real texture names
+  (13 recovered + 6 embedded txd). Remaining hash gaps are 128-bit `LSNS`/
+  `LGID`, 29-bit audio ids and 15-bit surface ids.
+* **Audio decode.** Streams and music channels are catalogued; native
+  payloads are written and Opus (including per-channel music) is remuxed
+  losslessly to Ogg. PCM/WAV decoding and XMA2 transcoding are not implemented
+  in `gta6x`.
 * **Shader semantics.** Extraction stops at valid DXBC containers; there is no
   disassembly or translation.
 * **World data.** Placements, collision, navmesh, paths, lights, interiors,

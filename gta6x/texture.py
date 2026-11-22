@@ -7,7 +7,8 @@ module turns those descriptors into:
 * a layout (:mod:`gta6x.gfx10`) that maps (mip, slice, x, y) to a byte offset in
   the pool's *virtual* space,
 * a virtual reader that reassembles a texture from the pool's stored/zlib
-  chunks (BCPack chunks have no public decoder and are reported as unavailable),
+  chunks (BC1 BCPack decodes natively with ``decode_bcpack``; other BCPack
+  codecs are reported as unavailable),
 * a standard DDS file writer, so the result opens in any DDS viewer.
 
 Only formats with 8- or 16-byte elements (BC1-BC7) have a validated Gfx10 bit
@@ -115,8 +116,9 @@ def layout_for(texture: rds5.TtpTexture) -> gfx10.Layout | None:
                                   texture.mips, element_bytes)
         if layout is None:
             return None
-        return layout.with_cube_copies(texture.slices, texture.tile_mode - 8,
-                                       texture.cube_base)
+        # The final cubemap snapshot is six complete slice-major faces, not
+        # `tile_mode - 8` interleaved copies; cube_base is the final chunk.
+        return layout.with_cube_copies(texture.slices, 1, texture.cube_base)
     swizzle = gfx10.TILE_MODES.get(texture.tile_mode)
     if swizzle is None:
         return None
@@ -181,12 +183,13 @@ def coverage(index: rds5.TtpIndex, virtual: int, length: int,
 
 
 def read_virtual(path, index: rds5.TtpIndex, virtual: int, length: int,
-                 fh=None, starts: list[int] | None = None) -> tuple[bytes, int, int]:
+                 fh=None, starts: list[int] | None = None,
+                 decode_bcpack: bool = False) -> tuple[bytes, int, int]:
     """Assemble ``length`` bytes of virtual space.
 
-    Returns ``(data, bcpack_bytes, uncovered_bytes)``.  BCPack chunks and gaps
-    between chunks are left zero and counted, so callers can decide whether a
-    texture is exportable.
+    Returns ``(data, bcpack_bytes, uncovered_bytes)``. With ``decode_bcpack``
+    native BC1 BCPack chunks are expanded; other BCPack codecs and gaps are
+    left zero and counted.
     """
     out = bytearray(length)
     if length <= 0:
@@ -211,6 +214,19 @@ def read_virtual(path, index: rds5.TtpIndex, virtual: int, length: int,
             if hi <= lo:
                 continue
             if chunk.codec not in (rds5.CODEC_STORED, rds5.CODEC_ZLIB):
+                if decode_bcpack and chunk.codec == 1:
+                    from . import bcpack as bcpack_mod
+                    fh.seek(chunk.source_offset)
+                    packed = fh.read(chunk.packed_size)
+                    try:
+                        raw = bcpack_mod.decode_bc1(packed, chunk.size // 8)
+                    except (ValueError, IndexError):
+                        bcpack += hi - lo
+                        continue
+                    start = lo - chunk.virtual_offset
+                    out[lo - virtual:hi - virtual] = raw[start:start + hi - lo]
+                    covered += hi - lo
+                    continue
                 bcpack += hi - lo
                 continue
             fh.seek(chunk.source_offset)
@@ -269,6 +285,39 @@ def dds_header(width: int, height: int, mips: int, slices: int,
     return bytes(out)
 
 
+def dds_header_volume(texture: rds5.TtpTexture) -> bytes:
+    """DDS header (148 bytes) for an uncompressed 3D texture."""
+    _name, element_bytes, _block_pixels, is_bc = format_info(texture.dxgi_format)
+    if element_bytes == 0 or is_bc:
+        raise ValueError("unsupported volume format")
+    flags = 0x2100F | 0x800000     # DDSD_DEPTH
+    pitch = texture.width * element_bytes
+    caps = 0x1000 | 0x8
+    out = bytearray()
+    out += b"DDS " + struct.pack("<I", 124)
+    out += struct.pack("<I", flags)
+    out += struct.pack("<I", texture.height) + struct.pack("<I", texture.width)
+    out += struct.pack("<I", pitch)
+    out += struct.pack("<I", texture.slices)       # depth
+    out += struct.pack("<I", 1)                    # one mip
+    out += b"\x00" * 44
+    out += struct.pack("<I", 32) + struct.pack("<I", 4)
+    out += b"DX10" + b"\x00" * 20
+    out += struct.pack("<I", caps)
+    out += struct.pack("<I", 0x200000)              # DDSCAPS2_VOLUME
+    out += b"\x00" * 12
+    out += struct.pack("<I", texture.dxgi_format)
+    out += struct.pack("<I", 4)                     # TEXTURE3D
+    out += struct.pack("<I", 0)
+    out += struct.pack("<I", 1)                     # array size
+    out += struct.pack("<I", 0)
+    return bytes(out)
+
+
+def dds_bytes_volume(texture: rds5.TtpTexture, layout, data: bytes) -> bytes:
+    return dds_header_volume(texture) + layout.untile(data)
+
+
 def dds_bytes(texture: rds5.TtpTexture, layout: gfx10.Layout,
               data: bytes) -> bytes:
     """Build a DDS file (header + untiled mips) for one TTPF texture."""
@@ -284,13 +333,32 @@ def dds_bytes(texture: rds5.TtpTexture, layout: gfx10.Layout,
 
 def export_texture(path, index: rds5.TtpIndex, texture: rds5.TtpTexture,
                    out_dir: str, fh=None, starts: list[int] | None = None,
-                   png: bool = False) -> dict:
+                   png: bool = False, decode_bcpack: bool = False) -> dict:
     """Export one texture as ``<hash>.dds``; returns a manifest record."""
     result = {"file": None, "hash": f"{texture.hash:016x}",
               "width": texture.width, "height": texture.height,
               "format": format_name(texture.dxgi_format),
               "mips": texture.mips, "slices": texture.slices, "bytes": 0,
               "skipped": None}
+    if getattr(texture, "dimension", 1) == 3:
+        from . import volume
+        vol = volume.layout_for(texture)
+        if vol is None:
+            result["skipped"] = "unsupported 3D volume layout"
+            return result
+        data, bcpack, uncovered = read_virtual(
+            path, index, texture.virtual_offset, vol.total, fh=fh, starts=starts,
+            decode_bcpack=decode_bcpack)
+        if bcpack or uncovered:
+            result["skipped"] = f"{bcpack + uncovered} bytes missing in volume"
+            return result
+        blob = dds_bytes_volume(texture, vol, data)
+        dest = os.path.join(out_dir, f"{texture.hash:016x}.dds")
+        with open(dest, "wb") as out:
+            out.write(blob)
+        result.update({"file": dest, "bytes": len(blob), "volume": True,
+                       "depth": texture.slices})
+        return result
     layout = layout_for(texture)
     if layout is None:
         result["skipped"] = "unsupported tile mode or element size"
@@ -299,7 +367,8 @@ def export_texture(path, index: rds5.TtpIndex, texture: rds5.TtpTexture,
         result["skipped"] = "texture exceeds the 64 MiB export limit"
         return result
     data, bcpack, uncovered = read_virtual(
-        path, index, texture.virtual_offset, layout.total, fh=fh, starts=starts)
+        path, index, texture.virtual_offset, layout.total, fh=fh, starts=starts,
+        decode_bcpack=decode_bcpack)
     if bcpack:
         result["skipped"] = f"{bcpack} bytes in BCPack chunks"
         return result

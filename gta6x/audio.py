@@ -21,7 +21,7 @@ RATE = 48000
 SERIAL = 0x67746136       # "gta6"
 
 __all__ = ["OpusStream", "packets", "packet_samples", "packet_channels",
-           "ogg_opus", "extract_ogg"]
+           "ogg_opus", "extract_ogg", "music_channels", "extract_music_ogg"]
 
 #: CRC-32 used by Ogg pages (polynomial 0x04C11DB7, no reflection).
 _CRC_TABLE: list[int] = []
@@ -131,6 +131,67 @@ def ogg_opus(packet_list: list[bytes], frames: int,
         value = min(granule, end) if (last and end) else granule
         _page(out, 2 + index, value, 0x04 if last else 0, packet)
     return bytes(out)
+
+
+def music_channels(bank: bytes, stream: dict) -> list[dict]:
+    """Per-channel subblock spans of an AWC music descriptor.
+
+    The descriptor's channel records address 2 KiB subblocks inside each
+    ``chunk_bytes`` block; each channel has its own count and start offset.
+    Returns one dict per channel with ``spans`` (offset, length, skip).
+    """
+    music = stream.get("music")
+    data_at = stream.get("data_offset")
+    data_size = stream.get("data_bytes") or 0
+    if not music or data_at is None or data_size <= 0:
+        return []
+    blocks = music.get("blocks") or 0
+    chunk = music.get("chunk_bytes") or 0
+    channels = music.get("channels") or []
+    if not (blocks and chunk and channels):
+        return []
+    out = [{"index": entry["index"], "id": entry.get("id"),
+            "samples": entry.get("samples") or 0,
+            "sample_rate": entry.get("sample_rate") or 0,
+            "codec": entry.get("codec"), "spans": []} for entry in channels]
+    for block in range(blocks):
+        at = data_at + block * chunk
+        remaining = data_size - block * chunk
+        block_size = min(chunk, remaining)
+        if block_size < len(channels) * 24:
+            break
+        counts = []
+        skips = []
+        for channel in range(len(channels)):
+            record = at + channel * 24
+            counts.append(struct.unpack_from("<I", bank, record + 4)[0])
+            skips.append(struct.unpack_from("<I", bank, record + 8)[0])
+        total_subs = sum(counts)
+        header = ((len(channels) * 24 + total_subs * 4 + 2047) // 2048) * 2048
+        if header > block_size:
+            continue
+        before = 0
+        for channel, count in enumerate(counts):
+            if count and header + (before + count) * 2048 <= block_size:
+                out[channel]["spans"].append(
+                    (at + header + before * 2048, count * 2048, skips[channel]))
+            before += count
+    return out
+
+
+def extract_music_ogg(bank: bytes, stream: dict, channel_index: int = 0,
+                      title: str = "gta6x") -> bytes:
+    """Ogg Opus for one channel of an AWC music descriptor."""
+    channels = music_channels(bank, stream)
+    if channel_index < 0 or channel_index >= len(channels):
+        raise ValueError("music channel out of range")
+    channel = channels[channel_index]
+    raw = b"".join(bank[at:at + length] for at, length, _skip in channel["spans"])
+    packets_ = packets(raw)
+    if not packets_:
+        raise ValueError("no Opus packets")
+    frames = channel["samples"] or 0
+    return ogg_opus(packets_, frames, title=title)
 
 
 def extract_ogg(bank: bytes, stream: dict, title: str = "gta6x") -> bytes:

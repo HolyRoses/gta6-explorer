@@ -188,6 +188,8 @@ class TtpTexture:
     tile_mode: int
     slices: int
     cube_base: int | None = None
+    dimension: int = 1
+    non_tail: int = 0
 
     @property
     def virtual_offset(self) -> int:
@@ -212,6 +214,8 @@ class TtpTexture:
             "dxgi_format": self.dxgi_format,
             "tile_mode": self.tile_mode,
             "slices": self.slices,
+            "dimension": self.dimension,
+            "non_tail": self.non_tail,
             "virtual_offset": self.virtual_offset,
             "cube": self.is_cube,
             "cube_base": self.cube_base,
@@ -333,15 +337,19 @@ def read_index(path: str | os.PathLike) -> TtpIndex:
                 width = (d0 & 0x3FFF) + 1
                 height = ((d0 >> 14) & 0x3FFF) + 1
                 tile_mode = (d1 >> 24) & 0xF
-                mips = max(1, d0 >> 28) if tile_mode in (9, 10, 11, 12) else (d0 >> 28) + 1
-                slices = ((d1 >> 10) & 0x3FF) + 1
+                non_tail = d1 & 7
+                mips = max(1, (d0 >> 28) + non_tail)
+                slices = ((d1 >> 10) & 0x7FF) + 1
+                dimension = (d1 >> 21) & 3
                 if not (1 <= width <= 16384 and 1 <= height <= 16384
-                        and 1 <= mips <= 32 and 1 <= slices <= 2048):
+                        and 1 <= mips <= 32 and 1 <= slices <= 2048
+                        and 1 <= dimension <= 3):
                     problems.append(f"texture {i} has out-of-range dimensions")
                     continue
                 textures.append(TtpTexture(
                     i, texture_hash, d0, d1, loc, width, height, mips,
-                    (d1 >> 3) & 0x7F, tile_mode, slices))
+                    (d1 >> 3) & 0x7F, tile_mode, slices,
+                    dimension=dimension, non_tail=non_tail))
 
     chunks: list[TtpChunk] = []
     previous_source = previous_virtual = -1

@@ -1,7 +1,7 @@
-"""BCn decoders for PNG previews (BC1, BC2, BC3, BC4, BC5 and RGBA8).
+"""BCn decoders for PNG previews (BC1-BC5, BC7 and RGBA8).
 
-Only formats that decode reliably are supported; BC6H/BC7 return ``None`` and
-stay DDS-only. Output is tightly packed RGBA8, ready for :mod:`gta6x.png`.
+BC6H still returns ``None`` and stays DDS-only. Output is tightly packed RGBA8,
+ready for :mod:`gta6x.png`.
 """
 
 from __future__ import annotations
@@ -144,7 +144,7 @@ def decode_rgba(dxgi_format: int, data: bytes, width: int, height: int) -> bytes
         return None
     block_sizes = {70: 8, 71: 8, 72: 8, 73: 16, 74: 16, 75: 16,
                    76: 16, 77: 16, 78: 16, 79: 8, 80: 8, 81: 8,
-                   82: 16, 83: 16, 84: 16}
+                   82: 16, 83: 16, 84: 16, 97: 16, 98: 16, 99: 16}
     size = block_sizes.get(dxgi_format)
     if size is not None and len(data) < _need(width, height, size):
         return None
@@ -158,6 +158,9 @@ def decode_rgba(dxgi_format: int, data: bytes, width: int, height: int) -> bytes
         return _bc4(data, width, height)
     if dxgi_format in (82, 83, 84):
         return _bc5(data, width, height)
+    if dxgi_format in (97, 98, 99):
+        from .bc7 import decode_bc7
+        return decode_bc7(data, width, height)
     if dxgi_format in (28, 29, 30, 31, 32):
         return bytes(data[:width * height * 4]).ljust(width * height * 4, b"\x00")
     if dxgi_format in (87, 88, 90, 91):
