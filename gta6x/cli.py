@@ -770,13 +770,17 @@ def cmd_structured(args) -> int:
 def cmd_psin(args) -> int:
     """Parse PSIN containers found in an archive's zlib streams.
 
-    Two dialects appear in the package: tagged sections (PSIN/LSCH/LENM/LSNS/
-    LGID/LRSC/CHKS) and the older page + 0xAA-fill entry table.  Both are
-    reported; the summary keeps them apart.
+    Report complete containers, their bodies and stream-split fragments.
+    Schema mode joins recoverable pages and inspects checksum-verified LSCH.
     """
     targets = _scan_targets(args)
     if not targets:
         eprint("no archive matched")
+        return 1
+    if args.schema or args.out or args.instances:
+        return _cmd_psin_schema(args, targets)
+    if args.names:
+        eprint("--names requires --schema, --instances or --out")
         return 1
     limit = None if args.full else args.limit * 1024 * 1024
     items = []
@@ -833,6 +837,81 @@ def cmd_psin(args) -> int:
     print(table(rows, ["bytes", "kind", "declared/sections", "missing/fieldA",
                        "entries", "checksum/payload@", "chks"], align="rlrrrrl"))
     return 0
+
+
+def _cmd_psin_schema(args, targets: list[str]) -> int:
+    from . import names as names_mod, psin_schema
+
+    if args.max < 0 or (not args.full and args.limit < 0):
+        eprint("--max and --limit must be nonnegative")
+        return 1
+    if args.instances and (args.max_nodes < 1 or not 1 <= args.max_depth <= 64):
+        eprint('--max-nodes must be positive and --max-depth must be 1..64')
+        return 1
+    if args.out:
+        for source in targets + ([args.names] if args.names else []):
+            if (os.path.realpath(args.out) == os.path.realpath(source)
+                    or (os.path.exists(args.out) and os.path.exists(source)
+                        and os.path.samefile(args.out, source))):
+                eprint("schema output must not overwrite an input or name dictionary")
+                return 1
+    dictionary = None
+    if args.names:
+        try:
+            dictionary = names_mod.load(args.names)
+            if not isinstance(dictionary, dict) or any(
+                    not isinstance(dictionary.get(key, {}), dict)
+                    for key in ('hashes', 'exact')):
+                raise ValueError('name dictionary must contain hash objects')
+        except (OSError, ValueError) as exc:
+            eprint(f"cannot read names dictionary: {exc}")
+            return 1
+    report = psin_schema.inspect_sources(
+        targets, limit=None if args.full else args.limit * 1024 * 1024,
+        dictionary=dictionary, with_instances=args.instances,
+        max_nodes=args.max_nodes, max_depth=args.max_depth)
+    if args.out:
+        try:
+            with open(args.out, 'w', encoding='utf-8') as handle:
+                json.dump(report, handle, indent=2)
+                handle.write('\n')
+        except OSError as exc:
+            eprint(f"cannot write schema JSON: {exc}")
+            return 1
+    if args.json:
+        print(json.dumps(report, indent=2))
+    else:
+        info = report['summary']
+        print(f"verified {info['resources_verified']:,}   refused {info['resources_refused']:,}"
+              f"   unique schemas {info['unique_schemas']:,}"
+              f"   structures {info['structures']:,}   field descriptors {info['field_descriptors']:,}"
+              f"   enums {info['enum_definitions']:,}   enum members {info['enum_members']:,}")
+        rows = []
+        for schema in report['schemas']:
+            for structure in schema['structures']:
+                if len(rows) >= args.max:
+                    break
+                matches = ', '.join(dict.fromkeys(m['name'] for m in structure['name_matches']))
+                rows.append([schema['id'][:12], structure['hash'], matches or '-',
+                             str(structure['byte_size']), str(structure['field_count'])])
+            if len(rows) >= args.max:
+                break
+        print(table(rows, ['schema', 'structure hash/id', 'name candidates', 'bytes', 'descriptors']))
+        if args.instances:
+            print(f"instance resources: complete {info['instance_resources_complete']:,}"
+                  f"   partial {info['instance_resources_partial']:,}"
+                  f"   refused {info['instance_resources_refused']:,}"
+                  f"   values decoded {info['instance_values_decoded']:,}")
+        print(report['interpretation'])
+        for resource in report['resources']:
+            if resource['status'] == 'refused':
+                eprint(f"{resource['file']}:{resource.get('offset', 0):#x}: {resource['error']}")
+            elif resource.get('instances', {}).get('status') == 'refused':
+                eprint(f"{resource['file']}:{resource.get('offset', 0):#x}: instances: {resource['instances']['reason']}")
+        if args.out:
+            print(f"schema JSON: {args.out}")
+    return 1 if (report['summary']['resources_refused']
+                 or report['summary'].get('instance_resources_refused', 0)) else 0
 
 
 def cmd_get(args) -> int:
@@ -1452,8 +1531,9 @@ def _cmd_embedded_textures(args) -> int:
                     break
                 if args.out:
                     try:
-                        linear = embedded_mod.mip0(tex, resource.gfx)
                         blob, mip_count = embedded_mod.dds_mips(tex, resource.gfx)
+                        if args.png:
+                            linear = embedded_mod.mip0(tex, resource.gfx)
                     except ValueError as exc:
                         reason = str(exc)
                         skipped[reason] = skipped.get(reason, 0) + 1
@@ -1481,10 +1561,15 @@ def _cmd_embedded_textures(args) -> int:
                             record["png"] = png_dest
                     records.append(record)
                 else:
+                    try:
+                        embedded_mod.exportable_mips(tex)
+                        status = "ok"
+                    except ValueError as exc:
+                        status = str(exc)
                     rows.append([os.path.basename(path)[:20], resource.name[:30],
                                  tex.name[:30], f"{tex.width}x{tex.height}",
                                  embedded_mod.format_name(tex.dxgi_format),
-                                 str(tex.mips), "ok"])
+                                 str(tex.mips), status])
             if done:
                 break
         if done:
@@ -2085,16 +2170,18 @@ def cmd_selftest(args) -> int:
     # Embedded txd: one system page with one descriptor, one graphics page.
     name_off = 0x80
     system = bytearray(0x98)
+    _s.pack_into("<I", system, 0x40 + 8, 512)  # 4096 bytes / BC1 element
     _s.pack_into("<H", system, 0x40 + 0x0E, 8)
     _s.pack_into("<Q", system, 0x40 + 0x18, 0x60000000)
     _s.pack_into("<H", system, 0x40 + 0x38, 4)
     _s.pack_into("<H", system, 0x40 + 0x3A, 4)
     _s.pack_into("<H", system, 0x40 + 0x3C, 1)
     system[0x40 + 0x3F] = 71
+    _s.pack_into("<H", system, 0x40 + 0x40, 5)  # public ADDR_SW_4KB_S
     system[0x40 + 0x42] = 1
     _s.pack_into("<Q", system, 0x40 + 0x30, 0x50000000 | name_off)
     system[name_off + 8:name_off + 8 + 8] = b"tex_test"
-    graphics = bytes(range(256)) * 8
+    graphics = bytes(range(256)) * 16
     zs = _zl.compress(bytes(system))
     zg = _zl.compress(graphics)
     pad = (-len(zs)) % 16
@@ -2116,6 +2203,25 @@ def cmd_selftest(args) -> int:
               and blob[:4] == b"DDS " and _s.unpack_from("<I", blob, 128)[0] == 71)
     finally:
         os.unlink(txd_path)
+
+    # Authored BC3 tail slot addresses, independent of Layout's placement.
+    tail_tex = _embedded.EmbeddedTexture("tail_test", 32, 32, 1, 6, 77,
+                                         0, 256, 0)
+    tail_gfx = bytearray(4096)
+    for m, at in enumerate((0x800, 0x600, 0x500, 0x400, 0x300, 0x200)):
+        tail_gfx[at:at + 16] = bytes([m + 1]) * 16
+    tail_dds, tail_count = _embedded.dds_mips(tail_tex, bytes(tail_gfx))
+    check("embedded full mip chain",
+          tail_count == 6 and len(tail_dds) == 148 + (64 + 16 + 4 + 1 + 1 + 1) * 16)
+    check("embedded tail slot addresses",
+          all(_embedded.mip_linear(tail_tex, bytes(tail_gfx), m)[:16]
+              == bytes([m + 1]) * 16 for m in range(6)))
+    try:
+        _embedded.dds_mips(tail_tex, bytes(tail_gfx[:-1]))
+        tail_rejected = False
+    except ValueError:
+        tail_rejected = True
+    check("embedded truncation refused", tail_rejected)
 
     # Opus packet records and Ogg remux.
     block = _s.pack("<H", 1) + b"\x00" + _s.pack("<H", 2) + b"\x01\x02"
@@ -2192,6 +2298,108 @@ def cmd_selftest(args) -> int:
     _s.pack_into(">I", parts, 68, checksum)
     parsed = _psin.parse_container(bytes(parts))
     check("psin checksum verifies", parsed is not None and parsed.checksum_verified)
+
+    # Authored LSCH structure table followed by two field descriptors.
+    from . import psin_schema as _schema
+    schema_payload = _s.pack('<4I8sIHH', 0x11223344, 9, 10, 11,
+                             b'\xaa' * 8, 8, 0, 2)
+    schema_payload += _s.pack('<8I', 0x12345678, 0, 0x432100fe, 12,
+                              0x87654321, 4, 0xffff, 13)
+    schema_section = b'LSCH' + _s.pack('>I', len(schema_payload) + 8) + schema_payload
+    schema = _schema.parse_lsch(schema_section)
+    check("LSCH structure and field grouping",
+          len(schema.structures) == 1 and len(schema.structures[0].fields) == 2
+          and schema.structures[0].fields[1].data_offset == 4)
+    check("LSCH unknown type preserved",
+          schema.structures[0].fields[0].type_word == 0x432100fe
+          and schema.as_dict()['structures'][0]['fields'][0]['type_name'] is None)
+    broken_schema = bytearray(schema_section)
+    _s.pack_into('<I', broken_schema, 60, 8)  # second field starts past size 8
+    try:
+        _schema.parse_lsch(bytes(broken_schema))
+        schema_refused = False
+    except ValueError:
+        schema_refused = True
+    check("LSCH field bounds refused", schema_refused)
+    # The verified PSIN fixture above carries an empty LSCH section.
+    schema_verified = _schema.parse_schema(bytes(parts)).structures == []
+    parts[68] ^= 1
+    try:
+        _schema.parse_schema(bytes(parts))
+        checksum_refused = False
+    except ValueError:
+        checksum_refused = True
+    check("PSIN schema checksum gate", schema_verified and checksum_refused)
+
+    # Authored LENM header and full-width values; no external enum table.
+    enum_payload = _s.pack('<II8sII', 7, 9, b'\xee' * 8, 2, 0)
+    enum_payload += _s.pack('<QIIQII', 0, 0x12345678, 0,
+                            (1 << 64) - 1, 0x87654321, 0)
+    enum_section = b'LENM' + _s.pack('>I', len(enum_payload) + 8) + enum_payload
+    enums = _schema.parse_lenm(enum_section)
+    check("LENM grouped enum members",
+          len(enums.definitions) == 1 and len(enums.definitions[0].members) == 2)
+    enum_member = enums.definitions[0].members[1].as_dict()
+    check("LENM full-width signed value preserved",
+          enum_member['value_signed'] == -1 and enum_member['value_bits'] == '0xffffffffffffffff')
+    linked_section = bytearray(schema_section)
+    _s.pack_into('<II', linked_section, 48, 0x62, 7)
+    linked = _schema.parse_lsch(bytes(linked_section))
+    linked.enum_table = enums
+    fields = linked.as_dict()['structures'][0]['fields']
+    check("LSCH enum meaning explicitly inferred",
+          fields[0]['type_name'] == 'enum32' and fields[0]['type_info']['status'] == 'inferred')
+    check("LSCH unsupported type remains unknown", fields[1]['type_name'] is None)
+    original_id = linked.schema_id
+    changed_enums = bytearray(enum_section)
+    changed_enums[32] = 1
+    linked.enum_table = _schema.parse_lenm(bytes(changed_enums))
+    check("schema identity includes LENM", linked.schema_id != original_id)
+
+    # Authored instance block, including the first entry at PSIN +8.
+    from . import psin_instances as _instances
+    instance_body = (b'PSIN' + _s.pack('>I', 48)
+                     + _s.pack('<II', 0x11223344, 8) + b'\xaa' * 8
+                     + b'pppppppp' + _s.pack('<B3xf', 1, 1.25) + bytes(8))
+    instance_schema = bytearray(schema_section)
+    _s.pack_into('<II', instance_schema, 48, 1, 0)
+    _s.pack_into('<II', instance_schema, 64, 0x21, 0)
+
+    def instance_fixture(ls):
+        value = instance_body + bytes(ls)
+        value += b''.join(tag + _s.pack('>I', 8) for tag in (b'LENM', b'LSNS', b'LGID', b'LRSC'))
+        trailer = len(value)
+        value += b'CHKS' + _s.pack('>III', 20, trailer + 20, 0) + b'zppp'
+        checksum = _psin.container_checksum(value, trailer)
+        return value[:trailer + 12] + _s.pack('>I', checksum) + value[trailer + 16:]
+
+    instance_data = instance_fixture(instance_schema)
+    instance_blocks = _instances.parse_blocks(instance_body)
+    check('PSIN first instance block retained',
+          len(instance_blocks) == 1 and instance_blocks[0].table_offset == 8
+          and instance_blocks[0].data_offset == 32)
+    decoded_instance = _instances.decode_instances(instance_data)
+    values = decoded_instance['blocks'][0]['records'][0]['fields']
+    check('PSIN native scalar instance values',
+          values[0]['value'] is True and values[1]['value'] == 1.25
+          and decoded_instance['status'] == 'complete')
+    try:
+        _instances.parse_blocks(instance_body[:-1] + b'\x01')
+        padding_refused = False
+    except ValueError:
+        padding_refused = True
+    check('PSIN instance padding refused', padding_refused)
+    try:
+        _instances.decode_instances(instance_data, max_nodes=3)
+        nodes_refused = False
+    except _instances.InstanceLimitError:
+        nodes_refused = True
+    check('PSIN instance node budget enforced', nodes_refused)
+    _s.pack_into('<I', instance_schema, 48, 7)
+    unresolved_instance = _instances.decode_instances(instance_fixture(instance_schema))
+    unknown_value = unresolved_instance['blocks'][0]['records'][0]['fields'][0]
+    check('PSIN unknown instance field preserved',
+          unknown_value['status'] == 'unresolved' and 'value' not in unknown_value)
 
     print(f"\n{len(failures)} failure(s)")
     return 0 if not failures else 1
@@ -2340,12 +2548,22 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--paths", help="optional paths.txt to include as a file tree")
     p.set_defaults(func=cmd_browse)
 
-    p = sub.add_parser("psin", help="parse PSIN page containers inside an archive")
+    p = sub.add_parser("psin", help="inspect PSIN containers, LSCH/LENM schemas and bounded values")
     p.add_argument("files", nargs="*")
     p.add_argument("--archive", action="append")
     p.add_argument("--limit", type=int, default=48, help="MiB per archive")
     p.add_argument("--full", action="store_true")
     p.add_argument("--max", type=int, default=12)
+    p.add_argument("--schema", action="store_true",
+                   help="browse LSCH types and LENM enums in verified resources; joins split pages")
+    p.add_argument('--instances', action='store_true',
+                   help='include bounded inferred scalar/enum/embedded values (implies schema mode)')
+    p.add_argument('--max-nodes', type=int, default=100000,
+                   help='instance output budget across the report (default 100000)')
+    p.add_argument('--max-depth', type=int, default=16,
+                   help='embedded instance depth limit, 1..64 (default 16)')
+    p.add_argument("--out", help="write schema/optional instance JSON to a file (implies --schema)")
+    p.add_argument("--names", help="optional local name dictionary for schema hash candidates")
     p.set_defaults(func=cmd_psin, spread=0, quiet=False, no_padding=False,
                    no_align=False, align=0x1000)
 

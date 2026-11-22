@@ -13,14 +13,14 @@ This module assembles those resources from their zlib streams without any key:
   (``u16 8`` at +0x0E, a graphics pointer ``0x6xxxxxxx`` at +0x18, dimensions,
   DXGI format and mip count) and a name pointer (``0x5xxxxxxx`` at +0x30).
 * The following zlib streams are contiguous at 16-byte boundaries, separated by
-  zero padding; they are appended into the graphics buffer until every
-  descriptor's mip 0 is covered.
-* Mips are stored smallest-first; mip ``m`` begins at the 4 KiB-aligned sum of
-  the exact sizes of all smaller mips. Pixel data is tiled in 16x16-element
-  blocks and deswizzled with the format-size-dependent pattern below.
-* The leading mip chain is exported (mip 0 through the last level whose element
-  grid is at least 32x32); smaller levels share a packed tail whose layout is
-  not established.
+  zero padding; they are appended until the declared graphics allocations are
+  covered. Descriptor +0x08 counts format elements, including allocation padding.
+* BCn 2D textures use Gfx10 S4K placement, with ceil-divided hardware mip
+  dimensions, smallest-first macroblocks and a shared 4 KiB tail. Logical DDS
+  dimensions are cropped to floor-divided pixel dimensions. Full declared mip
+  chains are exported after checking the allocation footprint exactly.
+* Single-level non-BC 2D textures retain the measured 16x16-element layout.
+  Non-BC mip chains and depth/array resources are refused pending validation.
 
 The shape is the one documented by SixNG; rpf9-explorer's older dictionary
 walk targets a different resource generation and does not find these pages in
@@ -34,7 +34,7 @@ import struct
 from dataclasses import dataclass, field
 from typing import Iterator
 
-from . import rpf, texture, zlibcarve
+from . import gfx10, rpf, texture, zlibcarve
 
 SYSTEM_MAX_PACKED = 256 * 1024
 MAX_SYSTEM = 32 * 1024 * 1024
@@ -67,6 +67,7 @@ class EmbeddedTexture:
     data_off: int
     size_field: int
     struct_off: int
+    swizzle_mode: int = 5
 
     @property
     def element_size(self) -> int:
@@ -92,6 +93,7 @@ class EmbeddedTexture:
             "data_offset": self.data_off,
             "size_field": self.size_field,
             "struct_offset": self.struct_off,
+            "swizzle_mode": self.swizzle_mode,
         }
 
 
@@ -168,7 +170,8 @@ def parse_system(system: bytes) -> list[EmbeddedTexture]:
                     name=name, width=width, height=height, depth=depth,
                     mips=mips, dxgi_format=fmt,
                     data_off=_u64(system, at + 0x18) & 0x0FFFFFFF,
-                    size_field=_u32(system, at + 8), struct_off=at))
+                    size_field=_u32(system, at + 8), struct_off=at,
+                    swizzle_mode=_u16(system, at + 0x40)))
                 at += 0x70
                 continue
         at += 8
@@ -205,36 +208,13 @@ def _mip_bytes(tex: EmbeddedTexture, mip: int) -> int | None:
     return (-(-width // block)) * (-(-height // block)) * element
 
 
-def _mip_offset(tex: EmbeddedTexture, mip: int) -> int | None:
-    """Offset from the data pointer for one mip.
-
-    Mips are stored smallest-first; mip ``m`` starts at the 4 KiB-aligned sum
-    of the exact sizes of all smaller mips.  This is the same rule SixNG uses
-    for the embedded txd pages.
-    """
-    if mip + 1 >= tex.mips:
-        return 0
-    tail = 0
-    for smaller in range(mip + 1, tex.mips):
-        size = _mip_bytes(tex, smaller)
-        if size is None:
-            return None
-        tail += size
-    return (tail + 4095) & ~4095
-
-
-def _mip0_offset(tex: EmbeddedTexture) -> int | None:
-    return _mip_offset(tex, 0)
-
-
 def _required(texs: list[EmbeddedTexture]) -> int | None:
     best = 0
     for tex in texs:
-        offset = _mip0_offset(tex)
-        size = _mip_bytes(tex, 0)
-        if offset is None or size is None:
+        size = tex.size_field * tex.element_size
+        if tex.data_off < 0 or size <= 0 or tex.data_off + size > MAX_GFX:
             return None
-        best = max(best, tex.data_off + offset + size)
+        best = max(best, tex.data_off + size)
     return best
 
 
@@ -332,6 +312,11 @@ _LUTS: dict[int, list[tuple[int, int]]] = {}
 
 
 def _deswizzle(src: bytes, ew: int, eh: int, bpe: int) -> bytes:
+    if ew <= 0 or eh <= 0 or bpe not in (1, 2, 4, 8, 16):
+        raise ValueError("invalid embedded element grid")
+    required = -(-ew // 16) * -(-eh // 16) * 256 * bpe
+    if len(src) < required:
+        raise ValueError("truncated embedded tiled data")
     lut = _LUTS.get(bpe)
     if lut is None:
         lut = _LUTS[bpe] = _lut(bpe)
@@ -347,47 +332,78 @@ def _deswizzle(src: bytes, ew: int, eh: int, bpe: int) -> bytes:
                 if x >= ew or y >= eh:
                     continue
                 src_at = base + element * bpe
-                if src_at + bpe > len(src):
-                    continue
                 dst = (y * ew + x) * bpe
                 out[dst:dst + bpe] = src[src_at:src_at + bpe]
     return bytes(out)
 
 
-def exportable_mips(tex: EmbeddedTexture) -> int:
-    """Number of leading mips with a solved 16x16-tile layout.
+def _layout(tex: EmbeddedTexture) -> gfx10.Layout | None:
+    """Validate the shape and allocation before selecting a measured layout."""
+    if tex.element_size not in (1, 2, 4, 8, 16):
+        raise ValueError(f"unsupported DXGI format {tex.dxgi_format}")
+    if (tex.width < 1 or tex.height < 1 or tex.mips < 1 or tex.mips > 15
+            or tex.mips > max(tex.width, tex.height).bit_length()):
+        raise ValueError("invalid embedded dimensions or mip count")
+    if tex.depth != 1:
+        raise ValueError("embedded depth/array layout is not validated")
+    if tex.swizzle_mode != 5:
+        raise ValueError("embedded swizzle mode is not validated")
+    allocated = tex.size_field * tex.element_size
+    if tex.data_off < 0 or allocated <= 0 or tex.data_off + allocated > MAX_GFX:
+        raise ValueError("invalid embedded graphics allocation")
+    if not tex.is_bc:
+        if tex.mips != 1:
+            raise ValueError("embedded non-BC mip layout is not validated")
+        required = -(-tex.width // 16) * -(-tex.height // 16) * 256 * tex.element_size
+        if required > allocated:
+            raise ValueError("embedded tiled footprint exceeds allocation")
+        return None
+    layout = gfx10.Layout.new(
+        "S4K", -(-tex.width // 4), -(-tex.height // 4), tex.mips,
+        tex.element_size, round_mips_up=True)
+    assert layout is not None
+    if tex.mips == 1:
+        # A non-mipmapped resource has no tail, including tiny solid textures.
+        layout.mips[0].tail = None
+    if layout.total != allocated:
+        raise ValueError("embedded S4K footprint does not match allocation")
+    return layout
 
-    SixNG's measured boundary: stop before the element grid falls below
-    32x32.  Smaller mips share a packed tail whose layout is not solved.
-    """
-    block = tex.block_pixels
-    count = 1
-    while count < tex.mips:
-        width = max(1, tex.width >> count)
-        height = max(1, tex.height >> count)
-        if -(-width // block) < 32 or -(-height // block) < 32:
-            break
-        count += 1
-    return count
+
+def exportable_mips(tex: EmbeddedTexture) -> int:
+    """All declared levels of a validated 2D allocation, or ValueError."""
+    _layout(tex)
+    return tex.mips
 
 
 def mip_linear(tex: EmbeddedTexture, gfx: bytes, mip: int) -> bytes:
     """Linear (untiled) bytes of one mip, in the texture's own format."""
+    layout = _layout(tex)
+    if not isinstance(mip, int) or mip < 0 or mip >= tex.mips:
+        raise ValueError("embedded mip index out of range")
     element = tex.element_size
-    if element == 0:
-        raise ValueError(f"unsupported DXGI format {tex.dxgi_format}")
-    offset = _mip_offset(tex, mip)
-    if offset is None:
-        raise ValueError("mip layout unknown")
+    end = tex.data_off + tex.size_field * element
+    if end > len(gfx):
+        raise ValueError("truncated embedded graphics allocation")
     block = tex.block_pixels
     width = max(1, tex.width >> mip)
     height = max(1, tex.height >> mip)
     ew = -(-width // block)
     eh = -(-height // block)
+    if layout is not None:
+        # Crop hardware padding without changing its stored pitch. Check every
+        # address rather than using Layout.untile_slice's pool zero-fill policy.
+        out = bytearray(ew * eh * element)
+        for y in range(eh):
+            for x in range(ew):
+                at = tex.data_off + layout.addr(mip, 0, x, y)
+                if at < tex.data_off or at + element > end:
+                    raise ValueError("embedded mip address exceeds allocation")
+                dst = (y * ew + x) * element
+                out[dst:dst + element] = gfx[at:at + element]
+        return bytes(out)
     padded = (-(-ew // 16) * 16) * (-(-eh // 16) * 16) * element
-    start = tex.data_off + offset
-    if start >= len(gfx):
-        raise ValueError("texture data lies outside the graphics pages")
+    start = tex.data_off
     return _deswizzle(gfx[start:start + padded], ew, eh, element)
 
 
@@ -398,12 +414,15 @@ def mip0(tex: EmbeddedTexture, gfx: bytes) -> bytes:
 
 def dds_bytes(tex: EmbeddedTexture, linear: bytes) -> bytes:
     """DDS with a single mip (mip 0)."""
+    _layout(tex)
+    if len(linear) != _mip_bytes(tex, 0):
+        raise ValueError("embedded mip 0 byte count mismatch")
     header = texture.dds_header(tex.width, tex.height, 1, 1, tex.dxgi_format)
     return header + linear
 
 
 def dds_mips(tex: EmbeddedTexture, gfx: bytes) -> tuple[bytes, int]:
-    """Native DDS with all leading mips that have a solved tile layout."""
+    """Native DDS with the complete declared mip chain; no partial output."""
     count = exportable_mips(tex)
     payload = bytearray()
     for mip in range(count):

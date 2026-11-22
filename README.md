@@ -24,8 +24,8 @@ to directories you name.
 | RDS5/TTPF pool index: chunks, codecs, virtual space, ETPF descriptors | **yes**, 57/57 pools validate |
 | List TTPF textures and export **DDS** files | **yes**, 305,954 descriptors have complete stored/zlib coverage; native BCPack adds partial coverage |
 | **PNG previews** for streamed/embedded textures | **yes**, BC1–BC7 and 8-bit R/RG/RGBA/BGRA; signed BC4/BC5 and 8-bit SINT/SNORM are converted; BC6H is tone-mapped |
-| Export texture arrays, cubemaps and 3D volumes | **yes**, DDS; 127 array / 567 cube / 3 volume layouts supported; volumes require a single uncompressed mip |
-| List and export embedded **txd** textures (DDS) | **yes**, native (leading mip chain) or SixNG backend |
+| Export TTPF texture arrays, cubemaps and 3D volumes | **yes**, DDS; 127 array / 567 cube / 3 volume layouts supported; volumes require a single uncompressed mip |
+| List and export embedded **txd** textures (DDS) | **yes**, native full declared BCn 2D mip chains, including packed tails; optional SixNG backend |
 | Find and extract **Bink2** video | **yes**, exact lengths |
 | Browse movie metadata (resolution, fps, duration, bitrate) | **yes**, `movies`; 515 titles in `movies.rpf` |
 | Find and extract **AWC** audio; list/extract streams and music channels | **yes**, exact lengths, native payloads |
@@ -33,6 +33,8 @@ to directories you name.
 | Extract audio-config **music records** | **yes**, durations, config ids, hashes and stream ids; track names/order remain unknown |
 | Bink1 video | **experimental** |
 | PSIN containers, section bodies, stream-split fragments | **yes**, complete-container checksums verified (JOOAT) |
+| Browse native **LSCH/LENM schemas** and export JSON | **yes**, enum records, nine inferred type meanings and optional name candidates; unknowns preserved |
+| Read native **PSIN instance blocks** | **partial**, bounded inferred scalar/enum/embedded values with `psin --instances`; unresolved types and pointers remain explicit |
 | Recover **DXBC shaders** from `shaders.rpf` | **yes**, 9,089 in the first 64 MiB |
 | Recover complete **XML/PSIN** resources split across zlib pages | **yes**, 259 XML / 1,048 PSIN in 16 MiB samples |
 | Carve zlib streams; catalogue; browser; reports; TUI | **yes** |
@@ -115,7 +117,7 @@ options (`--root`, `--json`) go before the subcommand.
 | `catalog` | Carve + verify + index assets into JSON or SQLite | `--out`, `--db`, `--limit`, `--full`, `--skip-done`, `--archive` |
 | `browse` | Render a searchable HTML browser from a catalogue | `--catalog`/`--db`, `--out`, `--chunk`, `--paths` |
 | `get` | Re-read one catalogued asset by hash or `archive:offset` | `--catalog`/`--db`, `--out` |
-| `psin` | Parse PSIN containers and stream-split fragments | `--archive`, `--limit`, `--full`, `--max` |
+| `psin` | Inspect PSIN containers, LSCH/LENM schemas and bounded instance blocks | `--archive`, `--limit`, `--full`, `--max`, `--schema`, `--instances`, `--max-nodes`, `--max-depth`, `--names`, `--out` |
 | `shaders` | Recover DXBC shader binaries from wrapper records | `--archive`, `--limit`, `--full`, `--out`, `--max` |
 | `structured` | Recover complete XML/PSIN resources from stream-split pages | `--archive`, `--limit`, `--out`, `--max` |
 | `hunt` | Score catalogued blobs for geometry-like floats | `--db` (required), `--kind`, `--archive`, `--scan`, `--window`, `--dump` |
@@ -232,10 +234,11 @@ compressed graphics pages. `textures --embedded` extracts them without a key.
 
 **Native decoder (default)** — recognises a system page by its texture structs
 and name pointer, appends the contiguous graphics streams (16-byte boundaries,
-zero padding), deswizzles the 16x16-element tiles, and writes a DDS containing
-**leading mip chain** (mip 0 through the last level whose element grid is at
-least 32x32; smaller levels sit in a packed tail whose layout is not solved).
-A 512x512 BC texture exports 3 mips and a 1024x1024 BC texture 4, natively.
+zero padding), and validates complete graphics allocations. Supported BCn 2D
+textures use Gfx10 S4K addressing and export **every declared mip**, including
+the packed 4 KiB tail. Hardware mip dimensions are rounded up for addressing;
+DDS payloads retain the logical dimensions. Single-level tiny textures start
+at offset zero. The allocation footprint must match the descriptor exactly.
 
 ```bash
 # list embedded textures
@@ -246,12 +249,21 @@ python3 -m gta6x --root <pkg> textures --embedded --archive textures \
         --limit 64 --out ./embedded --all
 ```
 
-Measured on 1.0.2.1: `textures.rpf` yields **1,345 dictionaries / 3,155
-textures** natively (a full archive scan takes ~15 s). A sample dictionary
-(`non_break_glass_decals`) recovers seven textures — two BC3 and three BC7 at
-512², one BC3 at 1024² — matching the backend's descriptor list. Unsupported
-element sizes are reported and skipped, and the leading mip chain is written;
-smaller tail mips are omitted.
+Measured on 1.0.2.1: a full `textures.rpf` scan yields **1,347 dictionaries /
+3,167 texture descriptors**, including **3,020 supported 2D descriptors**.
+All **31 mipmapped 2D textures** exported complete DDS chains: **253 levels**,
+including **144 tail levels**, across BC1/BC3/BC7 formats. In the sample
+`non_break_glass_decals` dictionary, the 512² BC3 texture exports all eight
+declared mips and the 1024² BC3 texture all eleven.
+
+Validation combines public S4K address rules, authored address vectors, exact
+allocation/DDS byte counts and real-image consistency checks. All 141 measured
+adjacent-mip comparisons beat a deliberately wrong tail-origin control; this
+is consistency evidence, not byte confirmation from an independent decoder.
+Truncated allocations, mismatched footprints and unknown swizzle modes are
+refused. Embedded depth/array layouts (147 measured descriptors) and non-BC
+mip chains remain unverified and are skipped with a reason. Single-level
+non-BC 2D export remains available; PNG previews use mip 0.
 
 **SixNG backend** — delegates to the same backend used for models, with its own
 metadata output:
@@ -262,13 +274,11 @@ python3 -m gta6x --root <pkg> textures --embedded --via sixng --archive textures
 ```
 
 It requires an index (`gta6x models index --archive textures`, stored in
-`--work`, default `.sixng-work`). The sample dictionary produced 7 DDS files
-with 3–4 mips each, comparable to the native leading-mip output.
+`--work`, default `.sixng-work`). Its texture output is separate from the native
+full-chain export described above.
 
 The native path handles supported readable textures without a backend. SixNG
 remains optional for model/world decoding and alternative texture export.
-Embedded export remains limited to the leading mip chain; the small packed
-tail is unresolved in this native path.
 
 ## Audio (AWC)
 
@@ -336,7 +346,7 @@ A complete PSIN resource is a seven-section container:
 ```
 "PSIN" u32 BE length    <- section 1: instance table + payload ("body")
 "LSCH" u32 BE length    <- schema: 32-byte struct headers, 16-byte fields
-"LENM" u32 BE length    <- enum/name-value table (24-byte records, 0xEE fill)
+"LENM" u32 BE length    <- enum table: 24-byte headers, 16-byte members, 0xEE fill
 "LSNS" u32 BE length    <- 128-bit names/ids (header + 16-byte records)
 "LGID" u32 BE length    <- global 128-bit ids (count + 16-byte records)
 "LRSC" u32 BE length    <- resource-reference/fixup table (0xBB fill)
@@ -349,11 +359,15 @@ repeats `len(data)`. Section 1's body is the fill-padded entry table:
 ```
 +0x00  "PSIN"
 +0x04  u32 BE  declared size (= section length)
-+0x08  u32 LE  field A
-+0x0c  u32 LE  field B
-+0x10  8-byte entries (u32, u32); unused slots 0xAAAAAAAA
-...    0x70707070 ("pppp") fill run, then payload
++0x08  repeated 16-byte entries:
+         u32 LE type/hash, u32 LE block byte length, 8 bytes 0xAA
+...    8 bytes 0x70 ("pppppppp") terminate the table
+...    block payloads in entry order, individually padded to 16 bytes
 ```
+
+The ordinary body summary retains historical `field_a`/`field_b` labels and
+heuristic entry counts for compatibility. The instance reader uses the strict
+block model above, including the first type/length pair.
 
 Some PSIN resources are larger than one zlib page and are stream-split; a page
 then starts with `PSIN` but declares a section longer than the page. Those are
@@ -365,6 +379,126 @@ seed `0x3FAC7125`) over the entire container with the `CHKS` length and checksum
 fields zeroed, stored big-endian. All **821/821** complete containers in an
 8 MiB `data.rpf` sample verify (and the `psin` command reports 788/788 for its stream-local sample). The platform word in the sample is ASCII
 `zppp`; other archives may use another tag.
+
+**Native schema browser:** `psin --schema` reads complete checksum-verified
+containers, joining recoverable split pages. It parses the contiguous LSCH
+structure-header table and groups field descriptors using the stored counts.
+Counts must account for the section exactly, header padding must match the
+supported layout, and each field start must lie inside its structure size.
+
+```bash
+# browse structures in an archive
+python3 -m gta6x --root <pkg> psin --archive data --limit 8 --schema --max 20
+
+# export every recovered schema; optionally annotate hashes with local names
+python3 -m gta6x --root <pkg> psin --archive data --limit 8 \
+        --out ./schemas.json --names ./names.json
+
+# inspect an already extracted PSIN resource
+python3 -m gta6x psin ./metadata.psin --schema --out ./schema.json
+```
+
+`--out` implies schema mode. JSON contains source offsets/checksum status,
+resource hashes and schemas deduplicated by the **LSCH+LENM pair**, preserving
+different enum definitions even when LSCH bytes match. The report format is
+`gta6x-psin-schemas-v2`; each schema also retains separate `lsch_sha256` and
+`lenm_sha256` fields. Pair IDs replace the LSCH-only IDs from v1. Distinct
+definitions with the same structure hash remain separate. `--max` limits the
+console table only; JSON exports all records. Global `--json` prints the same
+report to stdout. Raw PSIN inputs are limited to 16 MiB; archive scan limits
+use the existing recovery path. Incomplete/unrecoverable archive fragments
+are omitted; the ordinary `psin` view still reports stream-local fragments.
+
+Structure sizes, field offsets, original hashes/ids, numeric type words and
+unresolved attributes are preserved. Name dictionaries add candidates with
+their sources, without replacing hashes or choosing among collisions. Some
+descriptors use synthetic ids such as `0x100`.
+
+LENM headers and member counts must account for every section byte, including
+the supported header padding. JSON preserves all 64 value bits, a signed
+interpretation, an unsigned decimal string, member hashes/name candidates and
+unknown words. Aliases, duplicate names and conflicting enum definitions are
+retained; no value is narrowed to 32 bits in the export.
+
+Supported LSCH annotations are **inferred from game observations**, with
+`type_info.status = "inferred"`; their storage sizes are inferred too:
+
+| Type code | Inferred label | Required context |
+|---|---|---|
+| `0x01` | `bool8` | supported zero upper/auxiliary words |
+| `0x21` | `float32` | supported zero upper/auxiliary words |
+| `0x4a` | `hash32` | supported zero upper/auxiliary words |
+| `0x05` | `embedded_structure` | one matching structure definition |
+| `0x52` | `dynamic_array` | valid synthetic element-descriptor index |
+| `0x71` | `map` | valid synthetic key/value-descriptor indices |
+| `0x62` | `enum32` | one matching LENM definition with representable values |
+| `0x65`, `0x68` | `enum_bitset32`, `enum_bitset64` | matching enum and supported bit-count/storage pattern |
+
+Missing or ambiguous references, unsupported attributes and inferred extents
+outside structure bounds leave `type_name: null` with diagnostic context.
+Other codes remain unknown, including enum-associated `0x63`, whose upper bits
+and width are unresolved. Original numeric words are always retained. Schema
+annotations alone do not decode values; the explicit instance option below
+handles a bounded subset without chasing pointers or resolving fixups.
+Bad checksums, malformed LENM/LSCH records and invalid field starts produce
+explicit refusal records and a nonzero exit status.
+
+Game-data checks: the discovery sample contains **821** verified containers
+and **433** distinct LSCH sections. A disjoint payload range validates
+**223/223** additional containers and **34** schemas absent from that sample,
+without type-rule changes. Discovery contains **11,794 enum headers / 118,111
+members**; the separate range contains **1,748 / 26,632**. All 13,004 checked
+enum32 payload values in that range match their LENM definitions. Boolean and
+float probes also agree with the inferred labels. Map and enum_bitset64 have
+discovery evidence only, with no examples in that range. These are consistency
+checks, not an independent semantic decoder oracle or a fresh blind holdout;
+the range was previously used for structural LSCH validation.
+
+**Bounded instance reader:** add `--instances` to include values from supported
+PSIN body blocks. This implies schema mode and works on raw PSIN files or
+joined archive resources:
+
+```bash
+python3 -m gta6x psin ./metadata.psin --instances --names ./names.json \
+        --out ./values.json
+```
+
+Each resource's `instances` object contains block boundaries and records, with
+Boolean, finite float32, hash32, enum32 and embedded-structure values where the
+local schema is unambiguous. Field hashes and name candidates remain separate;
+enum aliases are preserved. Interpretations remain **inferred**. Unknown types,
+missing schemas, array/map pointers and bitsets produce explicit unresolved
+fields instead of fabricated values. Nonfinite floats and invalid Boolean/enum
+values keep their bits and a reason. JSON contains no NaN/Infinity numbers.
+Block/record offsets refer to the decompressed PSIN container; field offsets
+are relative to the owning record.
+
+The body reader includes the first block-table entry at +8, checks AA padding,
+the PP terminator, every block extent, zero alignment padding and exact EOF.
+Bad bodies refuse instance output while retaining any verified schema. A
+resource/block/record status of `partial` is expected when fields are unresolved;
+`complete` means its listed fields were handled, not a confirmed object graph.
+The enclosing resource's `status: ok` still refers to schema/checksum validation.
+
+`--max-nodes` defaults to 100,000 across the entire report; records, fields,
+blocks and enum aliases consume this budget. Budget exhaustion refuses that
+resource's instance output and subsequent instance work explicitly; it does not
+return a silently truncated list. Increase the budget deliberately for larger
+exports. `--max-depth` defaults to 16 (allowed 1..64); depth/cycle boundaries stay
+unresolved. Instance refusals return a nonzero exit status, while valid partial
+decodes return zero. Keep all exported game values private.
+
+Native checks parsed all **821 discovery containers**, all **223 comparison
+containers**, and **1,012 script.rpf metadata containers**. They emitted
+**732,614 / 94,289 / 230,622** supported leaf values respectively, each checked
+by encoding it back to its exact source bytes. All resources remain partial.
+These are byte/structure consistency results, not independent confirmation of
+type semantics. The script sample is additional cross-archive evidence.
+
+Schema JSON also exposes lossless `base_type_code` and `type_subcode` bytes
+alongside the original 16-bit `type_code` and complete `type_word`. Structure
+flags, layout-signature and alignment candidates retain their original unknown
+words; they are not silently promoted to confirmed meanings.
 
 ## Joined XML and PSIN resources
 
@@ -623,8 +757,10 @@ decode, and external-adapter agreement does not establish confirmed ground truth
 | `models` | `packs.rpf` index: 80,424 entries, 75,135 model resources, 27,288 recovered names, ~40–60 s; sample GLBs 480 / 972 / 96 triangles |
 | `shaders` | 9,089 validated DXBC shaders in the first 64 MiB of `shaders.rpf`; 2,174 in the first 16 MiB |
 | `structured` | `common.rpf`: 259 complete XML (79 joined); 16 MiB of `data.rpf`: 1,048 complete PSIN (28 joined) |
-| `textures --embedded` | native: 1,345 txd dictionaries / 3,155 textures in `textures.rpf`; native sample dictionary 7 textures, 512x512 BC3 8 mips → 3 exported mips, 1024x1024 BC3 11 mips → 4 exported mips; backend comparison optional |
-| `selftest` | 63 checks, all passing (AWC, Ogg, RDS5, PSIN, XML, Gfx10, DDS, PNG, shaders, txd, name hashes, animation, music, BCPack, BC2 layout, signed BC4/BC5/8-bit previews and BC6H/BC7); backend features are not self-tested |
+| `textures --embedded` | native: 1,347 txd dictionaries / 3,167 descriptors in `textures.rpf`; 3,020 supported 2D descriptors; all 31 mipmapped 2D textures export 253 declared mips, including 144 tail levels; 147 depth/array descriptors refused |
+| Native LSCH/LENM schemas | 821 discovery containers / 433 schema pairs; separate-range validation 223/223 containers, 34 additional pairs; 11,794/1,748 enum headers and 118,111/26,632 members respectively; inferred types and JSON v2 export |
+| Native PSIN instances | 821 / 223 data containers and 1,012 script metadata containers; 732,614 / 94,289 / 230,622 leaf values round-trip exactly; all resources explicitly partial |
+| `selftest` | 80 checks, all passing (AWC, Ogg, RDS5, PSIN/LSCH/LENM/instances, XML, Gfx10, DDS, PNG, shaders, txd full mip chains/tail addresses/bounds, name hashes, animation, music, BCPack, BC2 layout, signed BC4/BC5/8-bit previews and BC6H/BC7); backend features are not self-tested |
 
 The local SQLite catalogue used during development holds 176,971 checksum-
 verified assets across 20 archives; that file is generated output, not part of
@@ -705,6 +841,9 @@ stream-split pages are fragments. See [PSIN metadata](#psin-metadata).
 * **PNG previews**: signed 8-bit/SNORM values use the documented display mapping;
   BC6H uses tone mapping. Many higher-precision DDS formats have no PNG conversion.
   Previews use mip 0, slice/face 0; 3D volume previews remain unavailable.
+* **Embedded textures**: full BCn 2D mip chains require validated S4K allocations.
+  Depth/array resources, other swizzles and non-BC mip chains are refused;
+  single-level non-BC 2D textures retain their existing export path.
 * **Audio** payloads stay in their native codec; Opus/XMA2 → WAV is not
   implemented.
 * **Models** depend on the external SixNG backend; no native model decoder is
@@ -716,6 +855,10 @@ stream-split pages are fragments. See [PSIN metadata](#psin-metadata).
 * **Hashing is opt-in** (`report --hash`) because it reads whole payloads.
 * **PSIN checksums**: complete supported containers are verified with JOOAT;
   incomplete stream-split fragments require reassembly before verification.
+* **PSIN schemas**: native LSCH/LENM browsing preserves unknowns and marks
+  supported type meanings as inferred. Optional instance reading covers local
+  scalars/enums/embedded structures; pointers, fixups, bitsets and remaining
+  types are unresolved. Unrecoverable fragments are excluded from schema reports.
 
 ## Layout
 
@@ -733,6 +876,8 @@ gta6x/
   bc/           BC1-BC7 previews, BCPack reconstruction and runtime tables
   png.py        minimal PNG writer
   psin.py       PSIN containers, section bodies, stream-split fragments
+  psin_schema.py native LSCH/LENM browser, inferred types and JSON records
+  psin_instances.py bounded instance blocks and inferred local member values
   models.py     optional SixNG backend: index, list, glTF/GLB export
   world.py      optional SixNG world/map resource commands
   anim.py       animation stream classification and name recovery
@@ -768,9 +913,10 @@ Required decoder constants under `gta6x/bc/` remain part of the runtime package.
 
 ## Development
 
-`python3 -m gta6x selftest` runs 63 synthetic checks covering the AWC header and
-tag table, Opus packet records and Ogg pages, RDS5/TTPF validation, both PSIN
-grammars, joined XML recovery, Gfx10 2D/cube/array/volume layouts, DDS,
+`python3 -m gta6x selftest` runs 80 synthetic checks covering the AWC header and
+tag table, Opus packet records and Ogg pages, RDS5/TTPF validation, PSIN
+containers/fragments, LSCH/LENM schemas and bounded instance values, joined XML recovery,
+Gfx10 2D/cube/array/volume layouts, DDS,
 BC1/BC2/BC4/BC5/BC6H/BC7 decoder vectors, signed component conversion, PNG writing,
 joaat/Murmur3 hashes, music records, the shader
 wrapper/DXBC validator and embedded txd assembly — no game data required.

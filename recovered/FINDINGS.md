@@ -6,7 +6,7 @@ payloads are zlib streams, media carriers are stored in the clear, and texture
 pools carry their own indexes.
 
 All numbers below were measured on this package with the parsers in `gta6x/`.
-They are observations, not format guarantees; the tool's `selftest` (59 checks)
+They are observations, not format guarantees; the tool's `selftest` (80 checks)
 covers the structural rules without game data.
 
 ## Package profile
@@ -27,8 +27,10 @@ covers the structural rules without game data.
 | Zlib payloads | 176,971 checksum-verified assets in one catalogue sweep; 4.12 GB packed → 26.34 GB inflated | `catalog --db`, `get` |
 | Complete XML | `common.rpf`: 259 documents, **79 joined** from split pages | `structured` |
 | Complete PSIN | 16 MiB of `data.rpf`: 1,048 containers, **28 joined** | `structured` |
+| Native LSCH/LENM schemas | 821 discovery / 223 comparison containers; nine inferred type labels; 118,111 / 26,632 enum members, unknowns preserved | `psin --schema` |
+| Native PSIN instances | 821 / 223 data containers and 1,012 script metadata containers; 732,614 / 94,289 / 230,622 supported values round-trip to source bytes; all resources partial | `psin --instances` |
 | Streamed textures | 357,115 descriptors: **305,954 zlib/raw complete** (+47,695 BC1 BCPack); 127 arrays, 567 cubemaps, 3 volumes; native PNG covers BC1-BC7 (BC6H tone-mapped); backend only for models/world | `textures --png`, `--via sixng` |
-| Embedded txd textures | **1,345 dictionaries / 3,155 textures** native; leading mip chains native (512² BC3 → 3 mips, 1024² BC3 → 4) | `textures --embedded` |
+| Embedded txd textures | **1,347 dictionaries / 3,167 descriptors**; 3,020 supported 2D descriptors; all 31 mipmapped 2D textures export 253 levels including packed tails | `textures --embedded` |
 | Movies | 515 Bink2 titles in `movies.rpf`: 8.83 GB, 3.94 h total | `movies` |
 | AWC audio | 238 containers in the first 48 MiB; per-stream Opus metadata, native payloads and Ogg remux | `awc`, `scan` |
 | DXBC shaders | **9,089** validated in the first 64 MiB of `shaders.rpf` | `shaders` |
@@ -154,12 +156,88 @@ not a second format.
 
 Section roles from the observed layouts: `LSCH` schema headers/fields, `LENM`
 enum name/value records, `LSNS` 128-bit name records, `LGID` global 128-bit id
-records, `LRSC` resource-reference/fixup records. These roles are structural
-inferences; only `CHKS` is cryptographically verified below.
+records, `LRSC` resource-reference/fixup records. These roles do not establish
+type/instance semantics; `CHKS` is verified below.
 
 The `CHKS` checksum is RAGE JOOAT (signed bytes, seed `0x3FAC7125`) over the
 whole container with the `CHKS` length and checksum fields zeroed, big-endian.
 It verifies on **821/821** complete containers in the 8 MiB `data.rpf` sample (788/788 for the stream-local `psin` sample).
+
+Native LSCH structural browsing is now implemented independently from observed
+game bytes and the repository notes, without GPL sources or decoder tables.
+The eight-byte tagged/BE-length prefix is followed by contiguous 32-byte LE
+structure headers, then grouped 16-byte LE field descriptors. Header field
+counts determine the table boundary and account for the entire section. Each
+header has eight `AA` bytes at +0x10, structure size at +0x18 and descriptor
+count at +0x1e. Field records preserve hash/id, data offset, numeric type word
+and unresolved auxiliary word. Unknown header words and upper type bits remain
+explicitly unknown; some ids such as `0x100` are synthetic. Field starts must
+be inside the structure size; field widths are not inferred.
+
+The discovery range contains 40,019 structure headers / 248,108 field records
+across 821 verified containers, with 433 distinct LSCH byte sequences. The
+unchanged parser validates a disjoint payload-relative 8..16 MiB range:
+223 containers, 2,903 headers / 23,653 fields, 34 distinct sections all absent
+from discovery, two joined resources, no refusals. These checks establish
+structural consistency, not independently confirmed type meanings or instance
+values. The browser exports all schemas to JSON, deduplicating by full LSCH+LENM
+identity and preserving conflicting same-hash definitions. Optional dictionaries
+annotate hashes with all matching name/source candidates.
+
+LENM now parses independently: 24-byte contiguous LE headers after the section
+prefix, followed by grouped 16-byte member records. Header +0x08 has eight EE
+bytes, +0x10 is the member count; member +0x00 preserves a full 64-bit value,
++0x08 its hash/id, +0x0c an unknown word. Header counts account for every byte;
+aliases, signed/unsigned views and unknown words are retained. Discovery parses
+11,794 headers / 118,111 members (337 values have their sign bit set); comparison
+parses 1,748 / 26,632 (217 sign-bit-set values), with no section refusals.
+
+Inferred LSCH meanings are bool8, float32, hash32, embedded_structure,
+dynamic_array, map, enum32 and enum_bitset32/64. Original words remain intact;
+unsupported attributes, absent/ambiguous references or inconsistent extents
+leave the type unknown. Code 0x63 is enum-associated but deliberately unlabelled.
+In the separate range, all 13,004 checked enum32 payload values occur in LENM;
+19,348 bool8 samples are 0/1 and all 21,682 float32 samples are finite. Distinct
+hash32 samples yield 31 local name matches versus zero in a wrong-endian control.
+Map and enum_bitset64 have discovery evidence only; this range contains none.
+These are consistency observations rather than independent semantic confirmation.
+The range was previously used for structural validation, so it is not a new
+blind holdout. The research-only body probes do not enable instance export.
+
+JSON format v2 includes separate LSCH/LENM hashes and a combined identity so
+different enum sections cannot disappear behind a shared LSCH hash. BCPack
+tables, provisional entries and frozen holdouts are unchanged. All game-derived
+metadata and audit reports remain local and ignored.
+
+The next milestone reads native instance blocks: the body table starts at +8,
+with `(u32 type/hash, u32 bytes, AA x8)` entries and an eight-PP terminator.
+Payload blocks follow in table order, padded to 16 bytes. All 15,217 discovery
+entries account for the body exactly; 33,406 observed alignment bytes are zero.
+The legacy body summary's first two fields are the first table entry; its
+heuristic entry count omits it. Compatibility fields remain in that summary,
+while the new reader retains every entry and checks all bounds/padding.
+
+`psin --instances` exports inferred local Boolean, finite float32, hash32,
+enum32 and embedded-structure values. Enum aliases and original bits survive;
+unknown blocks/members are explicit. No array/map pointer or bitset decoding is
+enabled. Shared output-node budgets, embedded depth/cycle guards and strict
+JSON handling prevent silently truncated lists or NaN/Infinity output.
+
+Native validation parses all 821 discovery containers (732,614 supported leaf
+observations), 223 comparison containers (94,289) and 1,012 script metadata
+containers (230,622). Every decoded leaf encodes back to its source bytes;
+there are no block-profile refusals. All resources are partial. Counts include
+nested/repeated observations, not unique types or full graph coverage. The data
+comparison range was used before; script is additional cross-archive evidence,
+not an independent semantic oracle.
+
+Schema metadata also exposes raw base type/sub-code bytes without changing the
+legacy 16-bit type_code, plus header flags and alignment/signature candidates.
+Public upstream documentation motivated these fields; independent checks on
+the existing discovery cache found 40,019/40,019 compatible alignment candidates
+and no conflicting size/offset/type patterns among 805 signature candidates.
+No GPL implementation or mapping table was copied; all unresolved meanings and
+the original numeric words are preserved.
 
 ### DXBC shader wrappers
 
@@ -175,8 +253,28 @@ A system page contains 0x70-byte texture structs: `u16 8` at +0x0E, a graphics
 pointer `0x6xxxxxxx` at +0x18, width/height/depth at +0x38/+0x3A/+0x3C, DXGI
 format at +0x3F, mip count at +0x42, and a name pointer `0x5xxxxxxx` at +0x30.
 Graphics pages follow the system stream at 16-byte boundaries with zero padding.
-Mips are stored smallest-first; mip 0 starts at the 4 KiB-aligned sum of the
-smaller mips and is tiled in 16×16-element blocks.
+Descriptor +0x08 counts allocated format elements, including padding; +0x40
+holds swizzle mode 5 (S4K) in the measured resources. Reading the complete
+allocations recovers two dictionaries missed by the former mip-0-size heuristic.
+
+BCn 2D resources match the public Gfx10 S4K macroblock/tail rules: hardware
+element dimensions are ceil-shifted, non-tail levels are padded to 4 KiB blocks
+and stored smallest-first, and up to eight small levels share one tail block.
+Single-level resources start at zero without a tail. DDS uses logical pixel
+dimensions and crops hardware padding. The public source consulted was AMD's
+[MIT-licensed AddrLib](https://github.com/GPUOpen-Drivers/pal/blob/dev/src/core/imported/addrlib/src/gfx10/gfx10addrlib.cpp),
+not a game decoder. Existing pool-layout defaults are unchanged.
+
+All 31 mipmapped 2D textures in textures.rpf match their declared allocation
+footprints and export all 253 levels (144 tail levels). Authored byte-address
+vectors independently test tail slots, leading levels, portrait and NPOT
+cropping. All 141 real adjacent-level RGB comparisons beat a deliberately
+wrong zero-origin control (median MAE 4.217 vs 51.104). Image consistency is
+not independent byte-level ground truth; an earlier comparison to the former
+addressing won 92/95 tail comparisons in the original 22-texture subset, with
+three ambiguous NPOT blank-image comparisons. No decoder oracle was used.
+Bounds checks refuse truncated allocations and mismatched footprints rather
+than filling missing elements with zero. BCPack data and holdouts are unchanged.
 
 ## Open questions
 
@@ -220,8 +318,9 @@ smaller mips and is tiled in 16×16-element blocks.
   are not decoded.
 * **Native model decoding.** Geometry is exported through the optional SixNG
   backend; no native mesh/meshlet decoder is included.
-* **Embedded mip tail.** The native txd path exports the leading mip chain; small mips in
-  the packed tail are not untiled. The backend remains optional for comparison.
+* **Embedded shapes.** Full BCn 2D S4K mip chains are implemented. The 147
+  measured depth/array descriptors, non-BC mip chains and other swizzles remain
+  unvalidated and are refused. Single-level non-BC 2D export remains available.
 * **Texture layouts.** Cubemaps use six slice-major S4K faces: **567/567**
   export as six-face DDS; 127/127 2D arrays and 3/3 3D volumes are laid out
   natively. Gfx10 equations cover 1/2/4/8/16-byte elements; 5 descriptors use

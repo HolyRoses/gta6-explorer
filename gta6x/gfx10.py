@@ -101,8 +101,14 @@ class Layout:
         self.total = slice_bytes
 
     @classmethod
-    def new(cls, swizzle: str, w: int, h: int, mips: int, bpe: int) -> Layout | None:
-        """Build a layout for ``w`` x ``h`` elements (BCn blocks or pixels)."""
+    def new(cls, swizzle: str, w: int, h: int, mips: int, bpe: int,
+            *, round_mips_up: bool = False) -> Layout | None:
+        """Build a layout for ``w`` x ``h`` elements (BCn blocks or pixels).
+
+        Embedded S4K allocations use ceil-divided hardware mip dimensions.
+        ``round_mips_up`` enables that placement; logical DDS dimensions still
+        use floor shifts. Existing pool callers retain their measured layout.
+        """
         equation = _EQUATIONS.get((swizzle, bpe))
         if equation is None or w < 1 or h < 1 or mips < 1:
             return None
@@ -114,7 +120,9 @@ class Layout:
         max_tail = 1 + (1 << (log2 - 9)) if log2 <= 11 else log2 - 4
         tail_w, tail_h = block_w // 2, block_h
         n = mips
-        dims = [(max(1, w >> i), max(1, h >> i)) for i in range(n)]
+        dims = ([(_ceil(w, 1 << i), _ceil(h, 1 << i)) for i in range(n)]
+                if round_mips_up else
+                [(max(1, w >> i), max(1, h >> i)) for i in range(n)])
         first = n
         for i, (mw, mh) in enumerate(dims):
             if mw <= tail_w and mh <= tail_h and n - i <= max_tail:
