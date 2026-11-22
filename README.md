@@ -34,7 +34,8 @@ to directories you name.
 | Bink1 video | **experimental** |
 | PSIN containers, section bodies, stream-split fragments | **yes**, complete-container checksums verified (JOOAT) |
 | Browse native **LSCH/LENM schemas** and export JSON | **yes**, enum records, nine inferred type meanings and optional name candidates; unknowns preserved |
-| Read native **PSIN instance blocks** | **partial**, bounded inferred scalar/enum/embedded values with `psin --instances`; unresolved types and pointers remain explicit |
+| Resolve **cross-file PSIN schemas** | **partial**, private signature-aware registry; local definitions win and conflicting versions remain unresolved |
+| Read native **PSIN instance blocks** | **partial**, bounded scalar/enum/embedded values, local hash32 arrays, hash/text pools and opaque/reference diagnostics with `psin --instances`; unknowns remain explicit |
 | Recover **DXBC shaders** from `shaders.rpf` | **yes**, 9,089 in the first 64 MiB |
 | Recover complete **XML/PSIN** resources split across zlib pages | **yes**, 259 XML / 1,048 PSIN in 16 MiB samples |
 | Carve zlib streams; catalogue; browser; reports; TUI | **yes** |
@@ -117,7 +118,7 @@ options (`--root`, `--json`) go before the subcommand.
 | `catalog` | Carve + verify + index assets into JSON or SQLite | `--out`, `--db`, `--limit`, `--full`, `--skip-done`, `--archive` |
 | `browse` | Render a searchable HTML browser from a catalogue | `--catalog`/`--db`, `--out`, `--chunk`, `--paths` |
 | `get` | Re-read one catalogued asset by hash or `archive:offset` | `--catalog`/`--db`, `--out` |
-| `psin` | Inspect PSIN containers, LSCH/LENM schemas and bounded instance blocks | `--archive`, `--limit`, `--full`, `--max`, `--schema`, `--instances`, `--max-nodes`, `--max-depth`, `--names`, `--out` |
+| `psin` | Inspect PSIN containers, LSCH/LENM schemas and bounded instance blocks | `--archive`, `--limit`, `--full`, `--max`, `--schema`, `--instances`, `--max-nodes`, `--max-depth`, `--names`, `--registry`, `--registry-out`, `--out` |
 | `shaders` | Recover DXBC shader binaries from wrapper records | `--archive`, `--limit`, `--full`, `--out`, `--max` |
 | `structured` | Recover complete XML/PSIN resources from stream-split pages | `--archive`, `--limit`, `--out`, `--max` |
 | `hunt` | Score catalogued blobs for geometry-like floats | `--db` (required), `--kind`, `--archive`, `--scan`, `--window`, `--dump` |
@@ -465,9 +466,10 @@ python3 -m gta6x psin ./metadata.psin --instances --names ./names.json \
 
 Each resource's `instances` object contains block boundaries and records, with
 Boolean, finite float32, hash32, enum32 and embedded-structure values where the
-local schema is unambiguous. Field hashes and name candidates remain separate;
+schema is unambiguous (local by default, optionally using the registry below).
+Field hashes and name candidates remain separate;
 enum aliases are preserved. Interpretations remain **inferred**. Unknown types,
-missing schemas, array/map pointers and bitsets produce explicit unresolved
+missing schemas, unsupported array/map pointers and bitsets produce explicit unresolved
 fields instead of fabricated values. Nonfinite floats and invalid Boolean/enum
 values keep their bits and a reason. JSON contains no NaN/Infinity numbers.
 Block/record offsets refer to the decompressed PSIN container; field offsets
@@ -481,24 +483,174 @@ resource/block/record status of `partial` is expected when fields are unresolved
 The enclosing resource's `status: ok` still refers to schema/checksum validation.
 
 `--max-nodes` defaults to 100,000 across the entire report; records, fields,
-blocks and enum aliases consume this budget. Budget exhaustion refuses that
+blocks, enum aliases and every array/pool element consume this budget. Budget exhaustion refuses that
 resource's instance output and subsequent instance work explicitly; it does not
 return a silently truncated list. Increase the budget deliberately for larger
 exports. `--max-depth` defaults to 16 (allowed 1..64); depth/cycle boundaries stay
 unresolved. Instance refusals return a nonzero exit status, while valid partial
 decodes return zero. Keep all exported game values private.
 
-Native checks parsed all **821 discovery containers**, all **223 comparison
+Native record checks parsed all **821 discovery containers**, all **223 comparison
 containers**, and **1,012 script.rpf metadata containers**. They emitted
-**732,614 / 94,289 / 230,622** supported leaf values respectively, each checked
+**732,614 / 94,289 / 230,622** supported record leaves respectively, each checked
 by encoding it back to its exact source bytes. All resources remain partial.
 These are byte/structure consistency results, not independent confirmation of
 type semantics. The script sample is additional cross-archive evidence.
+
+**Low-ID pools:** `--instances` also provides a `pool` view for these block IDs
+when no local structure definition exists:
+
+| Block ID | View | Interpretation |
+|---|---|---|
+| `0x4a` | Four-byte hash values with original bits/name candidates | Reuses inferred hash32 meaning; no new LSCH type mapping |
+| `0x10` | NUL-terminated printable ASCII strings, including empty entries | Inferred storage profile; other text profiles stay unresolved |
+| `0x07` | Eight-byte words with candidate block ID/offset diagnostics | Candidate references only; targets are never followed |
+| `0x14`, `0x16`, `0x33` | Opaque groups of 4, 8, 16 bytes respectively | Meaning unknown; no integer signedness, hash64 or vector interpretation |
+
+Each element retains its absolute container offset, byte length and original
+bits. Opaque `view_bytes` is a grouping for inspection, not a proven scalar
+width. Candidate references use a measured low-20-bit one-based block ID and
+byte offset in the remaining bits; zero words, invalid IDs and out-of-bounds
+offsets are explicit. These pool diagnostics alone do not resolve pointer fields,
+array headers, map storage, fixups or an object graph. The limited hash32-array
+profile below is handled separately. Local schema ambiguity and
+stride failures never fall back to a primitive pool.
+
+Hash/ASCII entries count toward `decoded_values` and `pool_values_decoded`.
+Candidate/opaque entries remain unresolved and count separately. Every entry
+consumes the shared node budget. Non-multiple lengths and unvalidated text
+profiles leave the whole pool unresolved; no prefix decode, byte replacement
+or silent truncation is used. The supported text profile requires a final NUL
+and only bytes `0x20..0x7e` between NULs; UTF-8 and control characters are not
+assumed from these observations. A complete pool means only that storage view
+was decoded, not that its gameplay meaning or references are confirmed.
+
+Game-data pool checks add **1,071 / 8,913 / 0** supported values to the
+821-data-discovery / 223-data-comparison / 1,012-script samples: **9,984** total
+(9,931 hashes and 53 strings). All **1,057,525** existing record leaves are
+unchanged; all **1,067,509** record/pool observations re-encode exactly to source bytes.
+Another **69,363** candidate/opaque entries retain raw bits without decoded
+values. All resources remain partial. The reference candidate fits all
+**55,884 nonzero pool words**, including their local target-stride alignment;
+wrong target order and other bit partitions fail that consistency check.
+ASCII has discovery evidence only; no text-pool examples occur in comparison
+or script. These previously examined samples provide consistency evidence,
+not a fresh blind holdout or independent semantic oracle.
+
+**Bounded hash32 arrays:** `--instances` resolves one inferred dynamic-array
+profile and attaches its hash values to the owning field's `array` object.
+No extra flag is required. Resolution requires a local owning schema, a
+synthetic element descriptor at offset zero with exact hash32 type/attributes,
+and a bounded 16-byte header. The two stored u16 words must be equal and the
+trailing u32 must be zero. Both words and all original header bits are retained;
+their distinct count/capacity roles remain unknown. The common u16 value is
+used as the element count for this profile only.
+
+An empty array requires both words and the reference to be zero. A nonempty
+array must reference an intrinsic `0x4a` pool using the measured one-based
+low-20-bit block ID and upper byte offset. The whole target pool and offset
+must align to four bytes, and the entire `count * 4` span must fit inside that
+block. Local structure definitions for the target ID prevent an intrinsic
+pool interpretation. Imported registry schemas cannot authorize this local-only
+array profile. No references inside elements are followed.
+
+Unequal header words, nonzero tail attributes, allocated-empty profiles,
+other element types, wrong/missing targets, misalignment and overrun remain
+explicitly unresolved with no prefix of values. A resolved field has
+`status: complete`; its `array` keeps the profile, header bits/words, target
+block/span, count and element offsets/bits/hash values/name candidates.
+Interpretation remains **inferred**, with no complete object-graph claim.
+
+`hash32_arrays_resolved` includes empty arrays;
+`hash32_array_values_decoded` counts attached hash observations. CLI reports
+also aggregate these as `instance_hash32_arrays_resolved` and
+`instance_hash32_array_values_decoded`. Every element consumes the same shared
+node budget, including repeated references to the same bytes. `decoded_values`
+counts array observations alongside scalar and standalone pool observations:
+the same physical hash may appear in both views, so totals are not unique
+bytes or unique values. Structure arrays, maps and general pointer traversal
+remain unsupported.
+
+The source split was frozen before implementation: **821 discovery resources**,
+**223 separate-range validation resources**, and **1,012 script validation
+resources**. Discovery/validation have zero payload-hash overlap; the validation
+groups contain 1,092 distinct payloads across 1,235 observations. All groups
+were examined in earlier PSIN work; this is not a fresh blind holdout. The
+private audit checks the locked split digest and exact source membership and
+never promotes validation inputs automatically.
+
+Results: **2,445 / 743 / 0** resolved arrays, including **1,926 / 367 / 0**
+empty arrays, with **1,011 / 997 / 0** attached hash observations. All
+**1,067,509** prior record/pool observations are unchanged; all **1,069,517**
+current observations round-trip to source bytes. Reversing element order fails
+on all 470 spans with discriminating content. Other array profiles remain
+unresolved and all 2,056 tested resources remain partial. These checks establish
+bounded byte/shape consistency, not independently confirmed header semantics.
 
 Schema JSON also exposes lossless `base_type_code` and `type_subcode` bytes
 alongside the original 16-bit `type_code` and complete `type_word`. Structure
 flags, layout-signature and alignment candidates retain their original unknown
 words; they are not silently promoted to confirmed meanings.
+
+**Cross-file schema registry:** collect definitions from your own verified PSIN
+inputs, then load the registry when inspecting other resources:
+
+```bash
+mkdir -p work
+python3 -m gta6x --root <pkg> psin --archive data --limit 8 \
+        --registry-out work/psin-registry.json
+python3 -m gta6x psin ./metadata.psin --registry work/psin-registry.json \
+        --instances --out work/values.json
+
+# extend into a new file; keep the original provider set for comparisons
+python3 -m gta6x psin ./more.psin --registry work/psin-registry.json \
+        --registry-out work/psin-registry-expanded.json
+```
+
+Both registry options imply schema mode. `--registry-out` alone builds the
+registry and prints counts/refusals; add `--schema`, `--instances` or `--out`
+to inspect the inputs using the completed registry. Builds use the same raw
+file/joined archive recovery, checksum gate and scan limits as schema export.
+Bad inputs are recorded as refusals with a nonzero exit status; accepted inputs
+can still form a registry. Outputs cannot overwrite inputs or each other.
+
+Definitions retain the name hash, raw signature candidate and full content
+identity, including unknown words and all members. Identical definitions at
+different section offsets deduplicate. Local definitions take precedence;
+local ambiguity never falls back to a global guess. Automatic references carry
+only a name hash, so differing signatures or conflicting content stay
+unresolved. Matching sizes, frequency and source order never choose a version;
+signatures do not alias different names. The raw header `+4` word is used as a
+signature candidate, not promoted to a confirmed format meaning.
+
+IDs below `0x10000` are conservatively restricted to local lookup, including
+synthetic descriptor IDs. Dependencies inside an imported structure use global
+lookup: they cannot borrow unrelated local definitions from the receiving file
+or an arbitrarily chosen donor. Resolution metadata lists scope, status and
+candidate fingerprints/signatures (at most eight candidates, with a full count).
+Ambiguous, reserved and missing definitions stay explicit; all instance bounds,
+depth/node limits and inferred-meaning caveats still apply.
+
+Registry format `gta6x-psin-registry-v1` contains **game-derived LSCH/LENM section
+bytes** and source hashes/offsets. Keep it private under ignored `work/`; it is
+not a redistributable schema database. Registry files are written atomically
+with owner-only permissions. Reload validates sections and identities but
+cannot reverify original full-container checksums; the summary states that
+limitation. Stored sections are capped at 64 MiB total, JSON files at 160 MiB,
+with explicit schema/source count limits. No registry is bundled or loaded by
+default; schema lookup remains local-only unless explicitly enabled.
+
+Registry-only checks before the pool extension used **697 schema pairs from 1,976 provider
+resources**, excluding the 223-container comparison range and script archive.
+The registry preserves **38 structure-name / 12 enum-name conflicts**. It
+enables **2,461 / 1 / 0** previously missing embedded-field annotations in the
+821-provider-subset / 223-comparison / 1,012-script samples respectively
+(repeated declarations counted). It adds **no decoded leaf values** in those
+samples: unsupported pointers and file-local block IDs still limit instance
+coverage. All **1,057,525** existing values are unchanged and round-trip to
+source bytes. Comparison inputs have zero content-hash overlap with providers,
+but were examined in earlier research; these are consistency checks, not blind
+holdout accuracy or independent semantic confirmation.
 
 ## Joined XML and PSIN resources
 
@@ -759,8 +911,11 @@ decode, and external-adapter agreement does not establish confirmed ground truth
 | `structured` | `common.rpf`: 259 complete XML (79 joined); 16 MiB of `data.rpf`: 1,048 complete PSIN (28 joined) |
 | `textures --embedded` | native: 1,347 txd dictionaries / 3,167 descriptors in `textures.rpf`; 3,020 supported 2D descriptors; all 31 mipmapped 2D textures export 253 declared mips, including 144 tail levels; 147 depth/array descriptors refused |
 | Native LSCH/LENM schemas | 821 discovery containers / 433 schema pairs; separate-range validation 223/223 containers, 34 additional pairs; 11,794/1,748 enum headers and 118,111/26,632 members respectively; inferred types and JSON v2 export |
-| Native PSIN instances | 821 / 223 data containers and 1,012 script metadata containers; 732,614 / 94,289 / 230,622 leaf values round-trip exactly; all resources explicitly partial |
-| `selftest` | 80 checks, all passing (AWC, Ogg, RDS5, PSIN/LSCH/LENM/instances, XML, Gfx10, DDS, PNG, shaders, txd full mip chains/tail addresses/bounds, name hashes, animation, music, BCPack, BC2 layout, signed BC4/BC5/8-bit previews and BC6H/BC7); backend features are not self-tested |
+| Native PSIN instances | 821 / 223 data containers and 1,012 script metadata containers; 734,696 / 104,199 / 230,622 scalar/pool/array observations round-trip exactly; all resources explicitly partial |
+| Low-ID PSIN pools | 9,984 added hash/ASCII values; 55,898 candidate reference words and 13,465 opaque groups retain bits with unknown meanings; no pointer following |
+| Bounded PSIN hash32 arrays | 3,188 resolved fields, including 2,293 empty arrays; 2,008 hash observations attached to owning fields, often also visible in pools; frozen source split, unsupported profiles remain explicit |
+| Cross-file PSIN registry | 697 provider schema pairs; 2,462 missing embedded-field annotations resolved across the data samples; conflicts retained, no additional instance values in these samples |
+| `selftest` | 95 checks, all passing (AWC, Ogg, RDS5, PSIN/LSCH/LENM/instances/registry/pools/hash32 arrays, XML, Gfx10, DDS, PNG, shaders, txd full mip chains/tail addresses/bounds, name hashes, animation, music, BCPack, BC2 layout, signed BC4/BC5/8-bit previews and BC6H/BC7); backend features are not self-tested |
 
 The local SQLite catalogue used during development holds 176,971 checksum-
 verified assets across 20 archives; that file is generated output, not part of
@@ -856,9 +1011,13 @@ stream-split pages are fragments. See [PSIN metadata](#psin-metadata).
 * **PSIN checksums**: complete supported containers are verified with JOOAT;
   incomplete stream-split fragments require reassembly before verification.
 * **PSIN schemas**: native LSCH/LENM browsing preserves unknowns and marks
-  supported type meanings as inferred. Optional instance reading covers local
-  scalars/enums/embedded structures; pointers, fixups, bitsets and remaining
-  types are unresolved. Unrecoverable fragments are excluded from schema reports.
+  supported type meanings as inferred. An optional private cross-file registry
+  resolves unambiguous missing definitions; conflicting versions remain unknown.
+  Instance reading covers scalars/enums/embedded structures and one bounded
+  local hash32-array profile. Other pointers, fixups, bitsets and remaining types
+  are unresolved. Low-ID hash/ASCII pool views add
+  values; reference/opaque views preserve bits with explicit unknowns and no
+  target following. Unrecoverable fragments are excluded.
 
 ## Layout
 
@@ -877,7 +1036,10 @@ gta6x/
   png.py        minimal PNG writer
   psin.py       PSIN containers, section bodies, stream-split fragments
   psin_schema.py native LSCH/LENM browser, inferred types and JSON records
-  psin_instances.py bounded instance blocks and inferred local member values
+  psin_instances.py bounded instance blocks and inferred member values
+  psin_pools.py  low-ID hash/text pools, reference candidates and opaque views
+  psin_arrays.py bounded local hash32-array spans; other profiles stay unknown
+  psin_registry.py signature-aware private cross-file definitions/conflicts
   models.py     optional SixNG backend: index, list, glTF/GLB export
   world.py      optional SixNG world/map resource commands
   anim.py       animation stream classification and name recovery
@@ -913,9 +1075,12 @@ Required decoder constants under `gta6x/bc/` remain part of the runtime package.
 
 ## Development
 
-`python3 -m gta6x selftest` runs 80 synthetic checks covering the AWC header and
+`python3 -m gta6x selftest` runs 95 synthetic checks covering the AWC header and
 tag table, Opus packet records and Ogg pages, RDS5/TTPF validation, PSIN
-containers/fragments, LSCH/LENM schemas and bounded instance values, joined XML recovery,
+containers/fragments, LSCH/LENM schemas, bounded instance values and cross-file
+registry resolution/conflicts, low-ID pools, bounded hash32 arrays and explicit
+reference/opaque unknowns,
+joined XML recovery,
 Gfx10 2D/cube/array/volume layouts, DDS,
 BC1/BC2/BC4/BC5/BC6H/BC7 decoder vectors, signed component conversion, PNG writing,
 joaat/Murmur3 hashes, music records, the shader

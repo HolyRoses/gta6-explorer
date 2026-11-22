@@ -17,7 +17,7 @@ import struct
 from . import names, psin
 
 __all__ = ['SchemaField', 'SchemaStructure', 'Schema', 'parse_lsch', 'parse_schema',
-           'EnumMember', 'EnumDefinition', 'EnumTable', 'parse_lenm', 'inspect_sources']
+           'EnumMember', 'EnumDefinition', 'EnumTable', 'parse_lenm', 'iter_sources', 'inspect_sources']
 
 
 def _hex(value: int) -> str:
@@ -189,6 +189,10 @@ def _type_info(f: SchemaField, owner=None, structures=None, enums=None) -> dict:
         if f.data_offset + info['storage_bytes'] > owner.byte_size:
             info.update(name=None, status='unknown', storage_bytes=None,
                         reason='inferred storage would exceed structure bounds')
+    if code == 5 and hasattr(structures, 'resolution'):
+        info['reference_resolution'] = structures.resolution(f.auxiliary)
+    if code in (0x62,0x63,0x65,0x68) and hasattr(enums, 'resolution'):
+        info['enum_resolution'] = enums.resolution(f.auxiliary)
     return info
 
 
@@ -206,9 +210,12 @@ class Schema:
         return hashlib.sha256(b'gta6x-psin-schema-v2\0' + bytes.fromhex(self.sha256)
                               + bytes.fromhex(self.enum_table.sha256)).hexdigest()
 
-    def as_dict(self, dictionary: dict | None = None) -> dict:
+    def as_dict(self, dictionary: dict | None = None, *, registry=None) -> dict:
         enums = self.enum_table.definitions if self.enum_table else []
         structure_index, enum_index = _index(self.structures), _index(enums)
+        if registry is not None:
+            scope = registry.scope(self)
+            structure_index, enum_index = scope.structures, scope.enums
         return dict(id=self.schema_id, status='structural_with_inferred_types',
                     byte_length=self.byte_length, lsch_sha256=self.sha256,
                     lenm_sha256=self.enum_table.sha256 if self.enum_table else None,
@@ -317,9 +324,34 @@ def parse_schema(data: bytes) -> Schema:
     return schema
 
 
+def iter_sources(paths, *, limit):
+    """Yield bounded raw/joined PSIN inputs and explicit source errors."""
+    from . import structured
+    for path in paths:
+        label = os.path.basename(path)
+        try:
+            with open(path, 'rb') as handle:
+                raw_psin = handle.read(4) == b'PSIN'
+                if raw_psin:
+                    handle.seek(0)
+                    data = handle.read(structured.MAX_OUTPUT + 1)
+            if raw_psin:
+                if len(data) > structured.MAX_OUTPUT:
+                    raise ValueError('PSIN input exceeds resource size limit')
+                yield dict(file=label, offset=0, blocks=1), data, None
+            else:
+                scan_limit = os.path.getsize(path) if limit is None else limit
+                for hit in structured.recover(path, limit=scan_limit):
+                    if hit.kind == 'psin':
+                        yield dict(file=label, offset=hit.offset, blocks=hit.blocks,
+                                   segments=hit.segments), hit.data, None
+        except (OSError, ValueError) as exc:
+            yield dict(file=label), None, str(exc)
+
+
 def inspect_sources(paths: list[str], *, limit: int | None,
                     dictionary: dict | None = None, with_instances: bool = False,
-                    max_nodes: int = 100000, max_depth: int = 16) -> dict:
+                    max_nodes: int = 100000, max_depth: int = 16, registry=None) -> dict:
     """Inspect raw PSIN files or complete joined resources inside archives.
 
     Identical LSCH+LENM pairs share one schema; differing definitions of the
@@ -345,7 +377,7 @@ def inspect_sources(paths: list[str], *, limit: int | None,
             resources.append(dict(source, status='refused', error=str(exc)))
             return
         if schema.schema_id not in schemas:
-            schemas[schema.schema_id] = schema.as_dict(dictionary)
+            schemas[schema.schema_id] = schema.as_dict(dictionary, registry=registry)
         result = dict(source, status='ok', checksum_verified=True, schema_id=schema.schema_id)
         if with_instances:
             from . import psin_instances
@@ -353,7 +385,8 @@ def inspect_sources(paths: list[str], *, limit: int | None,
                 if remaining_nodes < 1:
                     raise psin_instances.InstanceLimitError('report instance node budget exhausted')
                 result['instances'] = psin_instances.decode_instances(
-                    data, dictionary, max_nodes=remaining_nodes, max_depth=max_depth)
+                    data, dictionary, max_nodes=remaining_nodes, max_depth=max_depth,
+                    registry=registry)
                 remaining_nodes -= result['instances']['summary']['nodes']
             except psin_instances.InstanceLimitError as exc:
                 remaining_nodes = 0
@@ -362,26 +395,11 @@ def inspect_sources(paths: list[str], *, limit: int | None,
                 result['instances'] = dict(status='refused', reason=str(exc))
         resources.append(result)
 
-    for path in paths:
-        label = os.path.basename(path)
-        try:
-            with open(path, 'rb') as handle:
-                raw_psin = handle.read(4) == b'PSIN'
-                if raw_psin:
-                    handle.seek(0)
-                    data = handle.read(structured.MAX_OUTPUT + 1)
-            if raw_psin:
-                if len(data) > structured.MAX_OUTPUT:
-                    raise ValueError('PSIN input exceeds resource size limit')
-                add(data, dict(file=label, offset=0, blocks=1))
-            else:
-                scan_limit = os.path.getsize(path) if limit is None else limit
-                for hit in structured.recover(path, limit=scan_limit):
-                    if hit.kind == 'psin':
-                        add(hit.data, dict(file=label, offset=hit.offset,
-                                           blocks=hit.blocks, segments=hit.segments))
-        except (OSError, ValueError) as exc:
-            resources.append(dict(file=label, status='refused', error=str(exc)))
+    for source, data, error in iter_sources(paths, limit=limit):
+        if error is not None:
+            resources.append(dict(source, status='refused', error=error))
+        else:
+            add(data, source)
     rows = list(schemas.values())
     summary = dict(resources_inspected=len(resources),
                    resources_verified=sum(r['status'] == 'ok' for r in resources),
@@ -398,9 +416,14 @@ def inspect_sources(paths: list[str], *, limit: int | None,
         summary['instance_nodes'] = max_nodes - remaining_nodes
         summary['instance_values_decoded'] = sum(i.get('summary', {}).get('decoded_values', 0)
                                                 for i in inspections)
-    return dict(format='gta6x-psin-schemas-v2', summary=summary,
+        for key in ('hash32_arrays_resolved', 'hash32_array_values_decoded'):
+            summary['instance_' + key] = sum(i.get('summary', {}).get(key, 0) for i in inspections)
+    result = dict(format='gta6x-psin-schemas-v2', summary=summary,
                 scope='Complete recovered PSIN containers only; archive fragments are omitted.',
-                interpretation=('LSCH/LENM with bounded inferred instance values; unknowns remain explicit and pointers are not followed.'
+                interpretation=('LSCH/LENM with bounded inferred instance values; only validated hash32-array links are followed, other references remain explicit.'
                                 if with_instances else
                                 'LSCH/LENM records with explicitly inferred type meanings; unknown types, fixups and instances remain undecoded.'),
                 resources=resources, schemas=rows)
+    if registry is not None:
+        result['registry'] = registry.summary()
+    return result

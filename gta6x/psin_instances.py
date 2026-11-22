@@ -1,8 +1,11 @@
 """Bounded PSIN instance-block reader derived from local observations.
 
-Only local, unambiguous schemas are used. Scalar/enum/embedded interpretations
-remain inferred; unsupported values and references are explicit. No pointer
-chasing, external schema table or GPL implementation is used.
+Local, unambiguous schemas take precedence; an optional user-built registry
+supplies unambiguous cross-file definitions. Scalar/enum/embedded meanings
+remain inferred; unsupported values and references are explicit. Only bounded
+local hash32-array spans are followed, without recursive pointer traversal or
+any GPL implementation. Low-ID pool views distinguish inferred
+hash/text values, candidate reference words and opaque storage groups.
 """
 from __future__ import annotations
 
@@ -11,7 +14,7 @@ import hashlib
 import math
 import struct
 
-from . import psin_schema
+from . import psin_schema, psin_pools, psin_arrays
 
 __all__ = ['InstanceBlock', 'InstanceLimitError', 'parse_blocks', 'decode_instances']
 
@@ -73,7 +76,7 @@ def parse_blocks(body: bytes, *, max_blocks: int = 65536) -> list[InstanceBlock]
 
 
 def decode_instances(data: bytes, dictionary: dict | None = None, *,
-                     max_nodes: int = 100000, max_depth: int = 16) -> dict:
+                     max_nodes: int = 100000, max_depth: int = 16, registry=None) -> dict:
     """Read supported values from a verified container; never guess missing data.
 
     Returns explicit partial/unresolved records for unknown values. Malformed
@@ -89,8 +92,12 @@ def decode_instances(data: bytes, dictionary: dict | None = None, *,
     blocks = parse_blocks(data[:body_end], max_blocks=min(max_nodes, 65536))
     structures = psin_schema._index(schema.structures)
     enums = psin_schema._index(schema.enum_table.definitions)
+    scope = registry.scope(schema) if registry is not None else None
     counts = dict(nodes=0, records=0, decoded_values=0, unresolved_fields=0,
-                  unsupported_blocks=0, descriptor_fields=0)
+                  unsupported_blocks=0, descriptor_fields=0, pool_blocks=0,
+                  pool_elements=0, pool_values_decoded=0, unresolved_pool_elements=0,
+                  array_fields_attempted=0, array_fields_unresolved=0,
+                  hash32_arrays_resolved=0, hash32_array_values_decoded=0)
     type_cache = {}
 
     def consume():
@@ -103,7 +110,7 @@ def decode_instances(data: bytes, dictionary: dict | None = None, *,
         counts['unresolved_fields'] += 1
         return result
 
-    def record(owner, at, block_end, depth, active):
+    def record(owner, at, block_end, depth, active, context):
         consume()
         if at < 0 or at + owner.byte_size > block_end:
             raise ValueError('PSIN structure exceeds its instance block')
@@ -112,18 +119,24 @@ def decode_instances(data: bytes, dictionary: dict | None = None, *,
         result = dict(structure_hash=f'0x{owner.name_hash:08x}',
                       name_matches=psin_schema._matches(dictionary, owner.name_hash),
                       data_offset=at, byte_length=owner.byte_size, fields=fields)
-        identity = owner.section_offset, at
+        identity = id(owner), at
         active = active | {identity}
         for f in owner.fields:
             consume()
-            if f.section_offset not in type_cache:
-                type_cache[f.section_offset] = psin_schema._type_info(f, owner, structures, enums)
-            info = type_cache[f.section_offset]
+            struct_index = context.structures if context else structures
+            enum_index = context.enums if context else enums
+            cache_key = id(context), id(owner), f.section_offset
+            if cache_key not in type_cache:
+                type_cache[cache_key] = psin_schema._type_info(f, owner, struct_index, enum_index)
+            info = type_cache[cache_key]
             value = dict(hash=f'0x{f.name_hash:08x}',
                          name_matches=psin_schema._matches(dictionary, f.name_hash),
                          data_offset=f.data_offset, type_word=f'0x{f.type_word:08x}',
                          type_name=info['name'], type_confidence=info['status'])
             fields.append(value)
+            for key in ('reference_resolution', 'enum_resolution'):
+                if key in info:
+                    value[key] = info[key]
             if f.name_hash == 0x100:
                 value.update(status='descriptor', reason='schema element descriptor, not an instance member')
                 counts['descriptor_fields'] += 1
@@ -137,21 +150,39 @@ def decode_instances(data: bytes, dictionary: dict | None = None, *,
                                       or start + width > block_end):
                 raise ValueError('PSIN field exceeds instance bounds')
             if kind == 'embedded_structure':
-                target = structures[f.auxiliary][0]
+                target = struct_index.get(f.auxiliary)[0]
                 if target.byte_size == 0:
                     unresolved(value, 'zero-sized embedded structure is not validated')
                 elif depth >= max_depth:
                     unresolved(value, 'embedded structure depth limit reached')
-                elif (target.section_offset, start) in active:
+                elif (id(target), start) in active:
                     unresolved(value, 'cyclic embedded structure reference')
                 else:
-                    child = record(target, start, start + width, depth + 1, active)
+                    child_context = context.child_scope(f.auxiliary) if context else None
+                    child = record(target, start, start + width, depth + 1, active, child_context)
                     value.update(status=child['status'], value=child)
+                continue
+            if kind == 'dynamic_array':
+                counts['array_fields_attempted'] += 1
+                array = psin_arrays.resolve_hash32(
+                    data, start, owner, info['element_descriptor_index'], blocks,
+                    local_owner=context is None or context.schema is not None,
+                    local_structures=structures, consume=consume, dictionary=dictionary)
+                value['array'] = array
+                if array['status'] != 'complete':
+                    counts['array_fields_unresolved'] += 1
+                    unresolved(value, array['reason'])
+                else:
+                    value['status'] = 'complete'
+                    counts['hash32_arrays_resolved'] += 1
+                    counts['hash32_array_values_decoded'] += array['count']
+                    counts['decoded_values'] += array['count']
                 continue
             if kind not in ('bool8', 'float32', 'hash32', 'enum32'):
                 reason = info.get('reason') or (
                     'container pointer layout is not decoded' if kind in ('dynamic_array', 'map') else
                     'bitset storage is not independently established' if kind in ('enum_bitset32', 'enum_bitset64') else
+                    'unsupported type or unresolved/ambiguous schema reference' if context else
                     'unsupported type or unresolved/ambiguous local schema reference')
                 unresolved(value, reason)
                 continue
@@ -174,7 +205,7 @@ def decode_instances(data: bytes, dictionary: dict | None = None, *,
                              value_name_matches=psin_schema._matches(dictionary, number))
             else:
                 number = int.from_bytes(raw, 'little')
-                target = enums[f.auxiliary][0]
+                target = enum_index.get(f.auxiliary)[0]
                 matches = []
                 for member in target.members:
                     if member.value_bits & 0xffffffff == number:
@@ -202,9 +233,26 @@ def decode_instances(data: bytes, dictionary: dict | None = None, *,
                    byte_length=block.byte_length,
                    sha256=hashlib.sha256(data[block.data_offset:end]).hexdigest())
         output.append(row)
-        candidates = structures.get(block.type_hash, [])
+        candidates = scope.structures.get(block.type_hash, []) if scope else structures.get(block.type_hash, [])
+        if scope:
+            row['structure_resolution'] = scope.resolve('structure', block.type_hash).as_dict()
         if len(candidates) != 1:
-            row.update(status='unresolved', reason='missing or ambiguous local block structure',
+            # Intrinsic-pool views never override any local definition,
+            # including duplicate/ambiguous definitions or incompatible strides.
+            pool = (psin_pools.inspect_pool(data, block, blocks, consume=consume,
+                                          dictionary=dictionary) if not candidates else None)
+            if pool is not None:
+                row.update(pool=pool, status=pool['status'], record_count=None)
+                counts['pool_blocks'] += 1
+                counts['pool_elements'] += len(pool['elements'])
+                decoded = sum(e['status'] == 'decoded' for e in pool['elements'])
+                counts['pool_values_decoded'] += decoded
+                counts['decoded_values'] += decoded
+                counts['unresolved_pool_elements'] += len(pool['elements']) - decoded
+                counts['unsupported_blocks'] += pool['status'] != 'complete'
+                continue
+            row.update(status='unresolved', reason=('missing or ambiguous block structure' if scope else
+                                                   'missing or ambiguous local block structure'),
                        record_count=None)
             counts['unsupported_blocks'] += 1
             continue
@@ -214,11 +262,15 @@ def decode_instances(data: bytes, dictionary: dict | None = None, *,
                        record_count=None)
             counts['unsupported_blocks'] += 1
             continue
-        records = [record(owner, at, end, 1, set()) for at in
+        block_context = scope.child_scope(block.type_hash) if scope else None
+        records = [record(owner, at, end, 1, set(), block_context) for at in
                    range(block.data_offset, end, owner.byte_size)]
         row.update(record_count=len(records), records=records,
                    status='complete' if all(r['status'] == 'complete' for r in records) else 'partial')
     return dict(format='gta6x-psin-instances-v1', schema_id=schema.schema_id,
-                interpretation='Inferred local scalar/enum/embedded values; no pointer chasing or complete object-graph claim.',
+                interpretation=('Inferred scalar/enum/embedded values, hash/ASCII pools and bounded hash32 arrays; '
+                                'reference candidates and opaque pools remain unresolved; '
+                                + ('local-first registry resolution; ' if registry is not None else '')
+                                + 'no general pointer traversal or complete object-graph claim.'),
                 status='complete' if all(b['status'] == 'complete' for b in output) else 'partial',
                 summary=dict(counts, blocks=len(blocks)), blocks=output)

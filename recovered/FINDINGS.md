@@ -6,7 +6,7 @@ payloads are zlib streams, media carriers are stored in the clear, and texture
 pools carry their own indexes.
 
 All numbers below were measured on this package with the parsers in `gta6x/`.
-They are observations, not format guarantees; the tool's `selftest` (80 checks)
+They are observations, not format guarantees; the tool's `selftest` (95 checks)
 covers the structural rules without game data.
 
 ## Package profile
@@ -29,6 +29,9 @@ covers the structural rules without game data.
 | Complete PSIN | 16 MiB of `data.rpf`: 1,048 containers, **28 joined** | `structured` |
 | Native LSCH/LENM schemas | 821 discovery / 223 comparison containers; nine inferred type labels; 118,111 / 26,632 enum members, unknowns preserved | `psin --schema` |
 | Native PSIN instances | 821 / 223 data containers and 1,012 script metadata containers; 732,614 / 94,289 / 230,622 supported values round-trip to source bytes; all resources partial | `psin --instances` |
+| Cross-file PSIN schemas | 697 provider pairs; 2,462 missing embedded-field annotations resolved across the two data samples; version conflicts retained, no additional instance values in these samples | `psin --registry` / `--registry-out` |
+| Low-ID PSIN pools | 9,984 added hash/ASCII values; candidate references and opaque 4/8/16-byte views keep unknowns explicit; 1,067,509 total record/pool values byte-round-trip | `psin --instances` |
+| Bounded PSIN hash32 arrays | 3,188 field arrays, 2,008 attached hash observations; all 1,069,517 current observations byte-round-trip; other profiles remain unresolved | `psin --instances` |
 | Streamed textures | 357,115 descriptors: **305,954 zlib/raw complete** (+47,695 BC1 BCPack); 127 arrays, 567 cubemaps, 3 volumes; native PNG covers BC1-BC7 (BC6H tone-mapped); backend only for models/world | `textures --png`, `--via sixng` |
 | Embedded txd textures | **1,347 dictionaries / 3,167 descriptors**; 3,020 supported 2D descriptors; all 31 mipmapped 2D textures export 253 levels including packed tails | `textures --embedded` |
 | Movies | 515 Bink2 titles in `movies.rpf`: 8.83 GB, 3.94 h total | `movies` |
@@ -219,8 +222,9 @@ while the new reader retains every entry and checks all bounds/padding.
 
 `psin --instances` exports inferred local Boolean, finite float32, hash32,
 enum32 and embedded-structure values. Enum aliases and original bits survive;
-unknown blocks/members are explicit. No array/map pointer or bitset decoding is
-enabled. Shared output-node budgets, embedded depth/cycle guards and strict
+unknown blocks/members are explicit. Other than the bounded hash32-array profile
+below, array/map pointers and bitsets remain unresolved. Shared output-node
+budgets, embedded depth/cycle guards and strict
 JSON handling prevent silently truncated lists or NaN/Infinity output.
 
 Native validation parses all 821 discovery containers (732,614 supported leaf
@@ -238,6 +242,96 @@ the existing discovery cache found 40,019/40,019 compatible alignment candidates
 and no conflicting size/offset/type patterns among 805 signature candidates.
 No GPL implementation or mapping table was copied; all unresolved meanings and
 the original numeric words are preserved.
+
+The optional signature-aware cross-file registry now retains definitions by
+name hash, raw `+4` signature candidate and full-content fingerprint. Identical
+definitions at different offsets deduplicate; different signatures and
+same-signature/different-content conflicts remain ambiguous. References have
+no signature selector, so no size, frequency or source-order heuristic selects
+a version. Local definitions take precedence, including local ambiguity. IDs
+below `0x10000` remain file-local by conservative policy. Imported structures
+use global-only dependency lookup, avoiding unrelated receiving-file or
+arbitrary donor-file bindings. Registry files contain game-derived sections,
+remain private, and are not shipped with the tool. Reload checks sections and
+identities, not original source-container checksums.
+
+Provider discovery covers data payload MiB 0..8 and 16..EOF; common.rpf adds no
+recoverable PSIN. This supplies 1,976 sources / 697 schema pairs, 4,385 structure
+variants under 3,807 names and 757 enum variants under 742 names. Thirty-eight
+structure names and twelve enum names have conflicting versions; none of these
+conflicts share a signature candidate. The registry is frozen before each final
+comparison; the initial 433-pair registry and expanded registry produce the same
+gains on the existing samples.
+
+The 821 provider-subset, 223 comparison and 1,012 script samples gain
+2,461 / 1 / 0 inferred embedded-field annotations (per-container declarations,
+not unique fields). They gain no supported instance values. All 1,057,525 old
+leaf values persist unchanged and re-encode to exact source bytes; no resources
+are refused, all remain partial. Remaining unresolved typed blocks use low IDs
+and stay reserved (862 / 379 / 1,010 blocks). Comparison and script resources
+have zero provider-content overlap, but are previously examined samples, not
+fresh blind holdouts. This is structural/byte consistency evidence, not a
+semantic oracle. No type or signature meaning was promoted to confirmed.
+
+Low-ID blocks without local definitions now have bounded pool views. Data
+discovery contains 792 blocks of ID 0x07, 23 of 0x10, four of 0x14, one of 0x33
+and 42 of 0x4a. Comparison has 220 of 0x07 and 159 of 0x4a. Script's 1,010
+previously unresolved blocks all use ID 0x16. Synthetic/local structure IDs
+such as 0x100 keep their existing local interpretation; ambiguity and stride
+failure never authorize a primitive fallback.
+
+0x4a reuses the inferred hash32 meaning. 0x10 is a measured NUL-terminated
+printable ASCII pool, including empty strings; no other text profile is
+assumed. Other profiles refuse the entire pool view with a reason. Native
+output adds 1,071 / 8,913 / 0 values in discovery / comparison / script:
+9,931 hashes and 53 strings total. All 1,057,525 pre-existing record leaves
+are unchanged; all 1,067,509 current decoded values byte-round-trip. Every
+pool element consumes the shared node budget; there is no silent truncation.
+
+The candidate reference partition for 0x07 is a one-based block ID in the low
+20 bits, with byte offset above it. All 51,844 / 4,040 nonzero pool words and
+10,717 / 1,322 nonzero typed 0x07 field words land in local structure targets
+at stride boundaries. Wrong bit partitions, byte order and target order do
+not reproduce that complete consistency. This is candidate metadata only:
+55,898 pool words retain original bits and unresolved status, with explicit
+zero/bad-ID/out-of-bounds diagnostics. No target bytes are followed or decoded.
+0x14, 0x16 and 0x33 expose 4/8/16-byte raw groups (13,465 total), with unknown
+meaning and no signed-integer, hash64 or vector label. Group size is a viewing
+choice, not a confirmed scalar width. All resources remain partial.
+
+The partition and hash/ASCII rules were fixed using data discovery and authored
+tests before applying them to comparison/script. The opaque 0x16 view was added
+after exploratory script inspection. ASCII and 0x14/0x33 have discovery evidence
+only; no compatible examples occur in comparison/script. These samples were
+examined in earlier work and are not fresh blind holdouts or semantic oracles.
+No additional upstream source/decoder was consulted and no type meaning was
+promoted to confirmed. Game bytes, probes and audit outputs remain private.
+
+Bounded hash32 arrays now attach intrinsic-pool hashes to their local owning
+fields. Only exact local hash32 element descriptors, equal-u16/zero-tail
+16-byte headers, null-empty profiles and aligned, wholly bounded 0x4a pool
+spans are supported. Raw header bits/words remain; count/capacity roles are
+not distinguished. Imported owners, other element/header profiles and target
+schema conflicts stay unresolved. Every element shares the existing output
+budget, including aliases and repeated standalone pool observations. Other
+pointers, structure arrays, maps and recursive graph traversal remain unsupported.
+
+The source split was locked before implementation: 821 discovery, 223 data
+validation and 1,012 script validation observations, with zero cross-role
+payload overlap. Validation has 1,092 distinct payloads. All sources had prior
+research exposure, so this is frozen consistency evidence, not a fresh blind
+holdout or semantic oracle. Membership changes fail; no inputs were promoted.
+
+Discovery / data-validation / script resolve 2,445 / 743 / 0 array fields,
+including 1,926 / 367 / 0 empty arrays, and attach 1,011 / 997 / 0 hashes.
+All 1,067,509 prior scalar/pool observations remain unchanged; all 1,069,517
+current observations byte-round-trip. These are field associations with already
+decoded pool bytes, not new unique physical hashes. All 470 discriminating
+reversed-order controls disagree with source spans. Other descriptor profiles
+leave 72,000 / 2,931 / 0 recognized array fields unresolved; all resources stay
+partial. No rule was tuned from validation results and no GPL source/table or
+external decoder was used. Authored tests and private audit provenance record
+the profile's limits and the unchanged frozen split.
 
 ### DXBC shader wrappers
 

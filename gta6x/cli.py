@@ -777,7 +777,7 @@ def cmd_psin(args) -> int:
     if not targets:
         eprint("no archive matched")
         return 1
-    if args.schema or args.out or args.instances:
+    if args.schema or args.out or args.instances or args.registry or args.registry_out:
         return _cmd_psin_schema(args, targets)
     if args.names:
         eprint("--names requires --schema, --instances or --out")
@@ -840,7 +840,7 @@ def cmd_psin(args) -> int:
 
 
 def _cmd_psin_schema(args, targets: list[str]) -> int:
-    from . import names as names_mod, psin_schema
+    from . import names as names_mod, psin_schema, psin_registry
 
     if args.max < 0 or (not args.full and args.limit < 0):
         eprint("--max and --limit must be nonnegative")
@@ -848,13 +848,18 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
     if args.instances and (args.max_nodes < 1 or not 1 <= args.max_depth <= 64):
         eprint('--max-nodes must be positive and --max-depth must be 1..64')
         return 1
-    if args.out:
-        for source in targets + ([args.names] if args.names else []):
-            if (os.path.realpath(args.out) == os.path.realpath(source)
-                    or (os.path.exists(args.out) and os.path.exists(source)
-                        and os.path.samefile(args.out, source))):
+    outputs = [p for p in (args.out,args.registry_out) if p]
+    inputs = targets + [p for p in (args.names,args.registry) if p]
+    for dest in outputs:
+        for source in inputs + [p for p in outputs if p != dest]:
+            if (os.path.realpath(dest) == os.path.realpath(source)
+                    or (os.path.exists(dest) and os.path.exists(source)
+                        and os.path.samefile(dest, source))):
                 eprint("schema output must not overwrite an input or name dictionary")
                 return 1
+    if args.out and args.registry_out and args.out == args.registry_out:
+        eprint('schema and registry outputs must be different')
+        return 1
     dictionary = None
     if args.names:
         try:
@@ -866,10 +871,35 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
         except (OSError, ValueError) as exc:
             eprint(f"cannot read names dictionary: {exc}")
             return 1
+    registry = None
+    build = None
+    try:
+        if args.registry:
+            registry = psin_registry.Registry.load(args.registry)
+        if args.registry_out:
+            registry = registry if registry is not None else psin_registry.Registry()
+            build = registry.build(targets, limit=None if args.full else args.limit*1024*1024)
+            registry.save(args.registry_out)
+    except (OSError, ValueError) as exc:
+        eprint(f'cannot build/load PSIN registry: {exc}')
+        return 1
+    if args.registry_out and not (args.schema or args.out or args.instances):
+        result = dict(format='gta6x-psin-registry-build-v1', summary=registry.summary(), build=build)
+        if args.json:
+            print(json.dumps(result, indent=2))
+        else:
+            print(f"registry: {result['summary']['schema_pairs']:,} schema pairs, "
+                  f"{result['summary']['structure_variants']:,} structure variants, "
+                  f"{result['summary']['enum_variants']:,} enum variants -> {args.registry_out}")
+            for source in build['refused']:
+                eprint(f"{source['file']}:{source.get('offset',0):#x}: {source['error']}")
+        return 1 if build['refused'] else 0
     report = psin_schema.inspect_sources(
         targets, limit=None if args.full else args.limit * 1024 * 1024,
         dictionary=dictionary, with_instances=args.instances,
-        max_nodes=args.max_nodes, max_depth=args.max_depth)
+        max_nodes=args.max_nodes, max_depth=args.max_depth, registry=registry)
+    if build is not None:
+        report['registry_build'] = build
     if args.out:
         try:
             with open(args.out, 'w', encoding='utf-8') as handle:
@@ -902,7 +932,12 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
                   f"   partial {info['instance_resources_partial']:,}"
                   f"   refused {info['instance_resources_refused']:,}"
                   f"   values decoded {info['instance_values_decoded']:,}")
+            if info['instance_hash32_arrays_resolved']:
+                print(f"hash32 arrays: resolved {info['instance_hash32_arrays_resolved']:,}"
+                      f"   linked value observations {info['instance_hash32_array_values_decoded']:,}")
         print(report['interpretation'])
+        if registry is not None:
+            print(f"registry: {registry.summary()['schema_pairs']:,} schema pairs; local definitions take precedence")
         for resource in report['resources']:
             if resource['status'] == 'refused':
                 eprint(f"{resource['file']}:{resource.get('offset', 0):#x}: {resource['error']}")
@@ -911,7 +946,8 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
         if args.out:
             print(f"schema JSON: {args.out}")
     return 1 if (report['summary']['resources_refused']
-                 or report['summary'].get('instance_resources_refused', 0)) else 0
+                 or report['summary'].get('instance_resources_refused', 0)
+                 or (build is not None and build['refused'])) else 0
 
 
 def cmd_get(args) -> int:
@@ -2365,8 +2401,8 @@ def cmd_selftest(args) -> int:
     _s.pack_into('<II', instance_schema, 48, 1, 0)
     _s.pack_into('<II', instance_schema, 64, 0x21, 0)
 
-    def instance_fixture(ls):
-        value = instance_body + bytes(ls)
+    def instance_fixture(ls, body=instance_body):
+        value = body + bytes(ls)
         value += b''.join(tag + _s.pack('>I', 8) for tag in (b'LENM', b'LSNS', b'LGID', b'LRSC'))
         trailer = len(value)
         value += b'CHKS' + _s.pack('>III', 20, trailer + 20, 0) + b'zppp'
@@ -2400,6 +2436,100 @@ def cmd_selftest(args) -> int:
     unknown_value = unresolved_instance['blocks'][0]['records'][0]['fields'][0]
     check('PSIN unknown instance field preserved',
           unknown_value['status'] == 'unresolved' and 'value' not in unknown_value)
+
+    # Authored cross-file metadata; no game bytes or external schema tables.
+    from . import psin_registry as _registry
+    _s.pack_into('<I', instance_schema, 48, 1)
+    registry = _registry.Registry()
+    registry.add(instance_fixture(instance_schema))
+    registry.add(instance_fixture(instance_schema), {'file': 'second.psin'})
+    check('PSIN registry equivalent definitions deduplicate',
+          registry.summary()['structure_variants'] == 1 and registry.source_count == 2)
+    foreign_data = instance_fixture(b'LSCH' + _s.pack('>I', 8))
+    foreign = _instances.decode_instances(foreign_data, registry=registry)
+    check('PSIN registry cross-file instance values',
+          foreign['blocks'][0]['structure_resolution']['scope'] == 'registry'
+          and foreign['summary']['decoded_values'] == 2 and foreign['status'] == 'complete')
+    loaded_registry = _registry.Registry.from_dict(registry.as_dict())
+    check('PSIN registry reload states verification limit',
+          loaded_registry.as_dict() == registry.as_dict()
+          and 'not_reverified' in loaded_registry.verification)
+    _s.pack_into('<I', instance_schema, 8, 0x100)
+    reserved_registry = _registry.Registry()
+    reserved_registry.add(instance_fixture(instance_schema))
+    check('PSIN registry synthetic ids stay local',
+          reserved_registry.resolve('structure', 0x100).status == 'reserved')
+    _s.pack_into('<I', instance_schema, 8, 0x11223344)
+    _s.pack_into('<I', instance_schema, 48, 0x4a)
+    registry.add(instance_fixture(instance_schema))
+    conflicted = _instances.decode_instances(foreign_data, registry=registry)
+    check('PSIN registry same-signature conflicts remain unknown',
+          registry.resolve('structure', 0x11223344).status == 'signature_conflict'
+          and conflicted['summary']['decoded_values'] == 0)
+
+    def pool_fixture(key, raw):
+        body = (b'PSIN' + _s.pack('>I', 32 + ((len(raw) + 15) & ~15))
+                + _s.pack('<II', key, len(raw)) + b'\xaa' * 8 + b'p' * 8
+                + raw + bytes(-len(raw) % 16))
+        return instance_fixture(b'LSCH' + _s.pack('>I', 8), body)
+
+    hash_pool = _instances.decode_instances(pool_fixture(0x4a, _s.pack('<II', 0, 0x12345678)))
+    check('PSIN low-ID hash32 pool',
+          hash_pool['summary']['pool_values_decoded'] == 2
+          and hash_pool['blocks'][0]['pool']['elements'][1]['value'] == '0x12345678')
+    text_pool = _instances.decode_instances(pool_fixture(0x10, b'one\0\0'))
+    check('PSIN low-ID ASCII pool retains empty strings',
+          [e['value'] for e in text_pool['blocks'][0]['pool']['elements']] == ['one', ''])
+    reference_pool = _instances.decode_instances(pool_fixture(7, _s.pack('<Q', 1)))
+    check('PSIN reference candidate never follows target',
+          reference_pool['blocks'][0]['pool']['elements'][0]['reference']['status'] == 'in_bounds'
+          and reference_pool['summary']['decoded_values'] == 0 and reference_pool['status'] == 'partial')
+    opaque_pool = _instances.decode_instances(pool_fixture(0x14, bytes(4)))
+    check('PSIN opaque pool keeps meaning unknown',
+          opaque_pool['blocks'][0]['pool']['interpretation'] == 'unknown'
+          and 'value' not in opaque_pool['blocks'][0]['pool']['elements'][0])
+    bad_text_pool = _instances.decode_instances(pool_fixture(0x10, b'bad'))
+    check('PSIN unvalidated text pool refuses whole profile',
+          bad_text_pool['blocks'][0]['pool']['status'] == 'unresolved'
+          and bad_text_pool['summary']['decoded_values'] == 0)
+
+    array_schema = (b'LSCH' + _s.pack('>I', 72)
+                    + _s.pack('<4I8sIHH', 0x11223344, 0, 0, 0, b'\xaa' * 8, 16, 0, 2)
+                    + _s.pack('<8I', 0x100, 0, 0x4a, 0, 0x87654321, 0, 0x52, 0))
+
+    def array_fixture(word=2, count=2, second=2):
+        body = (b'PSIN' + _s.pack('>I', 80)
+                + _s.pack('<II', 0x11223344, 16) + b'\xaa' * 8
+                + _s.pack('<II', 0x4a, 8) + b'\xaa' * 8 + b'p' * 8
+                + _s.pack('<QHHI', word, count, second, 0)
+                + _s.pack('<II', 0x11111111, 0x22222222) + bytes(8))
+        return instance_fixture(array_schema, body)
+
+    array_data = array_fixture()
+    array_report = _instances.decode_instances(array_data)
+    array_value = array_report['blocks'][0]['records'][0]['fields'][1]['array']
+    check('PSIN bounded hash32 array resolves its exact span',
+          [e['value'] for e in array_value['elements']] == ['0x11111111', '0x22222222']
+          and array_report['summary']['hash32_array_values_decoded'] == 2)
+    empty_array = _instances.decode_instances(array_fixture(0, 0, 0))
+    empty_value = empty_array['blocks'][0]['records'][0]['fields'][1]['array']
+    check('PSIN null empty hash32 array has no invented values',
+          empty_value['status'] == 'complete' and empty_value['elements'] == []
+          and empty_value['target'] is None)
+    unequal_array = _instances.decode_instances(array_fixture(second=1))
+    unequal_value = unequal_array['blocks'][0]['records'][0]['fields'][1]
+    check('PSIN unequal array header words remain unresolved',
+          unequal_value['status'] == 'unresolved' and unequal_value['array']['elements'] == [])
+    overrun_array = _instances.decode_instances(array_fixture((4 << 20) | 2))
+    overrun_value = overrun_array['blocks'][0]['records'][0]['fields'][1]
+    check('PSIN array span cannot read target padding',
+          overrun_value['status'] == 'unresolved' and 'span exceeds' in overrun_value['reason'])
+    try:
+        _instances.decode_instances(array_data, max_nodes=array_report['summary']['nodes'] - 1)
+        array_budget_refused = False
+    except _instances.InstanceLimitError:
+        array_budget_refused = True
+    check('PSIN array and pool observations share node budget', array_budget_refused)
 
     print(f"\n{len(failures)} failure(s)")
     return 0 if not failures else 1
@@ -2557,13 +2687,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--schema", action="store_true",
                    help="browse LSCH types and LENM enums in verified resources; joins split pages")
     p.add_argument('--instances', action='store_true',
-                   help='include bounded inferred scalar/enum/embedded values (implies schema mode)')
+                   help='include bounded values, hash32 arrays, low-ID pools and reference diagnostics (implies schema mode)')
     p.add_argument('--max-nodes', type=int, default=100000,
                    help='instance output budget across the report (default 100000)')
     p.add_argument('--max-depth', type=int, default=16,
                    help='embedded instance depth limit, 1..64 (default 16)')
     p.add_argument("--out", help="write schema/optional instance JSON to a file (implies --schema)")
     p.add_argument("--names", help="optional local name dictionary for schema hash candidates")
+    p.add_argument('--registry', help='load a local PSIN cross-file schema registry')
+    p.add_argument('--registry-out', help='build/extend a private registry from verified inputs')
     p.set_defaults(func=cmd_psin, spread=0, quiet=False, no_padding=False,
                    no_align=False, align=0x1000)
 
