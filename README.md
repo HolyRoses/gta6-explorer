@@ -86,13 +86,26 @@ python3 -m gta6x psin --archive levels --schema --out schemas.json
 python3 -m gta6x psin --archive levels --instances --record-graph --out instances.json
 python3 -m gta6x shaders --metadata --out ./exports/shaders
 python3 -m gta6x anim --resources --clips --out ./exports/animations
-python3 -m gta6x world --kind resources --schemas --out ./exports/world
+python3 -m gta6x world --kind resources --schemas --extract-resources --out ./exports/world
 ```
 
-PSIN supports local name dictionaries and cross-file schema registries. Native
-world inspection can add `--links`, `--primitive-layouts` or
-`--reference-context`; `--context-record BLOCK:RECORD` traces a selected record.
-Use `--start`, `--scan-mib` and `--max-nodes` to bound native world inspection.
+PSIN supports local name dictionaries and cross-file schema registries.
+Use `--find-field`, `--find-type` or `--same-layout`; add `--registry-only --registry FILE`
+for offline queries. `--context-record BLOCK:RECORD` traces checked record links.
+Inspect paths with `--context-field BLOCK:RECORD:FIELD[.FIELD...]` or `--field-tree`;
+`--context-map` checks selected map headers and entry spans.
+`--hash-use WORD` finds opaque-word usages; `--typed-hash-candidates --names names.json`
+adds candidate names without asset bindings. `--graph-dot FILE` exports checked graphs;
+`--type5c-spans` traces descriptor-backed spans; `--type5c-graph` adds candidate links.
+`psin --manifest FILE` queries verified exports; `--manifest-limit` selects a prefix.
+
+Native world inspection supports `--links`, `--primitive-layouts`,
+`--reference-context` and `--context-record BLOCK:RECORD`. Bound scans with
+`--start`, `--scan-mib` and `--max-nodes`; `--extent-diagnostics` reports gaps
+and missing declared bytes. `--extract-resources` exports complete checked PSIN
+files and skips unknown boundaries. To inspect an extracted file directly, use
+`--raw-resources --archive FILE`; raw inputs are never carved or joined.
+`--manifest FILE` verifies and inspects a batch from a native export manifest.
 
 ### Catalog and browse assets
 

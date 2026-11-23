@@ -2366,3 +2366,729 @@ unchanged. Provenance is in `docs/world_owners_provenance.md`,
 `docs/world_assets_provenance.md`, `docs/world_boundary_authority_provenance.md`
 and `docs/native_world_reference_context_provenance.md`. No external source or
 SixNG output was used to establish these rules, and no game fixtures were added.
+
+## Header-selected context, local namespace counterexamples and PSIN owners
+
+The raw full-width word at header0x20 selects an existing one-based block-table
+ordinal in all53 approved discovery0DRP starts. The selected span has one unique
+local 16-byte structure declaration, lies within the current prefix, and exactly
+follows the independent zero-prefix/count-like/zero-slot context at the position
+selected by header0x08. Other declared blocks must not overlap that span. This
+uses no hardcoded game structure hash. Packed header offsets are unobserved;
+nonzero high bits are not silently masked. A match is a local context candidate,
+not a semantic root, transform owner, allocation count or resource endpoint.
+
+Discovery includes 48 bounded metadata observations and five incomplete starts.
+Minimal readable table rows suffice for the candidate diagnostic, but do not
+accept the missing field/payload spans as a complete resource. All424 source-word,
+wrong-ID/high-bit/prefix and declaration controls refuse the candidate;53
+one-short budgets refuse. Natural count alternatives do not explain the header:
+total-block-count equality fits0/53, and other count/size hypotheses have
+counterexamples. The supplementary bounded source with zero header0x4e also
+disproves using that zero to imply missing metadata. No stream joins were added.
+
+After the selector was sealed, root integration reused the eight accepted
+original-reserved0DRPs unchanged: all eight candidate target rows reproduce raw
+header/table bytes and match the observed unreferenced record. The original
+three metadata refusals and three unknown streams remain. Default catalogs,
+schema IDs, source/storage relationships and existing graph/query output stay
+identical apart from the new optional `header_context` member. Profile mismatch
+keeps the graph available; diagnostic disagreement retains a reason, and shared
+budget exhaustion still refuses the complete report before output.
+
+Asset namespace analysis uses only independently bounded local slot words,
+counts and target strides. Among1,759,794 discovery pool groups, only158low32
+words equal same-resource leading-slot words; no high32word does. The established
+local pointer encoding fits zero groups. U16lane1 nearly fits local ordinal
+domains but has seven discovery counterexamples; u16lane2 has3,345. Reused
+reserved checks1,253,065groups: lane1 happens to fit there but remains falsified
+by discovery, while lane2 supplies68more counterexamples. No universal asset
+namespace or binding was inferred from a near-fit or a sentinel-conditioned rule.
+
+An opaque SixNG comparison was restricted to a private carrier containing the
+approved96-byte archive header and exactly one already-approved444,043-byte
+compressed discovery segment at its original offset, with authored zero gaps.
+No unrestricted original-package index or reserved scan occurred. The comparator
+agrees on that resource's physical offset/size but supplies no name or asset
+namespace. This is a non-authoritative baseline, not format truth, and no
+external implementation source was opened or copied.
+
+Transform-owner research filters the existing registry by explicit discovery
+source identities before examining candidates:433eligible schema pairs and
+21,485structure occurrences. Of938verified lexical hash-name candidates, three
+fields are instantiated in two selected checksum-verified PSIN sources (94local
+structures). Two `StartPosition` preimages identify rawtype0x33 fields at+48 in
+128/224-byte owner rows, each with an independent16-byte slot. An `Orientation`
+preimage in a720-byte owner instead selects an84-byte local embedded structure
+at+480. This does not establish quaternion encoding or any world/placement
+ownership. No numeric values or transforms were decoded and no cross-file edge
+ties these owners to the levels reference family. Two each of wrong-source,
+checksum and budget controls refuse; wrong preimages remove all three candidates.
+
+All294 inherited protected hashes, frozen roles, names.json and BCPack labels
+remain unchanged. Discovery-only transform/allocation probes do not open heldout
+payloads. Original reserved runtime/namespace checks reuse previously exposed
+sources under sealed rules; unopened successor/supplementary world and stereo
+reserves remain unopened. Source-bounded readers, preflight budgets, atomic
+outputs and dictionary/frozen/code/hardlink/symlink guards have authored tests.
+No game fixtures or personal paths are added. Provenance is recorded in
+`docs/world_allocation_provenance.md`,
+`docs/world_asset_namespace_provenance.md`,
+`docs/world_transform_ownership_provenance.md` and
+`docs/native_world_header_context_provenance.md`.
+
+## Checked PSIN owner paths and declared-byte coverage
+
+The three previously identified instantiated candidate fields now have exact
+paths through existing checked PSIN links from each source's LRSC candidate.
+The two StartPosition owner rows are reference-array elements0/2 one link from
+the first candidate; the Orientation owner is four links from the second.
+These are three owner queries and six unique path edges, with one incoming edge
+per queried row. All39/221 existing typed nodes are reached within the selected
+graph profile. Candidate root roles, unknown edges, field meanings and native
+world/asset ownership remain unconfirmed.
+
+The new PSIN record-context helper replays the established graph reader against
+fresh instance/header reports and optional bucket maps before tracing. It adds
+no pointer grammar. Queries return self-contained source field/header/selected-
+element evidence, canonical shortest paths and ambiguity information. Cycles
+stay finite, and absent/depth-limited paths are not called unreachable. Existing
+schemas, instances and graph output are retained if a query view refuses under
+the shared budget. Mutating the opaque StartPosition slots and recomputing the
+container checksum preserves both paths, confirming that a storage path supplies
+no numeric transform interpretation. Changed-graph, checksum and one-short
+controls reject, and actual selected header/field bytes round-trip.
+
+Native CLI integration resolves the first source's two owner queries under the
+default100,000node cap (1,803shared nodes), retaining901 previously decoded
+ordinary instance values without interpreting the candidate fields. The second
+source's query also preserves its checked four-link path. No curve, transform,
+placement or cross-file asset decoder was added.
+
+Declared-byte coverage now accounts for header, structure/enum/block tables,
+field/member lists and declared payload spans with sparse interval sweeps.
+Every span identity/pointer/count/presence flag is rechecked against source words;
+copied or omitted inventory rows cannot manufacture aliases. Overlap and exact
+aliases are reported as observations rather than rejected generically. Missing
+spans and unread row tables remain explicit. Only observed unclaimed regions
+are scanned, under a shared byte-work budget charged before access. Nonzero-
+containing region footprints are distinguished from actual nonzero-byte counts.
+
+Across53 approved discovery starts, observed declared coverage is232,218,208B;
+declared missing coverage is122,248B. Internal unclaimed regions total27,264B,
+trailing regions1,521,440B;1,548,704B are charged for gap scans. All53 nonzero-
+containing gap regions independently match the prior header-context prefixes:
+their combined footprint is1,312B, not a count of nonzero bytes. Candidate-only
+categorization is optional research output; the runtime default retains these
+regions as unclaimed. No natural overlaps/aliases occur in these cohorts;
+positive overlap/alias behavior has authored coverage only.
+
+Unchanged original-reserved coverage includes all11 recognized starts: eight
+bounded metadata observations and three still incomplete. It reports52,736,608B
+observed declared coverage,32,936B missing,12,384B internal gaps and269,632B
+trailing gaps (282,016B charged scans). The three metadata refusals and three
+unknown streams remain unchanged. Sixty-four fabricated-alias,64 zero-gap
+mutation and64 one-short node controls pass across discovery/reused reserved.
+Neither union extents, gaps nor zero tails establish complete resource bounds.
+No stream joins were enabled.
+
+Cross-resource word research uses48 accepted discovery resources,9,518 exact
+leading slots and6,762 distinct low32 words. There are1,029 words shared across
+different resource contents. Of6,513,432 opaque groups,17,216 low32 values equal
+other-resource slot words:12,746 select one target slot,4,470 remain ambiguous.
+Every such partial match fails whole64 equality; high32 cross-matches are also
+zero. Enlarging the namespace therefore produces aliases, not confirmed copied
+eight-byte IDs. The tool retains source identities/content aliases and bounded
+samples, with no production asset resolver or semantic binding. Source identity,
+group-order and exact-budget controls use four pinned discovery sources.
+
+All340 inherited artifact hashes, frozen source roles, names.json and BCPack
+provisional labels remain unchanged. These selected source cohorts were already
+exposed; original reserved coverage is reused structural consistency only.
+Successor/supplementary world reserves and the previously unopened supplementary
+stereo reserve remain unopened. No external source or SixNG output was used in
+these investigations. Source/output alias guards and atomic writes protect
+native inputs and private evidence. No game fixtures or personal paths were
+added. Provenance: `docs/world_psin_owner_paths_provenance.md`,
+`docs/world_coverage_provenance.md`, `docs/world_cross_resource_ids_provenance.md`
+and `docs/native_world_context_extensions_provenance.md`.
+
+## Source-owned field context, opaque model-name candidates and stream authority
+
+Native PSIN inspection now supports `--context-field BLOCK:RECORD:FIELD[.FIELD...]`
+for local physical LSCH indices, including bounded embedded paths. The diagnostic
+reparses the verified source schema, checks block identity/record stride and
+selected field metadata, and returns at most 32 bytes per opaque slot prefix.
+It rejects synthetic element descriptors and ambiguous/overlapping declarations;
+unknown preceding extents are reported. A declared-start slot is not a proven
+value width or exclusive owner. Existing inferred scalars are checked against
+source bits; unknown `0x33`, `0x054f` and other types are not decoded by name.
+Shared work accounting includes enum metadata, source scans and cached block
+hashes. Query batches reuse a live checked-source session rather than persisted
+JSON authority. Budget failure discards the optional view while preserving the
+previously verified schema and instance report.
+
+A discovery-only scan of nine eligible PSIN sources finds 27 instantiated opaque
+`0x054f` fields. In the auxiliary-zero, exact-eight-byte declared-start profile,
+21 complete little-endian 64-bit words have verified frozen-dictionary preimages;
+six remain unmatched. Field-name candidates include `Model` and `ModelName`,
+but all 21 word matches occur in the former candidate field. Reverse-endian and
+high-bit mutation controls match 0/21. None of the 21 candidate names appears as a
+same-source NUL-terminated literal. The new `--typed-hash-candidates --names PATH`
+view retains source proofs, unsupported layouts and every colliding/duplicate
+candidate, without changing existing unknown fields or declaring asset bindings.
+This evidence does not connect the opaque levels groups to model objects.
+
+The two previously selected transform-candidate sources resolve 3 top-level,
+21 child and 3 grandchild field contexts. Within the 84-byte child, its first
+three fields embed 4-byte single-scalar wrappers; 14 further fields are directly
+inferred float32, followed by 4 unknown `0x15` slots. Thus 17 scalar words have
+layout evidence, while application meaning, coordinate order, timing, transform
+ownership and placement semantics remain unknown. Candidate names and finite
+floats are not authority for a transform decoder. Fourteen private source-mutation
+and bounds controls pass; no type table or special game hash was promoted.
+
+The boundary investigation reproduces all 101 prior discovery stream identities:
+37,487,726 compressed bytes inflate to 245,557,232 bytes, with exact zlib exhaustion,
+Adler-32 and SHA checks. Existing PSIN framing accounts for 8 resources/21 streams
+(6 standalone starts, 2 first fragments, 13 continuations). There are 53 `0DRP`
+starts and 27 unassociated opaque streams; eight opaque streams share leading
+u32 `0x4042`. Leading-format probes reject embedded-magic coincidences. Individual
+zlib endpoints establish no allocation endpoint or authority for new joins.
+
+The source-role audit preserves all 377 protected artifacts and frozen dictionary
+identities, and no reserved payload is read. Native integration replays the exact
+11 selected discovery resources (685,848 inflated bytes), compares CLI/API JSON,
+and confirms that previous schema/instance/header/graph views are unchanged.
+These are discovery consistency checks, not held-out semantic validation.
+The combined suite passes 1,369 unit tests with 2 optional-data skips and 267
+selftests. The 56 new authored tests cover source/path tampering, width/alias
+ambiguity, scalar bits, query batches, dictionaries, framing and shared budgets.
+Detailed methods are recorded in the field-, asset-type- and stream-authority
+provenance documents; no external implementation source or SixNG was used.
+
+## Cross-file opaque-word usage, embedded field trees and complete PSIN export
+
+The new `psin --hash-uses` and repeatable `--hash-use WORD` views group complete
+opaque eight-byte words from fresh, source-owned raw-type `0x054f` observations.
+They reuse the existing narrow field-slot profile without declaring the type to
+be a hash or an asset reference. A bounded linear occurrence index retains source
+labels, physical/content aliases, conflicting identities, verified name preimages,
+unmatched words and unsupported coverage; it does not construct quadratic edges.
+Unsigned 64-bit queries preserve exact word bits. Missing words are not observed
+in the supplied scope, and each query states whether its coverage is complete.
+Serialized JSON is not authenticated by this API; integration supplies freshly
+generated native views in the same invocation.
+
+Across the exact 11 prior discovery inputs (685,848 inflated bytes), 27 slots form
+19 groups: 14 singletons, three pairs, one triple and one quadruple. Four groups
+span distinct source contents, all nonzero. None crosses owner/field declaration
+hashes. One separate zero-word group has two occurrences within one source;
+no sentinel interpretation is assigned. There are 21 name-preimage slots and
+six unmatched slots. All 11 inventories are partial because unsupported local
+owner blocks remain outside the supported inventory. No source is refused, no
+physical/content aliases or contradictory identities occur in this cohort, and
+no native asset namespace or asset binding is established. Total replay work is
+100,785 units, including 245 for the index. No dictionary is extended or refitted.
+
+`psin --field-tree BLOCK:RECORD:FIELD[.FIELD...]` recursively projects only local
+embedded declaration children. Roots use physical LSCH indices and retain their
+full path depth; a single live checked-source session avoids repeated source
+parsing and hashing. Each preorder node contains its parent index, exact source
+context and expansion state. Cycles, ambiguous/unavailable paths, descriptors,
+unknown leaves and depth limits stay explicit. The shared work budget and a
+4,096-field report cap fail without a partial tree result. Arrays and pointers
+are leaves, not traversal authority; slot extents still do not prove value width
+or exclusive ownership.
+
+Three prior native roots expand to 27 checked contexts: four embedded fields,
+17 inferred float32 fields, two unknown `0x33` fields and four unknown `0x15`
+fields. The bounded raw prefixes total 120 bytes. Searching the same 11 sources
+for the complete 84-byte declaration signature, including across differently
+named owners, finds just one occurrence. This is not independent replication of
+transform semantics. Separately, 215 raw `0x15` declarations have declared-start
+slots of four bytes (172), eight bytes (39) or twelve bytes (4). Those slots can
+include padding, so no new width, scalar type, matrix convention or semantic
+transform owner is promoted. The guarded signature/tree audit costs 103,058
+shared units and preserves prior field/instance interpretations.
+
+`world --kind resources --extract-resources` now exports complete source-verified
+PSIN containers into a fresh `OUT/resources` directory. The exporter rereads exact
+compressed spans, bounds aggregate compressed/inflated bytes, requires one complete
+zlib envelope per span, rechecks each output SHA, and replays only existing PSIN
+page alignment/zero-padding and whole-container checksum rules. Local schema and
+body-table bounds are checked before output publication. Archive allocation
+endpoints remain unknown even for a complete checked PSIN format. Recognized 0DRP
+metadata prefixes and unknown/refused streams are skipped rather than exported as
+complete resources. Preflight refuses existing/symlinked output destinations and
+aliases to source or protected files. Files publish without replacement and a
+manifest publishes last; source, integrity or budget failure occurs before output
+creation. A failed optional export retains the independent native catalogue.
+
+Exact native replay of the eight original discovery PSIN resources reconstructs
+21 segments: 179,631 compressed bytes yield 999,632 exported bytes. Every output
+matches its pinned resource hash, and sealed repeat produces identical files and
+manifest. The exporter alone costs 938 units with the PSIN-only catalogue. Full
+CLI replay of the original discovery window exports those eight files, explicitly
+skips 13 0DRP prefixes and uses 951 export units. Default catalogue metadata is
+unchanged, and rerunning against the existing export refuses overwrite. No new
+stream join or allocation boundary is inferred.
+
+The round preserves all 417 protected artifact hashes, frozen dictionary and
+source roles; all earlier unopened reserves stay unopened. The 11 PSIN inputs
+are exact previously selected discovery copies; the export replay uses only the
+inherited original discovery window. These are reused discovery consistency
+checks, not held-out semantic validation. Native CLI/API JSON agrees; old
+schema/instance/header/graph views and schema grammar are unchanged. No external
+implementation source or SixNG comparison is used. Detailed provenance is in
+`docs/world_hash_uses_provenance.md`, `docs/world_field_tree_provenance.md` and
+`docs/world_native_export_provenance.md`. Game-derived output remains private in
+ignored storage; no game fixtures or decoded resources are added to published code.
+
+## Discovery-qualified opaque keys, exact layout search and direct native inputs
+
+A metadata-only probe across 433 discovery-qualified PSIN schema pairs found 20
+raw `0x054f` declaration occurrences in 11 sources: the prior nine asset-profile
+sources and two additional eligible identities. Before reading those two payloads,
+the source-role audit verified all 454 protected hashes, examined 391 protected
+JSON artifacts and checked 6,010 reserved/validation/holdout/comparison content,
+location and interval exclusions. There were zero conflicts. Exact source hashes,
+archive header, existing discovery interval, reader and byte/work limits were
+frozen in the new plan. No prior split changed and no reserved payload was read.
+
+The two approved resources contain 115,348 inflated bytes and yield 24 additional
+source-owned opaque slots. Eighteen are native entry Key fields in four maps
+already supported by the existing reader; six are unnamed zero-word slots. Only
+two new slots have verified complete 64-bit dictionary preimages, with zero
+same-source NUL-terminated literal matches. No string or pointer authority is
+invented. Existing map entry links independently corroborate the key source spans
+and enclosing map/header references; map values have existing enum32, inferred
+float32 or embedded-structure layouts, not confirmed application meanings.
+
+One nonzero key word equals a prior Model-candidate word across different owner
+and field declarations. This is new cross-declaration evidence, unlike the earlier
+four cross-content groups, which stayed within the same declaration profiles.
+The checked map has owner `0x4c9cc1d3` and field `0xa5c96ed5`; the entry owner is
+`0x101` and Key field `0x6098a50e`. Neither the owner nor map field has a verified
+preimage in the unchanged exact/case-folded joaat dictionary. The existing local
+container path supplies structural provenance, but neither the common word nor
+its float-valued map identifies a model object, namespace or binding. Zero-word
+intersections retain no assigned null/sentinel semantics. A changed-high-bit
+control removes the full-width equality. No existing type or map decoder changes.
+
+The combined 13-source native replay now contains 801,196 inflated bytes,
+51 supported opaque slots, 35 full-word groups, 23 preimage-bearing slots and
+28 unmatched slots. Exactly one nonzero group crosses both owner and field hashes.
+All instance/schema reports compare equal to prior orchestration on the same
+bytes, and unknown/partial inventories remain explicit. This is discovery-only
+consistency; it is not independent semantic validation.
+
+Exact metadata queries are now available through `psin --find-structure`,
+`--find-field`, `--find-type`, `--find-aux`, `--find-size` and `--same-layout`.
+The new bounded helper consumes native local schema objects and fresh source
+metadata. Selectors combine with AND, and all field selectors must match one
+physical descriptor. Layout fingerprints include owner size and every ordered
+field name/offset/full-type/auxiliary word, including synthetic descriptors.
+Owner name and unknown header words are excluded from layout equality but remain
+visible via complete definition identities, raw header metadata and conflicting
+variants. Every seed variant is retained; no consensus or majority choice is
+made. Source failures and schemas without qualified sources make coverage partial.
+The helper authenticates no serialized report and establishes no instance binding.
+Output limits are 4,096 matches/65,536 fields plus shared work/provenance budgets.
+
+The broader guarded search decodes only discovery-qualified LSCH/LENM metadata
+after filtering source labels: 433 schema pairs, 821 eligible labels and 21,485
+structure occurrences, costing 491,692 shared work units. The exact 84-byte layout
+still appears as one declaration in one source, including across differently named
+owners. There is no independent replica establishing transform meaning, and no
+new game payload is read by this metadata search. All qualification exclusions
+and original source roles remain preserved.
+
+Native `world --raw-resources --archive FILE` now inspects whole direct files
+without scanning for embedded magic, reading an archive index, carving or joining.
+Each file must fit its complete per-file, aggregate decoded/source-byte and node
+budgets before payload reads. PSIN must tile the exact input and pass checksum,
+schema and body bounds; cuts, trailing bytes, neighbour files and concatenated
+containers cannot manufacture completeness. Version-122 0DRP retains only bounded
+metadata-prefix status and an unknown complete allocation endpoint. Existing
+schema/link/primitive/context/extent views are reused unchanged. Raw segment
+provenance carries `encoding=raw`, `stored_bytes` and absolute source-file offsets,
+with no compressed-size field; summary stream/inflation counters are zero. The
+legacy resource-level `inflated_bytes` key remains its decoded-resource-size field,
+not a claim that direct input was inflated. Explicit mode defaults off, requires
+start zero and cannot combine with native resource extraction.
+
+Eight exact prior PSIN exports (999,632 bytes) round-trip through direct mode;
+all checksum/schema/block observations match the pinned archive catalogue. The
+standalone audit costs 466 units. Combined native CLI/API replay also compares the
+old and current default archive readers on a private carrier made exclusively
+from those approved cached bytes; default reports agree exactly. Per-file raw
+CLI JSON agrees with the API. No new game archive or reserved payload is needed
+for integration, and no new resource joining rule is introduced.
+
+All 454 protected artifacts, frozen dictionary, BCPack provisional labels and
+source assignments remain unchanged. No external implementation or SixNG output
+is used. Detailed methods and authored controls are recorded in
+`docs/world_asset_discovery_provenance.md`, `docs/world_schema_search_provenance.md`
+and `docs/world_raw_resource_provenance.md`. Raw resources and private observations
+remain ignored local files; no game fixtures or decoded resources are published.
+
+## Selected-map context, offline registry search and manifest batch inspection
+
+The new `psin --context-map BLOCK:RECORD:FIELD[.FIELD...]` view selects at most
+32 local map fields through existing embedded paths. One live source-validation
+session checks declarations, source blocks, owner strides and ancestor fields.
+The helper replays the established map resolver and compares its complete result
+with the fresh instance map. Target block hashes, exact strides and selected
+record metadata are rechecked. It adds no map profile, key/value decoder or
+semantic owner. Existing hash32, opaque-key, enum-key and nested descriptor profiles
+retain their own conditions and refusal reasons. Unsupported paths remain explicit;
+format/budget failures and the aggregate 4,096-entry cap return no result prefix.
+Per-query enum-member work is charged before native resolver replay.
+
+The exact prior discovery map at block 74, record 0, path `10.3` resolves one
+entry. Existing record-graph context supplies a two-edge candidate path from LRSC
+candidate record 81 to its containing record via 81->75->74; the key record 38
+adds one native map-entry edge, giving three. Each queried record has one observed
+incoming edge, without shortest-path ambiguity. These are observed associations,
+not a confirmed root, semantic owner or asset target. Frozen dictionary lookups
+supply no name preimages for the map, embedding ancestors or reference-path fields.
+
+The guarded audit compares full definitions, not just owner hashes, across the
+433 qualified discovery metadata pairs. The selected map owner, embedded parent,
+intervening owner and entry full definitions each occur once. The common candidate
+root definition occurs in 136 schema declarations. Low-ID `0x101` has 17 conflicting
+same-hash variants, which remain separate rather than becoming cross-file links.
+The audit of two cached resources (115,348 bytes), graph/context evidence and
+qualified metadata costs 459,025 work units. No independent map-role, asset-object
+or transform authority emerges. The earlier Model-to-Key word equality remains
+candidate evidence only.
+
+`psin --registry-only --registry FILE` now supports the existing exact declaration
+selectors without archive discovery or source payload access. It requires a selector
+and rejects source/instance/graph/map/tree/hash/build options. A shared adapter
+reuses the exact layout matcher, retains all conflicting seeds and reports each
+recorded source as registry provenance only. Source payloads are explicitly not
+reverified, even if the original cache was built from checked input. Low-ID matches
+are labeled reserved/file-local and never gain global resolution or instance
+binding. A hash of the exact registry file identifies inspected metadata separately
+from its recorded source hashes.
+
+Regular-file, file-size and JSON scan limits precede loading. Descriptor/section,
+source-label deduplication fanout and exact search work are charged before expensive
+native section parsing or output expansion. This includes worst-case list-membership
+work in the existing registry loader, so alias fanout cannot bypass a small work
+budget. Failed loads/searches preserve existing output. The qualified 433-pair,
+821-label, 21,485-structure replay still finds a single 84-byte layout. The standalone
+load/search costs 514,979 units; the guarded audit including qualification costs
+523,237. No original game/source payload is opened by offline search.
+
+`world --kind resources --manifest FILE` now batch-inspects complete PSIN files
+listed by a native export manifest. It validates bounded JSON and refuses duplicate
+JSON keys, path traversal, external/symlink/hardlink aliases, duplicate files, wrong
+sizes/hashes and unsupported row types before payload parsing. Skipped rows remain
+visible and original archive paths inside recorded metadata are never opened.
+Each selected file is rehashed, then inspected by the unchanged raw native reader;
+the parsed hash, format and complete PSIN status are compared again to detect
+source changes between reads. Manifest source checks and raw-reader work share
+node/byte limits. Output aliases are checked inside the same preflight before
+payload access; invalid inputs create no catalogue.
+
+The native eight-file batch verifies 999,632 bytes, preserves 13 declared skips
+and consumes 805 work units (339 manifest/hash verification, 466 raw reading).
+A three-file limit explicitly reports five uninspected files and partial coverage.
+Empty-export manifests refuse with a clear skipped count instead of inventing a
+catalogue. Failed inspections preserve previous output. Raw byte coordinates,
+zero stream/inflation summary and unknown archive allocation endpoints remain
+unchanged. Separate files are never joined.
+
+Integrated native CLI/API JSON agrees for selected-map/record queries, qualified
+offline registry search and full/limited manifest inspection. Prior schema,
+instance/header/record-graph/context results and direct-file metadata are unchanged;
+all schema parser/helper ASTs remain identical apart from orchestration. The full
+suite passes 1,527 unit tests with two optional-data skips and 267 selftests.
+Fifty-five new authored tests cover map source/target/enum budgets, offline
+confidence/reserved IDs/load limits and regular-file checks, manifest confinement,
+source-change controls, and CLI/budget/output-preservation contracts.
+
+All 500 protected artifacts, name dictionary, prior source roles and BCPack
+provisional labels remain unchanged. No game archive/reserved payload is read,
+no source is promoted, and no external implementation or SixNG output is used.
+These are reused discovery consistency checks, not held-out semantic validation.
+Details are in `docs/world_map_context_provenance.md`,
+`docs/world_registry_search_provenance.md` and `docs/world_manifest_provenance.md`.
+Raw data and detailed native outputs remain private ignored files; no game fixtures
+or decoded resources are added to published code.
+
+## Native string hypotheses, checked graph DOT and immutable manifest queries
+
+A frozen audit examines exactly the 13 already selected discovery PSIN copies,
+801,196 bytes, without selecting new game payloads. Target inventories and scanning
+rules are fixed before observations. In LSNS/LGID the hypotheses select complete
+NUL-terminated printable strict UTF-8 runs and strict UTF-16LE runs at both byte
+alignments, within bounded lengths. Invalid encodings, replacement decoding,
+unterminated/overlong runs and substring mining are excluded. These are candidate
+encodings, not an independently established string-table grammar. Separately,
+existing native low-ID `0x10` printable-ASCII pools are inspected only when no local
+schema declaration overrides that ID; no new pool reader is added.
+
+The audit covers 30 regions: LSNS totals 107,284 bytes and LGID 8,556 bytes, yielding
+zero qualifying complete runs under the fixed hypotheses. Four existing ASCII
+pools total 393 bytes and supply 15 entries. Exact ASCII joaat and explicitly
+separate folded-joaat tests, plus full UTF-8 64-bit preimages where applicable,
+find no selected map/ancestor/reference-field names, same-source declaration names
+or equality with the corpus's 35 opaque words. The final audit costs 64,067 shared
+work units. These negatives apply only to the tested encodings, regions and target
+sets, not to all possible game naming data. No dictionary update, inferred field
+meaning, encoding promotion or speculative runtime feature is justified.
+
+`psin --graph-dot FILE` now renders existing checked local record associations as
+bounded DOT text. The helper replays each fresh source graph through the existing
+graph-context checks against instances/header/bucket metadata. Source/schema IDs
+must agree. Every observed node and edge is retained, including isolated records,
+cycles and parallel/map/reference-array links. Clusters remain source-local even
+for identical content; no cross-file edge or semantic root/owner is inferred.
+Unknown/unrepresented/refused coverage is visible, with empty unavailable-source
+clusters rather than invented records. DOT labels omit filenames, preserve raw
+local record identities and explicitly leave candidate-root roles unknown.
+
+Budgets cover replay, labels, nodes, edges and emitted bytes. Limits are 4,096
+sources, 65,536 record nodes, 131,072 edges and 8 MiB of DOT text. Label quoting
+prevents control/quote/backslash text from changing DOT syntax or creating HTML
+labels. A work/byte/record/edge failure returns no DOT prefix. CLI aliases among
+source, dictionary, registry, JSON and DOT destinations are rejected before reads;
+DOT writes publish atomically, and failed requested views preserve previous DOT.
+Existing schema/instance/graph reports are preserved when the optional view fails.
+
+Native two-source replay (115,348 cached bytes) retains 1,135 records and 1,115
+edges in exactly 176,008 DOT bytes, using 37,880 audit units. The output matches
+API/CLI text exactly and includes no source filenames. No Graphviz executable is
+installed, so serialization/escaping/identity/count validation is recorded without
+claiming a native renderer parse or image check. These observations are not semantic
+world ownership, asset bindings, placements or transforms.
+
+`psin --manifest FILE` now supports full native PSIN views over complete exports.
+Existing confined manifest path/hash/size/alias checks and native grammar validation
+are reused. Each selected file is read into bounded immutable bytes once, hashed,
+and checked through the existing exact PSIN schema/body grammar. Those same bytes
+enter the normal PSIN orchestration through a private mutually exclusive buffer
+source hook; source/parser helpers remain unchanged. A later pathname replacement
+therefore cannot turn a verified PSIN into an archive-carving input. Descriptor,
+enum serialization and verification work are precharged, and all PSIN views share
+the remaining node budget. Unsupported bodies fail before source inspection.
+
+Source/JSON/DOT/metadata outputs are protected from manifest-selected aliases.
+Explicit `--manifest-limit` prefixes preserve skipped and uninspected rows; empty
+manifests refuse clearly. Files/archive/full/registry-only/registry-build source
+modes cannot combine with this adapter, while explicit local dictionaries and
+registry metadata remain supported. Source labels are confined relative paths,
+with manifest provenance resolving nested equal basenames unambiguously. All
+checksum/schema/instance/graph/field/map/hash meanings retain their existing
+confidence; cached registry payloads are not implicitly reverified.
+
+The native eight-file replay verifies 999,632 bytes and preserves 13 declared
+skips. All eight instance inventories remain partial, none refuses, and source
+schemas/instances/graphs equal ordinary direct inspection. Standalone audit work
+is 247,929 units, including 1,417 verification units. Full integrated manifest+DOT
+replay preserves 30,806 observed record nodes and zero supported edges rather than
+inventing links. A two-file prefix reports six uninspected files. Native API/CLI
+JSON and written DOT agree exactly; earlier PSIN source views and schema parser/
+helper ASTs are unchanged apart from orchestration.
+
+All 541 protected artifacts, frozen dictionary, source roles and BCPack provisional
+labels remain unchanged. No archive/reserved payloads, new source selections,
+external implementation or SixNG output are used. These are reused discovery
+consistency results, not held-out semantic accuracy. The final suite passes 1,575
+unit tests with two optional-data skips and 267 selftests; 48 new authored tests
+cover strict string hypotheses, graph identity/escaping/caps, immutable manifest
+inputs, query preflight and CLI/output/budget contracts. Detailed records are
+`docs/world_native_strings_provenance.md`, `docs/world_graph_dot_provenance.md` and
+`docs/world_psin_manifest_provenance.md`. Raw observations remain private ignored
+files; no game fixtures or decoded resources are published.
+
+## Typed type5c spans and retained empty-bucket/animation limits
+
+This round revisits three unresolved format authorities rather than adding another
+wrapper: logical element authority for raw type5c, empty type75 framing and complete
+selector7/8 animation record extents. All earlier source roles and runtime profiles
+remain fixed. New payload access is limited to historical discovery caches after
+source-role review; no archive/reserved/comparison payload is read.
+
+The PSIN selection is exactly 28 historical discovery resources, 1,111,808 bytes.
+Before either bucket/type5c audit opens them, the frozen plans verify all 574
+protected artifact hashes and audit 490 protected JSON artifacts against 19,628
+content/location/interval exclusions, with zero conflicts. Both investigations
+select the same exact payload-hash set. The initial 13-source bucket scan has no
+type75 maps and remains preserved; its successor cached selection is explicit.
+No source, pool or reserved cohort changes roles.
+
+The type5c inventory finds 109 named declarations: 108 select opaque `0x1b4d`
+descriptors and one selects a local structure descriptor. The old opaque profile
+still has 2,328 physical headers, 27 authorized pools and one refused pool. Its
+1,971 requested storage observations remain 1,805 complete/166 unresolved, with
+6,001 raw four-byte groups. No local typed `0x4d` block, `0x1b4d` structure/enum
+or independently typed same-pool association supplies primitive or logical-element
+meaning. Existing pool, bucket and ordinary instance behavior remains unchanged.
+
+The one structured-descriptor declaration supplies independent local authority:
+a zero-offset synthetic type5 descriptor names a unique 12-byte local structure,
+and an 84-byte block has exactly that declared type. Two clear 16-byte headers
+contain equal positive stored words 4/4 and 3/3, with full packed references to
+byte offsets zero and 48 of that block. Their independently declared record strides
+and counts cover exactly seven existing rows, without a gap or partial overlap.
+This corroborates local typed-record spans; it does not establish global type5c
+array/element/count-capacity semantics, primitive values, target objects or owners.
+All three target fields retain their existing unknown types.
+
+The opt-in `psin --type5c-spans` diagnostic rechecks source schema and block
+identities, scans locally tiled roots, bounded embedded owners and independently
+framed inline bucket values, and authorizes only exact whole-target coverage.
+Missing/ambiguous/unbounded owners, unsupported descriptors, unclear slots, cycles,
+depth truncation and unresolved potential bucket owners prevent a complete scan.
+Other bounded type5c headers cannot silently disappear: only the established
+opaque descriptor profile is accepted as an alternate, with its existing raw
+header/reference/bounds guards. A differently described competing typed-target
+use cannot authorize coverage by being omitted. Exact span aliases are retained
+as observations and deduplicated for coverage; partial overlaps/gaps refuse links.
+
+Existing target instance strides and row identities are compared before any
+reference output. The helper emits raw header/declaration context, target coverage
+and record links only; it neither expands nor decodes target values. Limits are
+4,096 headers/4,096 record links plus shared node/depth budgets, with no truncated
+prefix on failure. Existing parent instance fields stay unknown. The runtime
+contains no native hash, source-offset or fixed 12-byte exception.
+
+Native validation finds one positive source, two complete headers, one typed target
+and seven record links. The guarded 28-resource audit costs 763,198 units, including
+baseline checks and controls; 27 candidate scans complete and the pre-existing zero
+bucket keeps one scan incomplete. Six repaired-checksum header/reference/coverage
+corruptions refuse all links. Changing opaque target contents preserves structural
+references, showing that this is span authority rather than value/semantic integrity.
+Only one discovery source supports the new profile; no independent source, reserved
+profile or held-out semantic accuracy is claimed.
+
+The separate empty-bucket audit finds 264 unique outer/nested type75 header
+observations. Exactly one is all zero, with no allocated zero-count example.
+Its exact full owner definition and physical field have 151 nonzero observations
+and one zero observation across the cohort, so it is not merely a same-hash schema
+collision. That contrast still supplies no independent empty allocation/occupancy
+framing. Existing refusal remains correct and the bucket runtime is unchanged.
+The native reader costs 122,938 units; the complete guarded contrast audit costs
+311,831. No all-zero header is promoted to an empty map or fabricated target.
+
+The animation audit uses the existing 879-buffer discovery cache (19,565,616
+bytes), preserving 211 selector7 and 72 selector8 rows: 266 nonempty starts and
+17 empty/nonrecord boundaries. Existing prefix-start and row-end-cursor diagnostics
+were already implemented; they are not a newly solved body profile. Assigning the
+remaining raw byte as whole-record or body-word length fails all 266 applicable
+rows. Assigning a record ordinal fails 189 rows and coincides in 77, which is not
+a rule. No buffer supplies a following selector7/8 anchor for an independent end
+witness. Only 266 of 36,365 counted records are anchored.
+
+All 266 selected-body final-word mutations change the body hash while preserving
+complete auxiliary metadata; all 266 changed-length controls fail existing parent
+framing. Thus the counted envelope is checked, while source ownership/body grammar
+remains unproved. Work is 1,372,370 units. No successful subset is activated, no
+empty boundary becomes a source record, and no animation code/channel/bone/time
+or numeric sample rule changes. The top TODO now distinguishes existing narrow
+boundaries from missing independent record-end/body ownership authority.
+
+Integrated native API/CLI replay over the exact 28 approved copies reproduces the
+new two-header/seven-link result and preserves all prior schemas/instances/default
+reports. Schema parser/helper ASTs, bucket modules and animation runtime remain
+unchanged apart from PSIN orchestration/CLI opt-in. The final suite passes 1,619
+unit tests with two optional-data skips and 267 selftests. This round adds 44
+authored tests: 16 typed-span, 12 empty-bucket, 10 selector-boundary and six
+API/CLI integration tests, including immutable-manifest propagation and exact
+shared budgets.
+
+All 574 protected artifacts, dictionary, BCPack labels, source roles and prior
+reports remain unchanged. No external implementation, oracle, GPL/unlicensed code
+or SixNG is consulted. Evidence is discovery consistency only. Detailed methods:
+`docs/psin_type5c_provenance.md`, `docs/psin_empty_buckets_provenance.md` and
+`docs/anim_selector_boundaries_provenance.md`. No game fixtures, decoded resources
+or private paths are published; native observations remain ignored local files.
+
+## Source lineage and opt-in typed-span graphs (2026-11-23)
+
+Three separate targets extend the existing type5c span diagnostic: bounded source
+lineage, optional graph associations and a frozen-profile discovery scope audit.
+Only repository-authored readers, authored containers and authorized native
+observations are used. No external source, decoder, wrapper or SixNG is consulted.
+
+The span reader now retains the root record identity, complete ordered embedded
+and inline-bucket ancestry, declaration offsets, physical owner/header spans and
+instance field paths. Direct and embedded paths are replayed through the checked
+field-context reader. Inline bucket values retain physical provenance but do not
+claim an instance-addressable path. Bounded alias/cycle/depth witnesses prevent a
+collapsed physical owner from implying exclusive ownership. Existing span
+admission, coverage/refusal decisions, target records and legacy source_context
+remain unchanged; additional report work is charged to the shared budget.
+
+`psin --type5c-graph` explicitly requests candidate associations from checked spans
+to existing typed record nodes. It implies spans and the record graph; merely
+combining the old span and graph options preserves the old graph. It appends no
+nodes, retains aliases/parallel edges and excludes inline sources with counters.
+Record context and DOT replay the same optional evidence. Missing or changed
+proofs refuse; a failed span view never silently falls back to a base graph.
+Unknown parent fields, logical elements, values, semantic owners and LRSC roles
+remain unknown. The graph adapter checks consistency of fresh native reports;
+it does not authenticate saved JSON or independently reopen source payloads.
+
+The exact prior 28 discovery copies (1,111,808 bytes) preserve every old span
+projection, schema, instance and default graph. The new view preserves 7,117
+record nodes and 114 existing edges, adding seven candidate edges from two
+headers in the known one positive source. All 28 missing-evidence graph controls
+refuse. Native CLI/API output agrees, and the positive source's context and DOT
+replay succeeds. Its queried target has an incoming association but remains
+unreached from the LRSC candidate within the checked graph/depth; this does not
+establish application ownership or a root path. This is reused discovery
+consistency, not new held-out semantic accuracy.
+
+The wider metadata audit caught a historical exclusion gap before new payload
+reads: older LSCH reports store validation ranges as archive/start-MiB/end-MiB
+triples. Eight of the inherited 821 discovery labels overlap old validation;
+one proposed candidate was among them. The original 433-schema/821-label
+inventory is preserved as exposed inherited metadata, not permission for native
+reads. The corrected selection contains 425 schemas and 813 labels. The audit
+includes all 614 protected artifacts plus four older LSCH validation reports;
+none of the prior 28 story-script identities conflicts. Reserved identities and
+ranges stay excluded, including identities already exposed in earlier metadata.
+No old split/report is edited or reassigned.
+
+The corrected metadata inventory has six structured-descriptor declarations
+across five eligible data-package sources, plus one missing local target. Exact
+bounded source windows were reviewed before reads. The original span reader and
+its dependencies were copied and frozen before observations, so new scope
+results cannot change the admission rules. Five checksum/hash/schema-verified
+sources total 179,792 inflated bytes and 36,706 charged work units. They contain
+40 structured headers: three complete and 37 unresolved, seven existing-record
+links, and three complete targets out of six candidates.
+
+Two distinct sources share an independently declared 12-byte target and each
+supply three links. A third supplies one link at a declared 24-byte stride;
+its separate 160-byte target fails coverage with a gap or partial overlap. Two
+other sources authorize no links because unsupported alternate descriptors
+prevent a complete eligible-header scan; one also lacks a local target schema.
+Refused headers remain refused. There is no fitted successful subset, stride
+exception or rule widening. This is profile recurrence in exposed discovery
+sources, not blind or held-out semantic validation.
+
+The same five reviewed windows replay through the current source-lineage reader,
+API, CLI, record context machinery and DOT without changing any frozen span
+projection. Seven candidate edges add seven reachable records under the existing
+candidate-anchor traversal (19 to 22, 10 to 13 and 6 to 7 for the positive
+sources). Record identities and ordinary instances stay exact; candidate-distance
+annotations are intentionally recomputed from the optional associations. No
+application root or ownership meaning follows from those candidate paths.
+
+Final validation passes 1,670 unit tests (two optional-data skips) and 267
+selftests. Fifty-one new authored tests cover lineage, graph witnesses and
+replay, metadata/source qualification, bounded exact stream windows, CLI/API/
+manifest integration, budgets and candidate-anchor path changes. The README
+remains 184 lines and documents the new capability without research chronology.
+All 614 protected artifacts, four supplemental validation reports, names,
+BCPack labels, unrelated runtime files, HEAD and index remain unchanged. No
+reserved payload is reread, no source role is promoted and no external code or
+game fixture is added. Details are in `docs/type5c_lineage_provenance.md`,
+`docs/type5c_graph_provenance.md` and `docs/type5c_scope_provenance.md`.

@@ -32,7 +32,7 @@ def _integer(value, label, maximum=MAX_BYTES):
     return value
 
 
-def inspect(instances, resource_header=None, *, max_nodes=100000, max_depth=16, bucket_maps=None):
+def inspect(instances, resource_header=None, *, max_nodes=100000, max_depth=16, bucket_maps=None, type5c_spans=None):
     """Index trusted decoder output and bound candidate-anchor reachability.
 
     This checks report identities/spans, not the original container checksum.
@@ -229,6 +229,12 @@ def inspect(instances, resource_header=None, *, max_nodes=100000, max_depth=16, 
         bucket_counts = psin_bucket_graph.append(bucket_maps,nodes,sources,identities,blocks,edges,
             consume=consume,edge=edge)
 
+    type5c_counts = None
+    if type5c_spans is not None:
+        from . import psin_type5c_graph
+        type5c_counts = psin_type5c_graph.append(type5c_spans,instances,nodes,sources,
+            identities,blocks,edges,consume=consume,edge=edge)
+
     reach = dict(status='unanchored', reason='no supported LRSC record candidate supplied',
                  scope='checked record associations only; candidate is not a proven root',
                  max_depth=max_depth, depth_limited=False, reachable_records=0,
@@ -263,6 +269,8 @@ def inspect(instances, resource_header=None, *, max_nodes=100000, max_depth=16, 
     partial = bool(unknown_fields or missing_blocks or unsupported or anchor is None or reach['depth_limited'])
     if bucket_counts is not None:
         partial = partial or bool(bucket_counts['bucket_maps_unresolved'] or bucket_counts['bucket_inline_maps_excluded'] or bucket_counts['bucket_scan_partial'])
+    if type5c_counts is not None:
+        partial = partial or bool(type5c_counts['type5c_headers_unresolved'] or type5c_counts['type5c_inline_headers_excluded'] or type5c_counts['type5c_scan_partial'])
     result = dict(format='gta6x-psin-record-graph-v1', profile=PROFILE,
         status='partial' if partial else 'complete',
         interpretation='Existing checked record links only; unknown edges, candidate root role and application semantics remain unconfirmed.',
@@ -277,4 +285,9 @@ def inspect(instances, resource_header=None, *, max_nodes=100000, max_depth=16, 
         result['bucket_profile'] = psin_bucket_graph.PROFILE
         result['summary'].update(bucket_counts)
         result['interpretation'] += ' Includes exact checked owner-to-target bucket associations; inline values are excluded, not invented as record nodes.'
+    if type5c_counts is not None:
+        result['type5c_profile'] = psin_type5c_graph.PROFILE
+        result['type5c_source_sha256'] = type5c_spans['source_sha256']
+        result['summary'].update(type5c_counts)
+        result['interpretation'] += ' Includes candidate complete typed-record spans; parent fields and semantic ownership stay unknown. Inline sources without instance field paths are excluded.'
     return result

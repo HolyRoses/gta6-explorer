@@ -357,7 +357,12 @@ def inspect_sources(paths: list[str], *, limit: int | None,
                     with_resource_header: bool = False, with_record_graph: bool = False,
                     with_bucket_maps: bool = False, with_bucket_values: bool = False,
                     with_bucket_pool_spans: bool = False, with_bucket_graph: bool = False,
-                    max_nodes: int = 100000, max_depth: int = 16, registry=None) -> dict:
+                    max_nodes: int = 100000, max_depth: int = 16, registry=None,
+                    context_records=(), context_fields=(),
+                    with_typed_hash_candidates: bool = False, field_trees=(),
+                    with_hash_uses: bool = False, hash_words=(), schema_search=None,
+                    context_maps=(), with_graph_dot=False, _source_items=None,
+                    with_type5c_spans=False, with_type5c_graph=False) -> dict:
     """Inspect raw PSIN files or complete joined resources inside archives.
 
     Identical LSCH+LENM pairs share one schema; differing definitions of the
@@ -368,6 +373,52 @@ def inspect_sources(paths: list[str], *, limit: int | None,
     """
     from . import structured
 
+    if _source_items is not None and paths:
+        raise ValueError('private PSIN buffer sources cannot combine with file paths')
+    if with_type5c_graph:
+        with_type5c_spans = with_record_graph = True
+    if with_graph_dot:
+        with_record_graph = True
+        if type(max_nodes) is not int or max_nodes < 1:
+            raise ValueError('max_nodes must be a positive integer')
+    if schema_search is not None:
+        allowed = {'structure_hash', 'field_hash', 'type_word', 'auxiliary', 'byte_size', 'same_layout'}
+        if (not isinstance(schema_search, dict) or not schema_search or
+                any(k not in allowed or type(v) is not int or not 0 <= v <= 0xffffffff
+                    for k, v in schema_search.items())):
+            raise ValueError('schema search requires supported unsigned 32-bit selectors')
+        if type(max_nodes) is not int or max_nodes < 1:
+            raise ValueError('max_nodes must be a positive integer')
+    if (not isinstance(context_records, (list, tuple)) or len(context_records) > 32 or
+            any(not isinstance(pair, (list, tuple)) or len(pair) != 2 or
+                any(type(v) is not int or not 0 <= v <= 0xffffffff for v in pair)
+                for pair in context_records)):
+        raise ValueError('PSIN context queries require at most 32 unsigned block/record pairs')
+    for label, queries in (('field context', context_fields), ('field trees', field_trees),
+                           ('map context', context_maps)):
+        if (not isinstance(queries, (list, tuple)) or len(queries) > 32 or
+                any(not isinstance(q, (list, tuple)) or len(q) != 3 or
+                    any(type(v) is not int or not 0 <= v <= 0xffffffff for v in q[:2]) or
+                    not isinstance(q[2], (list, tuple)) or not 1 <= len(q[2]) <= 64 or
+                    any(type(v) is not int or not 0 <= v <= 0xffffffff for v in q[2])
+                    for q in queries)):
+            raise ValueError('PSIN ' + label + ' requires at most 32 block/record/field-path queries')
+    if (not isinstance(hash_words, (list, tuple)) or len(hash_words) > 32 or
+            any(type(v) is not int or not 0 <= v <= 0xffffffffffffffff for v in hash_words)):
+        raise ValueError('PSIN hash uses require at most 32 unsigned 64-bit words')
+    if with_typed_hash_candidates and not isinstance(dictionary, dict):
+        raise ValueError('typed hash candidates require an explicit name dictionary')
+    with_hash_uses = with_hash_uses or bool(hash_words)
+    if with_hash_uses:
+        with_typed_hash_candidates = True
+    if context_fields or field_trees or context_maps or with_typed_hash_candidates or with_type5c_spans:
+        with_instances = True
+        if type(max_nodes) is not int or max_nodes < 1:
+            raise ValueError('max_nodes must be a positive integer')
+        if type(max_depth) is not int or not 1 <= max_depth <= 64:
+            raise ValueError('max_depth must be an integer from 1 to 64')
+    if context_records:
+        with_record_graph = True
     if with_bucket_graph:
         with_record_graph = with_bucket_maps = True
     if with_bucket_pool_spans:
@@ -384,22 +435,27 @@ def inspect_sources(paths: list[str], *, limit: int | None,
             raise ValueError('max_depth must be an integer from 1 to 64')
     resources = []
     schemas = {}
+    search_schemas = {}
     remaining_nodes = max_nodes
     instance_nodes_used = resource_header_nodes_used = record_graph_nodes_used = 0
     bucket_map_nodes_used = 0
+    record_context_nodes_used = 0
+    field_view_nodes = dict(field_context=0, field_trees=0, map_context=0, typed_hash_candidates=0, type5c_spans=0)
     if with_resource_header and (type(max_nodes) is not int or max_nodes < 1):
         raise ValueError('max_nodes must be a positive integer')
     if with_instances and (max_nodes < 1 or not 1 <= max_depth <= 64):
         raise ValueError('max_nodes must be positive and max_depth must be 1..64')
 
     def add(data: bytes, source: dict) -> None:
-        nonlocal remaining_nodes, instance_nodes_used, resource_header_nodes_used, record_graph_nodes_used, bucket_map_nodes_used
+        nonlocal remaining_nodes, instance_nodes_used, resource_header_nodes_used, record_graph_nodes_used, bucket_map_nodes_used, record_context_nodes_used
         source = dict(source, sha256=hashlib.sha256(data).hexdigest(), bytes=len(data))
         try:
             schema = parse_schema(data)
         except ValueError as exc:
             resources.append(dict(source, status='refused', error=str(exc)))
             return
+        if schema_search is not None:
+            search_schemas[schema.schema_id] = schema
         if schema.schema_id not in schemas:
             schemas[schema.schema_id] = schema.as_dict(dictionary, registry=registry)
         result = dict(source, status='ok', checksum_verified=True, schema_id=schema.schema_id)
@@ -431,12 +487,40 @@ def inspect_sources(paths: list[str], *, limit: int | None,
             except ValueError as exc:
                 result['resource_header'] = dict(status='refused', reason=str(exc))
             resource_header_nodes_used += before - remaining_nodes
+        def add_field_view(key, inspect):
+            nonlocal remaining_nodes
+            from . import psin_instances
+            if result['instances'].get('status') not in ('complete', 'partial'):
+                result[key] = dict(status='refused', reason='field inspection requires available same-source instances')
+                return
+            before = remaining_nodes
+            def consume(amount=1):
+                nonlocal remaining_nodes
+                if type(amount) is not int or amount < 0:
+                    raise ValueError('invalid PSIN field inspection work charge')
+                if amount > remaining_nodes:
+                    raise psin_instances.InstanceLimitError('PSIN field inspection exceeds shared node budget')
+                remaining_nodes -= amount
+            try:
+                result[key] = inspect(consume)
+            except psin_instances.InstanceLimitError as exc:
+                remaining_nodes = 0
+                result[key] = dict(status='refused', reason=str(exc))
+            except ValueError as exc:
+                result[key] = dict(status='refused', reason=str(exc))
+            field_view_nodes[key] += before - remaining_nodes
+        if with_type5c_graph:
+            from . import psin_type5c
+            add_field_view('type5c_spans', lambda consume: psin_type5c.inspect(
+                data, schema, result['instances'], consume=consume, max_depth=max_depth))
         def add_graph(bucket_view=None):
             nonlocal remaining_nodes, record_graph_nodes_used
             from . import psin_record_graph
             before = remaining_nodes
             if result['instances'].get('status') == 'refused':
                 result['record_graph'] = dict(status='refused', reason='record graph requires an available instance view')
+            elif with_type5c_graph and result['type5c_spans'].get('status') not in ('complete', 'partial'):
+                result['record_graph'] = dict(status='refused', reason='type5c graph requires an available checked typed-span view')
             elif with_bucket_graph and (not isinstance(bucket_view, dict) or bucket_view.get('status') not in ('complete', 'partial')):
                 result['record_graph'] = dict(status='refused', reason='bucket graph requires an available bucket-map view')
             else:
@@ -444,6 +528,10 @@ def inspect_sources(paths: list[str], *, limit: int | None,
                     if with_bucket_graph and bucket_view.get('source_sha256') != source['sha256']:
                         raise ValueError('bucket graph source hash differs from the verified resource')
                     bucket_options = {'bucket_maps': bucket_view} if with_bucket_graph else {}
+                    if with_type5c_graph:
+                        if result['type5c_spans'].get('source_sha256') != source['sha256']:
+                            raise ValueError('type5c graph source hash differs from the verified resource')
+                        bucket_options['type5c_spans'] = result['type5c_spans']
                     result['record_graph'] = psin_record_graph.inspect(
                         result['instances'], result.get('resource_header'),
                         max_nodes=remaining_nodes, max_depth=max_depth, **bucket_options)
@@ -479,9 +567,60 @@ def inspect_sources(paths: list[str], *, limit: int | None,
             bucket_map_nodes_used += before - remaining_nodes
         if with_bucket_graph:
             add_graph(result.get('bucket_maps'))
+        if context_records:
+            from . import psin_graph_context, psin_record_graph
+            if result['record_graph'].get('status') not in ('complete', 'partial'):
+                result['record_context'] = dict(status='refused', reason='record context requires an available checked graph')
+            else:
+                before = remaining_nodes
+                def consume_context(amount=1):
+                    nonlocal remaining_nodes
+                    if type(amount) is not int or amount < 0:
+                        raise ValueError('invalid PSIN record-context work charge')
+                    if amount > remaining_nodes:
+                        raise psin_record_graph.RecordGraphLimitError('PSIN record context exceeds shared node budget')
+                    remaining_nodes -= amount
+                try:
+                    result['record_context'] = psin_graph_context.inspect(
+                        result['instances'], result['record_graph'], context_records,
+                        consume=consume_context, max_depth=max_depth,
+                        resource_header=result.get('resource_header'),
+                        bucket_maps=result.get('bucket_maps') if with_bucket_graph else None,
+                        **({'type5c_spans': result['type5c_spans']} if with_type5c_graph else {}))
+                except psin_record_graph.RecordGraphLimitError as exc:
+                    remaining_nodes = 0
+                    result['record_context'] = dict(status='refused', reason=str(exc))
+                except ValueError as exc:
+                    result['record_context'] = dict(status='refused', reason=str(exc))
+                record_context_nodes_used += before - remaining_nodes
+        if context_fields:
+            from . import psin_field_context
+            add_field_view('field_context', lambda consume: psin_field_context.inspect(
+                data, schema, result['instances'], context_fields,
+                consume=consume, max_depth=max_depth))
+        if field_trees:
+            from . import psin_field_tree
+            add_field_view('field_trees', lambda consume: psin_field_tree.inspect(
+                data, schema, result['instances'], field_trees,
+                consume=consume, max_depth=max_depth))
+        if context_maps:
+            from . import psin_map_context
+            add_field_view('map_context', lambda consume: psin_map_context.inspect(
+                data, schema, result['instances'], context_maps,
+                consume=consume, max_depth=max_depth))
+        if with_type5c_spans and not with_type5c_graph:
+            from . import psin_type5c
+            add_field_view('type5c_spans', lambda consume: psin_type5c.inspect(
+                data, schema, result['instances'], consume=consume, max_depth=max_depth))
+        if with_typed_hash_candidates:
+            from . import world_asset_types
+            add_field_view('typed_hash_candidates', lambda consume: world_asset_types.inspect(
+                data, schema, result['instances'], dictionary if dictionary is not None else {},
+                consume=consume, max_depth=max_depth))
         resources.append(result)
 
-    for source, data, error in iter_sources(paths, limit=limit):
+    source_items = iter_sources(paths, limit=limit) if _source_items is None else _source_items
+    for source, data, error in source_items:
         if error is not None:
             resources.append(dict(source, status='refused', error=error))
         else:
@@ -537,6 +676,11 @@ def inspect_sources(paths: list[str], *, limit: int | None,
                         'bucket_reference_edges','bucket_inline_maps_excluded',
                         'bucket_inline_entries_excluded','bucket_scan_partial'):
                 summary['record_graph_'+key]=sum(g.get('summary',{}).get(key,0) for g in graphs)
+        if with_type5c_graph:
+            for key in ('type5c_headers_supported', 'type5c_headers_unresolved',
+                        'type5c_record_edges', 'type5c_inline_headers_excluded',
+                        'type5c_inline_links_excluded', 'type5c_scan_partial'):
+                summary['record_graph_' + key] = sum(g.get('summary', {}).get(key, 0) for g in graphs)
         summary['metadata_nodes'] = max_nodes - remaining_nodes
     if with_bucket_maps:
         views=[r['bucket_maps'] for r in resources if 'bucket_maps' in r]
@@ -563,6 +707,27 @@ def inspect_sources(paths: list[str], *, limit: int | None,
             summary['bucket_pool_scans_complete']=sum(
                 v.get('summary',{}).get('bucket_pool_scan_complete',0) for v in views)
         summary['metadata_nodes']=max_nodes-remaining_nodes
+    if context_records:
+        views = [r['record_context'] for r in resources if 'record_context' in r]
+        summary['record_context_nodes'] = record_context_nodes_used
+        summary['record_context_resources_refused'] = sum(v['status'] == 'refused' for v in views)
+        for key in ('queries', 'resolved', 'unresolved'):
+            summary['record_context_' + key] = sum(v.get('summary', {}).get(key, 0) for v in views)
+        summary['metadata_nodes'] = max_nodes - remaining_nodes
+    for enabled, key, counters in (
+            (bool(context_fields), 'field_context', ('queries', 'resolved', 'unresolved', 'opaque_prefix_bytes')),
+            (bool(field_trees), 'field_trees', ('requested_trees', 'trees_complete', 'trees_partial', 'fields', 'resolved', 'unresolved', 'opaque_prefix_bytes')),
+            (bool(context_maps), 'map_context', ('requested', 'resolved', 'unresolved', 'map_entries')),
+            (with_type5c_spans, 'type5c_spans', ('headers', 'fields_complete', 'fields_unresolved', 'targets_complete', 'record_links')),
+            (with_typed_hash_candidates, 'typed_hash_candidates',
+             ('selected_slots', 'matched_slots', 'unmatched_slots', 'unsupported_slots', 'asset_bindings'))):
+        if enabled:
+            views = [r[key] for r in resources if key in r]
+            summary[key + '_nodes'] = field_view_nodes[key]
+            summary[key + '_resources_refused'] = sum(v['status'] == 'refused' for v in views)
+            for counter in counters:
+                summary[key + '_' + counter] = sum(v.get('summary', {}).get('requested' if key == 'field_context' and counter == 'queries' else counter, 0) for v in views)
+            summary['metadata_nodes'] = max_nodes - remaining_nodes
     result = dict(format='gta6x-psin-schemas-v2', summary=summary,
                 scope='Complete recovered PSIN containers only; archive fragments are omitted.',
                 interpretation=('LSCH/LENM with bounded inferred values and local field/array/map-entry and ASCII-pool entry associations; unresolved references remain explicit and record-link targets are not expanded.'
@@ -573,6 +738,67 @@ def inspect_sources(paths: list[str], *, limit: int | None,
         result['interpretation'] += ' LRSC header counts and bounded local-record candidates are checked; root-object and fixup meanings remain unknown.'
     if with_record_graph:
         result['interpretation'] += ' Record associations traverse only existing checked local links; candidate reachability is bounded and does not establish a root or complete object graph.'
+    if with_hash_uses:
+        from . import psin_hash_uses, psin_instances
+        before = remaining_nodes
+        def consume_hash_uses(amount=1):
+            nonlocal remaining_nodes
+            if type(amount) is not int or amount < 0:
+                raise ValueError('invalid PSIN hash-use work charge')
+            if amount > remaining_nodes:
+                raise psin_instances.InstanceLimitError('PSIN hash uses exceed shared node budget')
+            remaining_nodes -= amount
+        try:
+            result['hash_uses'] = psin_hash_uses.inspect(resources, consume=consume_hash_uses, words=hash_words)
+        except psin_instances.InstanceLimitError as exc:
+            remaining_nodes = 0
+            result['hash_uses'] = dict(status='refused', reason=str(exc))
+        except ValueError as exc:
+            result['hash_uses'] = dict(status='refused', reason=str(exc))
+        summary['hash_uses_nodes'] = before - remaining_nodes
+        summary['hash_uses_refused'] = int(result['hash_uses']['status'] == 'refused')
+        summary['metadata_nodes'] = max_nodes - remaining_nodes
+    if schema_search is not None:
+        from . import psin_schema_search, psin_instances
+        before = remaining_nodes
+        def consume_search(amount=1):
+            nonlocal remaining_nodes
+            if type(amount) is not int or amount < 0:
+                raise ValueError('invalid PSIN schema-search work charge')
+            if amount > remaining_nodes:
+                raise psin_instances.InstanceLimitError('PSIN schema search exceeds shared node budget')
+            remaining_nodes -= amount
+        try:
+            result['schema_search'] = psin_schema_search.inspect(
+                search_schemas, resources, consume=consume_search, **schema_search)
+        except psin_instances.InstanceLimitError as exc:
+            remaining_nodes = 0
+            result['schema_search'] = dict(status='refused', reason=str(exc))
+        except ValueError as exc:
+            result['schema_search'] = dict(status='refused', reason=str(exc))
+        summary['schema_search_nodes'] = before - remaining_nodes
+        summary['schema_search_refused'] = int(result['schema_search']['status'] == 'refused')
+        summary['metadata_nodes'] = max_nodes - remaining_nodes
+    if with_graph_dot:
+        from . import psin_graph_dot, psin_instances
+        before = remaining_nodes
+        def consume_dot(amount=1):
+            nonlocal remaining_nodes
+            if type(amount) is not int or amount < 0:
+                raise ValueError('invalid PSIN graph-DOT work charge')
+            if amount > remaining_nodes:
+                raise psin_instances.InstanceLimitError('PSIN graph DOT exceeds shared node budget')
+            remaining_nodes -= amount
+        try:
+            result['graph_dot'] = psin_graph_dot.inspect(resources, consume=consume_dot)
+        except psin_instances.InstanceLimitError as exc:
+            remaining_nodes = 0
+            result['graph_dot'] = dict(status='refused', reason=str(exc))
+        except ValueError as exc:
+            result['graph_dot'] = dict(status='refused', reason=str(exc))
+        summary['graph_dot_nodes'] = before - remaining_nodes
+        summary['graph_dot_refused'] = int(result['graph_dot']['status'] == 'refused')
+        summary['metadata_nodes'] = max_nodes - remaining_nodes
     if registry is not None:
         result['registry'] = registry.summary()
     return result

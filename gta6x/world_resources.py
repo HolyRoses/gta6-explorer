@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import struct
+from types import SimpleNamespace
 
 from . import anim_resources, psin, psin_blocks, psin_schema, rpf, zlibcarve
 
@@ -78,14 +79,20 @@ def inspect_sources(paths, *, start=None, scan_bytes=8 * 1024 * 1024,
                     with_schemas=False, dictionary=None, structure_hash=None,
                     field_hash=None, type_word=None, with_links=False,
                     with_extent_diagnostics=False, with_primitive_layouts=False,
-                    with_reference_context=False, context_records=()):
+                    with_reference_context=False, context_records=(), raw_resources=False):
     """Return source-addressed schema/block relationships without a backend.
 
     Only exact existing PSIN page framing is joined. A 0DRP stream is never joined
     to adjacent opaque data. Unknown streams and recognized-start refusals retain
     their physical identities. Node/inflation failure raises with no catalogue;
     local format refusals preserve independent resource observations.
+    Raw mode requires complete files at offset zero, subject to the same source,
+    resource and decoded-byte budgets; separate raw inputs are never joined.
     """
+    if type(raw_resources) is not bool:
+        raise ValueError('native-world raw_resources must be boolean')
+    if raw_resources and start not in (None, 0):
+        raise ValueError('native-world raw resource input requires a whole file at offset zero')
     for value, label, minimum, maximum in ((scan_bytes,'scan byte limit',1,MAX_SCAN_BYTES),
         (max_nodes,'node limit',1,2_000_000),(max_resources,'resource limit',0,1_000_000),
         (max_inflated_bytes,'inflated byte limit',1,MAX_INFLATED_BYTES)):
@@ -109,18 +116,28 @@ def inspect_sources(paths, *, start=None, scan_bytes=8 * 1024 * 1024,
     with_reference_context = with_reference_context or bool(context_records)
     with_schemas = with_schemas or dictionary is not None or any(
         value is not None for value in (structure_hash, field_hash, type_word))
-    used = inflated = stream_count = hashed_block_bytes = scanned_bytes = 0
+    used = inflated = stream_count = hashed_block_bytes = scanned_bytes = coverage_scanned_bytes = 0
     resources = []; archives = []; unknown = []; refused = []; groups = {}; types = {}
-    view_failures = 0
+    view_failures = raw_files = raw_input_bytes = 0
     def consume(amount=1):
         nonlocal used
         if amount > max_nodes - used:
             raise WorldResourceLimitError('native-world catalogue exceeds shared node budget')
         used += amount
     def remaining():return max_nodes - used
+    def consume_coverage_bytes(amount):
+        nonlocal coverage_scanned_bytes
+        if type(amount) is not int or amount < 0:
+            raise ValueError('invalid native-world coverage byte-work charge')
+        if amount > MAX_INFLATED_BYTES - coverage_scanned_bytes:
+            raise WorldResourceLimitError('native-world coverage exceeds shared byte-work budget')
+        coverage_scanned_bytes += amount
     consume()
 
     def source(file, blob):
+        if raw_resources:
+            return dict(file=file, offset=0, encoding='raw', stored_bytes=len(blob.data),
+                sha256=_digest(blob.data), offset_space='absolute source file bytes')
         return dict(file=file, offset=blob.offset, compressed_bytes=blob.compressed,
             inflated_bytes=len(blob.data), sha256=_digest(blob.data),
             offset_space='absolute compressed archive bytes')
@@ -148,6 +165,16 @@ def inspect_sources(paths, *, start=None, scan_bytes=8 * 1024 * 1024,
                     consume(getattr(exc, 'nodes', 0))
                     views['extent_diagnostics'] = dict(status='refused', reason=str(exc))
                     view_failures += 1
+                else:
+                    from . import world_coverage
+                    try:
+                        view['coverage'] = world_coverage.inspect(data, view, consume=consume,
+                            consume_bytes=consume_coverage_bytes)
+                    except WorldResourceLimitError:
+                        raise
+                    except ValueError as exc:
+                        view['coverage'] = dict(status='refused', reason=str(exc))
+                        view_failures += 1
         try:
             if kind == 'psin':
                 definitions, enums, blocks, state = _psin_metadata(data,consume)
@@ -158,6 +185,12 @@ def inspect_sources(paths, *, start=None, scan_bytes=8 * 1024 * 1024,
         except ValueError as exc:
             refused.append(dict(source=source(file,pieces[0]),kind=kind,reason=str(exc),
                 segments=[source(file,p) for p in pieces], **views));return
+        if raw_resources:
+            state.update(input_encoding='raw', complete_format=(kind == 'psin'),
+                         archive_allocation_endpoint=None)
+            if kind == '0drp':
+                state['scope'] = ('bounded direct-file 0DRP metadata prefix only; complete resource '
+                                  'endpoint, world roles and values unverified')
         declaration = dict(format=kind, structures=definitions, enums=enums)
         group_id = _fingerprint(declaration)
         resource_index = len(resources)
@@ -228,6 +261,16 @@ def inspect_sources(paths, *, start=None, scan_bytes=8 * 1024 * 1024,
                 except ValueError as exc:
                     views['reference_context'] = dict(status='refused', reason=str(exc))
                     view_failures += 1
+                else:
+                    from . import world_header_context
+                    try:
+                        views['reference_context']['header_context'] = world_header_context.inspect(
+                            data, definitions, blocks, consume=consume)
+                    except WorldResourceLimitError:
+                        raise
+                    except ValueError as exc:
+                        views['reference_context']['header_context'] = dict(status='refused', reason=str(exc))
+                        view_failures += 1
         consume();groups[group_id]['resource_indices'].append(resource_index)
         local = {}
         for i, definition in enumerate(definitions):
@@ -266,12 +309,42 @@ def inspect_sources(paths, *, start=None, scan_bytes=8 * 1024 * 1024,
         consume(len(pieces))
         resources.append(dict(state,index=resource_index,id=identity,format=kind,source_file=file,
             offset=pieces[0].offset,sha256=digest,inflated_bytes=len(data),schema_group_id=group_id,
-            offset_space='decompressed resource; archive positions are in segments',
+            offset_space=('source file bytes; complete direct input begins at zero' if raw_resources else
+                          'decompressed resource; archive positions are in segments'),
             segments=[source(file,p) for p in pieces],blocks=associations, **views))
 
     stop=False
     for path in paths:
         consume();file=os.path.realpath(os.fspath(path));size=os.path.getsize(file)
+        if raw_resources:
+            # Read the complete explicit file or refuse before reading any prefix.
+            # This is not archive carving and never seeks a convenient inner magic.
+            if size > MAX_RESOURCE_BYTES:
+                raise WorldResourceLimitError('native-world raw resource exceeds per-file byte limit')
+            if size > scan_bytes or size > MAX_SCAN_BYTES-scanned_bytes:
+                raise WorldResourceLimitError('native-world raw resource exceeds shared source byte budget')
+            if size > max_inflated_bytes-raw_input_bytes:
+                raise WorldResourceLimitError('native-world raw resources exceed shared decoded byte budget')
+            consume(1 + (size+4095)//4096)
+            with open(file, 'rb') as handle:
+                data = handle.read(size+1)
+            if len(data) != size:
+                raise ValueError('native-world raw source size changed during reading')
+            scanned_bytes += size; raw_input_bytes += size; raw_files += 1
+            archive = dict(file=file,start=0,end=size,resource_limit_reached=False,streams=0,
+                           input_encoding='raw',raw_files=1)
+            archives.append(archive)
+            piece = SimpleNamespace(offset=0,data=data)
+            if data[:4] == b'PSIN':
+                add(file,[piece],data,'psin')
+            elif data[16:20] == b'0DRP':
+                add(file,[piece],data,'0drp')
+            else:
+                unclassified(file,piece,'no supported native metadata header at the start of the raw file')
+            if max_resources and len(resources) >= max_resources:
+                archive['resource_limit_reached'] = True
+                break
+            continue
         begin=start
         if begin is None:
             try:
@@ -338,6 +411,11 @@ def inspect_sources(paths, *, start=None, scan_bytes=8 * 1024 * 1024,
             typed_records=sum(b.get('record_count',0)for b in blocks),schema_groups=len(groups),
             type_hash_conflicts=sum(v['conflict']for v in variants),metadata_nodes=used,
             scan_window_bytes=scanned_bytes,inflated_bytes=inflated,hashed_block_bytes=hashed_block_bytes))
+    if raw_resources:
+        report['input_encoding'] = 'raw'
+        report['scope'] = ('bounded direct-file native metadata; no carving, resource joining, '
+                           'placement/entity/geometry decode or archive allocation claim')
+        report['summary'].update(raw_files=raw_files, raw_input_bytes=raw_input_bytes)
     if with_schemas or with_links or with_extent_diagnostics or with_primitive_layouts or with_reference_context:
         report['summary']['views_refused'] = view_failures
     if with_links:
@@ -347,4 +425,6 @@ def inspect_sources(paths, *, start=None, scan_bytes=8 * 1024 * 1024,
         for key in ('primitive_pools', 'primitive_groups'):
             report['summary'][key] = sum(
                 r['primitive_layouts'].get('summary', {}).get(key, 0) for r in resources)
+    if with_extent_diagnostics:
+        report['summary']['coverage_scanned_bytes'] = coverage_scanned_bytes
     return report

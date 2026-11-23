@@ -1062,11 +1062,22 @@ def cmd_psin(args) -> int:
     Report complete containers, their bodies and stream-split fragments.
     Schema mode joins recoverable pages and inspects checksum-verified LSCH.
     """
+    if args.manifest is not None:
+        if (not args.manifest.strip() or '\0' in args.manifest or args.files or args.archive or args.full or
+                args.registry_only or args.registry_out or args.manifest_limit < 0 or args.limit < 1):
+            eprint('--manifest requires a nonempty path and positive source limit; files/archive/full/registry-only/registry-out are unsupported')
+            return 1
+        return _cmd_psin_schema(args, [])
+    if args.manifest_limit:
+        eprint('--manifest-limit requires --manifest')
+        return 1
+    if args.registry_only:
+        return _cmd_psin_registry_search(args)
     targets = _scan_targets(args)
     if not targets:
         eprint("no archive matched")
         return 1
-    if args.schema or args.out or args.instances or args.resource_header or args.record_graph or args.bucket_graph or args.bucket_maps or args.bucket_values or args.bucket_pool_spans or args.registry or args.registry_out:
+    if args.schema or args.out or args.instances or args.resource_header or args.record_graph or args.context_records or args.context_fields or args.context_maps or args.field_trees or args.type5c_spans or args.type5c_graph or args.typed_hash_candidates or args.hash_uses or args.hash_words or args.bucket_graph or args.bucket_maps or args.bucket_values or args.bucket_pool_spans or args.registry or args.registry_out or args.graph_dot is not None or _psin_search_options(args):
         return _cmd_psin_schema(args, targets)
     if args.names:
         eprint("--names requires --schema, --instances or --out")
@@ -1129,9 +1140,94 @@ def cmd_psin(args) -> int:
     return 0
 
 
+def _cmd_psin_registry_search(args) -> int:
+    from . import psin_registry_search
+
+    selectors = _psin_search_options(args)
+    unsupported = (args.files or args.archive or args.names or args.registry_out or args.full or
+        args.instances or args.resource_header or args.record_graph or args.context_records or
+        args.context_fields or args.context_maps or args.field_trees or args.type5c_spans or args.type5c_graph or args.typed_hash_candidates or
+        args.hash_uses or args.hash_words or args.bucket_graph or args.bucket_maps or
+        args.bucket_values or args.bucket_pool_spans or args.graph_dot is not None or args.max_depth != 16 or args.limit != 48)
+    if not args.registry or not selectors:
+        eprint('--registry-only requires --registry and at least one exact declaration selector')
+        return 1
+    if unsupported:
+        eprint('--registry-only accepts metadata search, node/display limits and JSON output; source/instance options are unsupported')
+        return 1
+    if args.max_nodes < 1 or args.max < 0:
+        eprint('--max-nodes must be positive and --max must be nonnegative')
+        return 1
+    used = 0
+    def consume(amount=1):
+        nonlocal used
+        if type(amount) is not int or amount < 0 or amount > args.max_nodes-used:
+            raise ValueError('offline registry search exceeds shared node budget')
+        used += amount
+    try:
+        if args.out is not None:
+            if not args.out.strip() or '\0' in args.out:
+                raise ValueError('registry search output must name a JSON file')
+            if (os.path.realpath(args.out) == os.path.realpath(args.registry) or
+                    (os.path.exists(args.out) and os.path.exists(args.registry) and
+                     os.path.samefile(args.out, args.registry))):
+                raise ValueError('registry search output must not overwrite its registry')
+        report = psin_registry_search.inspect_file(args.registry, consume=consume, **selectors)
+        if args.out:
+            with open(args.out, 'w', encoding='utf-8') as handle:
+                json.dump(report, handle, indent=2); handle.write('\n')
+    except (OSError, ValueError) as exc:
+        eprint(str(exc))
+        return 1
+    if args.json:
+        print(json.dumps(report, indent=2))
+    else:
+        print(f"registry search: {len(report['matches'])} declaration matches; source payloads not reverified")
+        for match in report['matches'][:args.max]:
+            print(f"  {match['structure_hash']}: {match['byte_size']} bytes, {len(match['fields'])} fields; "
+                  f"schema {match['schema_id'][:16]}; {match['registry_binding_status']}")
+        if args.out:
+            print(f"search JSON: {args.out}")
+    return 0
+
+
 def _cmd_psin_schema(args, targets: list[str]) -> int:
     from . import names as names_mod, psin_schema, psin_registry
 
+    if args.graph_dot is not None:
+        if not args.graph_dot.strip() or '\0' in args.graph_dot:
+            eprint('--graph-dot must name a DOT file')
+            return 1
+        args.record_graph = True
+    search_options = _psin_search_options(args)
+    if (search_options or args.manifest) and args.max_nodes < 1:
+        eprint('--max-nodes must be positive')
+        return 1
+    if len(args.context_maps) > 32:
+        eprint('at most 32 --context-map queries are supported')
+        return 1
+    if args.type5c_graph:
+        args.type5c_spans = args.record_graph = True
+    if args.context_maps or args.type5c_spans:
+        args.instances = True
+    if len(args.field_trees) > 32 or len(args.hash_words) > 32:
+        eprint('at most 32 --field-tree queries and 32 --hash-use words are supported')
+        return 1
+    if args.field_trees or args.hash_uses or args.hash_words:
+        args.instances = True
+    if len(args.context_fields) > 32:
+        eprint('at most 32 --context-field queries are supported')
+        return 1
+    if args.typed_hash_candidates and not args.names:
+        eprint('--typed-hash-candidates requires an explicit --names dictionary')
+        return 1
+    if args.context_fields or args.typed_hash_candidates:
+        args.instances = True
+    if len(args.context_records) > 32:
+        eprint('at most 32 --context-record queries are supported')
+        return 1
+    if args.context_records:
+        args.record_graph = True
     if args.bucket_graph:
         args.record_graph = args.bucket_maps = True
     if args.record_graph:
@@ -1151,8 +1247,11 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
     if (args.instances or args.bucket_maps) and (args.max_nodes < 1 or not 1 <= args.max_depth <= 64):
         eprint('--max-nodes must be positive and --max-depth must be 1..64')
         return 1
-    outputs = [p for p in (args.out,args.registry_out) if p]
-    inputs = targets + [p for p in (args.names,args.registry) if p]
+    outputs = [p for p in (args.out,args.registry_out,args.graph_dot) if p]
+    if len({os.path.realpath(p) for p in outputs}) != len(outputs):
+        eprint('PSIN JSON, registry and DOT outputs must be different')
+        return 1
+    inputs = targets + [p for p in (args.names,args.registry,args.manifest) if p]
     for dest in outputs:
         for source in inputs + [p for p in outputs if p != dest]:
             if (os.path.realpath(dest) == os.path.realpath(source)
@@ -1186,7 +1285,7 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
     except (OSError, ValueError) as exc:
         eprint(f'cannot build/load PSIN registry: {exc}')
         return 1
-    if args.registry_out and not (args.schema or args.out or args.instances or args.resource_header):
+    if args.registry_out and not (args.schema or args.out or args.instances or args.resource_header or search_options):
         result = dict(format='gta6x-psin-registry-build-v1', summary=registry.summary(), build=build)
         if args.json:
             print(json.dumps(result, indent=2))
@@ -1197,15 +1296,45 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
             for source in build['refused']:
                 eprint(f"{source['file']}:{source.get('offset',0):#x}: {source['error']}")
         return 1 if build['refused'] else 0
-    report = psin_schema.inspect_sources(
-        targets, limit=None if args.full else args.limit * 1024 * 1024,
-        dictionary=dictionary, with_instances=args.instances, with_resource_header=args.resource_header, with_record_graph=args.record_graph,
+    inspect_options = dict(dictionary=dictionary, with_instances=args.instances, with_resource_header=args.resource_header, with_record_graph=args.record_graph,
         with_bucket_maps=args.bucket_maps, with_bucket_values=args.bucket_values,
         with_bucket_pool_spans=args.bucket_pool_spans,
         with_bucket_graph=args.bucket_graph,
-        max_nodes=args.max_nodes, max_depth=args.max_depth, registry=registry)
+        max_nodes=args.max_nodes, max_depth=args.max_depth, registry=registry,
+        context_records=args.context_records, context_fields=args.context_fields,
+        with_typed_hash_candidates=args.typed_hash_candidates, field_trees=args.field_trees,
+        with_hash_uses=args.hash_uses, hash_words=args.hash_words, schema_search=search_options or None,
+        context_maps=args.context_maps, with_graph_dot=bool(args.graph_dot),
+        with_type5c_spans=args.type5c_spans, with_type5c_graph=args.type5c_graph)
+    try:
+        if args.manifest:
+            from . import psin_manifest
+            report = psin_manifest.inspect(args.manifest, max_resources=args.manifest_limit,
+                max_source_bytes=min(16*1024*1024,args.limit*1024*1024),
+                protected_outputs=outputs + [p for p in (args.names,args.registry) if p], **inspect_options)
+        else:
+            report = psin_schema.inspect_sources(targets,
+                limit=None if args.full else args.limit*1024*1024, **inspect_options)
+    except (OSError, ValueError) as exc:
+        eprint(str(exc))
+        return 1
     if build is not None:
         report['registry_build'] = build
+    if args.graph_dot and report.get('graph_dot', {}).get('status') != 'refused':
+        import tempfile
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8',
+                    dir=os.path.dirname(os.path.abspath(args.graph_dot)), delete=False) as handle:
+                temporary = handle.name
+                handle.write(report['graph_dot']['dot'])
+            os.replace(temporary, args.graph_dot)
+        except OSError as exc:
+            eprint(f'cannot write graph DOT: {exc}')
+            return 1
+        finally:
+            if temporary is not None and os.path.exists(temporary):
+                os.unlink(temporary)
     if args.out:
         try:
             with open(args.out, 'w', encoding='utf-8') as handle:
@@ -1291,6 +1420,43 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
                 eprint(f"{resource['file']}:{resource.get('offset', 0):#x}: resource header: {resource['resource_header']['reason']}")
             if resource.get('record_graph', {}).get('status') == 'refused':
                 eprint(f"{resource['file']}:{resource.get('offset', 0):#x}: record graph: {resource['record_graph']['reason']}")
+            if resource.get('record_context', {}).get('status') == 'refused':
+                eprint(f"{resource['file']}:{resource.get('offset', 0):#x}: record context: {resource['record_context']['reason']}")
+            elif args.context_records:
+                for query in resource.get('record_context', {}).get('queries', []):
+                    print(f"{resource['file']}:{resource.get('offset', 0):#x}: "
+                          f"record {query['block_index']}:{query['record_index']}: {query['status']}; "
+                          f"{len(query.get('path', []))} path links / {len(query.get('incoming', []))} incoming links")
+            for key in ('field_context', 'field_trees', 'map_context', 'type5c_spans', 'typed_hash_candidates'):
+                view = resource.get(key)
+                if view is None:
+                    continue
+                label = key.replace('_', ' ')
+                prefix = f"{resource['file']}:{resource.get('offset', 0):#x}: {label}"
+                if view['status'] == 'refused':
+                    eprint(f"{prefix}: {view['reason']}")
+                elif key == 'type5c_spans':
+                    counts = view['summary']
+                    print(f"{prefix}: {counts['fields_complete']} header spans / {counts['record_links']} existing record links; "
+                          'element meaning unknown')
+                elif key == 'map_context':
+                    counts = view['summary']
+                    print(f"{prefix}: {counts['resolved']} resolved / {counts['unresolved']} unresolved maps; "
+                          'application role unknown')
+                elif key == 'field_trees':
+                    counts = view['summary']
+                    print(f"{prefix}: {counts['requested_trees']} trees / {counts['fields']} fields; "
+                          f"{counts['trees_partial']} partial trees; application semantics unknown")
+                elif key == 'field_context':
+                    for query in view['queries']:
+                        path = '.'.join(str(i) for i in query['field_path'])
+                        print(f"{prefix} {query['block_index']}:{query['record_index']}:{path}: "
+                              f"{query['status']}" + (f"; {query['reason']}" if 'reason' in query else ''))
+                else:
+                    counts = view['summary']
+                    print(f"{prefix}: {counts['matched_slots']} candidate preimages / "
+                          f"{counts['unmatched_slots']} unmatched / {counts['unsupported_slots']} unsupported slots; "
+                          'asset bindings not established')
             if args.bucket_maps:
                 view=resource.get('bucket_maps',{})
                 if view.get('status')=='refused':
@@ -1320,6 +1486,32 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
                                f"{summary.get('depth_limited',0)} depth-limited paths")
                     for mapping in view.get('maps',[]):
                         if mapping['status']!='complete':eprint(f"  {mapping['field_hash']}: {mapping['reason']}")
+        if 'hash_uses' in report:
+            view = report['hash_uses']
+            if view['status'] == 'refused':
+                eprint('hash uses: ' + view['reason'])
+            else:
+                counts = view['summary']
+                print(f"hash uses: {counts['groups']} opaque words / {counts['occurrences']} occurrences "
+                      f"across {counts['sources']} source observations; "
+                      f"{counts['sources_partial']} partial / {counts['sources_refused']} refused sources; "
+                      'asset namespace unknown')
+        if 'schema_search' in report:
+            view = report['schema_search']
+            if view['status'] == 'refused':
+                eprint('schema search: ' + view['reason'])
+            else:
+                print(f"schema search: {len(view['matches'])} declaration matches; metadata only")
+        if args.graph_dot:
+            view = report['graph_dot']
+            if view['status'] == 'refused':
+                eprint('graph DOT: ' + view['reason'])
+            else:
+                print(f"record graph DOT: {args.graph_dot}; observed relationships only")
+        if args.manifest:
+            counts = report['manifest_input']['summary']
+            print(f"manifest: {counts['selected_files']} verified files / {counts['skipped_rows']} declared skips / "
+                  f"{counts['uninspected_files']} uninspected exports")
         if args.out:
             print(f"schema JSON: {args.out}")
     return 1 if (report['summary']['resources_refused']
@@ -1327,6 +1519,15 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
                  or (args.resource_header and (report['summary'].get('resource_headers_unresolved', 0)
                                               or report['summary'].get('resource_headers_refused', 0)))
                  or report['summary'].get('record_graph_resources_refused', 0)
+                 or report['summary'].get('record_context_resources_refused', 0)
+                 or report['summary'].get('field_context_resources_refused', 0)
+                 or report['summary'].get('map_context_resources_refused', 0)
+                 or report['summary'].get('type5c_spans_resources_refused', 0)
+                 or report['summary'].get('field_trees_resources_refused', 0)
+                 or report['summary'].get('hash_uses_refused', 0)
+                 or report['summary'].get('schema_search_refused', 0)
+                 or report['summary'].get('graph_dot_refused', 0)
+                 or report['summary'].get('typed_hash_candidates_resources_refused', 0)
                  or (args.bucket_maps and (report['summary'].get('bucket_map_resources_refused',0)
                                           or report['summary'].get('bucket_map_resources_partial',0)))
                  or (build is not None and build['refused'])) else 0
@@ -2815,6 +3016,48 @@ def cmd_names(args) -> int:
     return 0
 
 
+def _psin_search_options(args):
+    return {key: value for key, value in (
+        ('structure_hash', args.find_structure), ('field_hash', args.find_field),
+        ('type_word', args.find_type), ('auxiliary', args.find_aux),
+        ('byte_size', args.find_size), ('same_layout', args.same_layout)) if value is not None}
+
+
+def _psin_schema_word(value):
+    try:
+        number = int(value, 0)
+        if not 0 <= number <= 0xffffffff:
+            raise ValueError
+        return number
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError('expected an unsigned 32-bit schema word') from exc
+
+
+def _psin_hash_word(value):
+    try:
+        number = int(value, 0)
+        if not 0 <= number <= 0xffffffffffffffff:
+            raise ValueError
+        return number
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError('expected an unsigned 64-bit word, e.g. 0x123456789abcdef0') from exc
+
+
+def _psin_context_field(value):
+    """Parse physical LSCH field indices through embedded declarations."""
+    try:
+        parts = value.split(':')
+        if len(parts) != 3:
+            raise ValueError
+        block, record = (int(v, 0) for v in parts[:2])
+        path = tuple(int(v, 0) for v in parts[2].split('.'))
+        if not 1 <= len(path) <= 64 or any(not 0 <= v <= 0xffffffff for v in (block, record, *path)):
+            raise ValueError
+        return block, record, path
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError('expected unsigned BLOCK:RECORD:FIELD[.FIELD...] indices, e.g. 0:0:4.1') from exc
+
+
 def _world_context_record(value):
     """Parse a zero-based block/record query without implying ownership."""
     try:
@@ -2853,9 +3096,22 @@ def _cmd_world_resources(args) -> int:
     if args.limit < 0 or not 1 <= args.scan_mib <= 64 or args.max_nodes < 1 or (args.start is not None and args.start < 0):
         eprint('--limit and --start must be nonnegative; --scan-mib must be 1..64; --max-nodes must be positive')
         return 1
-    standalone = bool(args.archive and os.path.isfile(args.archive))
+    if args.manifest is not None and (not args.manifest.strip() or '\0' in args.manifest):
+        eprint('--manifest must name a JSON manifest file')
+        return 1
+    if args.manifest and (args.archive or args.start is not None or args.extract_resources or args.raw_resources):
+        eprint('--manifest cannot combine with --archive, --start, --extract-resources or --raw-resources')
+        return 1
+    standalone = bool(args.manifest or (args.archive and os.path.isfile(args.archive)))
+    if args.raw_resources:
+        if not standalone:
+            eprint('--raw-resources requires --archive to name a resource file')
+            return 1
+        if args.start not in (None, 0) or args.extract_resources:
+            eprint('--raw-resources requires start zero and cannot be combined with --extract-resources')
+            return 1
     if standalone:
-        targets = [os.path.abspath(args.archive)]
+        targets = [os.path.abspath(args.manifest or args.archive)]
     else:
         needle = (args.archive or 'levels').lower()
         targets = [p for p in find_archives(args.root) if needle in os.path.basename(p).lower()]
@@ -2880,14 +3136,43 @@ def _cmd_world_resources(args) -> int:
                 raise ValueError('native world output must not overwrite its name dictionary')
             from . import names as names_mod
             dictionary = names_mod.load(args.names)
-        report = world_resources.inspect_sources(targets,start=args.start,
-            scan_bytes=args.scan_mib*1024*1024,max_nodes=args.max_nodes,max_resources=args.limit,
+        export_destination = os.path.join(args.out, 'resources')
+        if args.extract_resources:
+            from . import world_export
+            world_export.validate_output(export_destination, targets,
+                protected=[destination] + ([args.names] if args.names else []))
+        inspect_options = dict(scan_bytes=args.scan_mib*1024*1024,max_nodes=args.max_nodes,max_resources=args.limit,
             with_schemas=args.schemas, dictionary=dictionary, structure_hash=args.schema_type,
             field_hash=args.schema_field, type_word=args.schema_code, with_links=args.links,
             with_extent_diagnostics=args.extent_diagnostics,
             with_primitive_layouts=args.primitive_layouts,
             with_reference_context=args.reference_context, context_records=args.context_records)
+        if args.manifest:
+            from . import world_manifest
+            report = world_manifest.inspect(args.manifest,
+                protected_outputs=[destination] + ([args.names] if args.names else []), **inspect_options)
+        else:
+            report = world_resources.inspect_sources(targets, start=args.start,
+                raw_resources=args.raw_resources, **inspect_options)
         os.makedirs(args.out,exist_ok=True)
+        if args.extract_resources:
+            export_nodes = 0
+            remaining = args.max_nodes - report['summary']['metadata_nodes']
+            def consume_export(amount=1):
+                nonlocal export_nodes
+                if type(amount) is not int or amount < 0 or amount > remaining-export_nodes:
+                    raise world_resources.WorldResourceLimitError('native resource export exceeds shared node budget')
+                export_nodes += amount
+            try:
+                if remaining < 1:
+                    raise world_resources.WorldResourceLimitError('native resource export has no remaining node budget')
+                report['resource_export'] = world_export.export_resources(
+                    report, export_destination, max_nodes=remaining, consume=consume_export)
+            except (OSError, ValueError) as exc:
+                report['resource_export'] = dict(status='refused', reason=str(exc))
+                report['status'] = 'partial'
+            report['summary']['resource_export_nodes'] = export_nodes
+            report['summary']['metadata_nodes'] += export_nodes
         with open(destination,'w',encoding='utf-8') as handle:
             json.dump(report,handle,indent=2)
             handle.write('\n')
@@ -2902,6 +3187,10 @@ def _cmd_world_resources(args) -> int:
               f"{summary['unclassified_streams']} unclassified streams, {summary['resources_refused']} refused starts")
         print(f"{summary['blocks_typed']} locally typed blocks / {summary['blocks_unresolved']} unresolved; "
               'placements and geometry remain undecoded')
+        if args.manifest:
+            counts = report['manifest_input']['summary']
+            print(f"manifest: {counts['selected_files']} verified files / {counts['skipped_rows']} declared skips / "
+                  f"{counts['uninspected_files']} uninspected exports")
         if args.links:
             print(f"{summary['local_reference_ranges']} local counted-reference ranges; primitive fields remain unknown")
         if args.primitive_layouts:
@@ -2911,8 +3200,17 @@ def _cmd_world_resources(args) -> int:
             print('reference context traces observed local ranges; semantic owners and transforms remain unknown')
         if summary.get('views_refused'):
             print(f"{summary['views_refused']} requested views refused; see per-resource reasons")
+        if args.extract_resources:
+            view = report['resource_export']
+            if view['status'] == 'refused':
+                eprint('native resource export: ' + view['reason'])
+            else:
+                counts = view['summary']
+                print(f"native resource export: {counts['resources_exported']} complete PSIN containers; "
+                      f"{counts['resources_skipped']} unsupported entries skipped; {export_destination}")
         print(f'resource catalog: {destination}')
-    return int(report['summary']['resources_refused']>0 or report['summary'].get('views_refused',0)>0)
+    return int(report['summary']['resources_refused']>0 or report['summary'].get('views_refused',0)>0
+               or report.get('resource_export', {}).get('status') == 'refused')
 
 
 def cmd_world(args) -> int:
@@ -2930,7 +3228,7 @@ def cmd_world(args) -> int:
         eprint('--start, --scan-mib and --max-nodes apply to native resource browsing')
         return 1
     if (args.schemas or args.names or args.links or args.extent_diagnostics or args.primitive_layouts or
-            args.reference_context or args.context_records or
+            args.reference_context or args.context_records or args.extract_resources or args.raw_resources or args.manifest or
             any(v is not None for v in (args.schema_type,args.schema_field,args.schema_code))):
         eprint('schema, link, primitive, context and extent options apply to native resource browsing')
         return 1
@@ -5173,13 +5471,44 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("psin", help="inspect PSIN containers, LSCH/LENM schemas and bounded values")
     p.add_argument("files", nargs="*")
     p.add_argument("--archive", action="append")
-    p.add_argument("--limit", type=int, default=48, help="MiB per archive")
+    p.add_argument('--manifest', help='query complete PSIN exports pinned by a native manifest, without archive scanning')
+    p.add_argument('--manifest-limit', type=int, default=0, help='maximum manifest exports to inspect; zero selects all')
+    p.add_argument('--graph-dot', help='write checked record graphs as isolated source clusters in a bounded DOT file; implies --record-graph')
+    p.add_argument("--limit", type=int, default=48, help="MiB per archive (or per manifest source, capped at 16 MiB)")
     p.add_argument("--full", action="store_true")
     p.add_argument("--max", type=int, default=12)
     p.add_argument("--schema", action="store_true",
                    help="browse LSCH types and LENM enums in verified resources; joins split pages")
+    p.add_argument('--registry-only', action='store_true',
+                   help='search an existing --registry without opening source payloads; requires an exact declaration selector')
+    for flag, description in (
+            ('--find-structure', 'match a local structure hash'),
+            ('--find-field', 'match a physical field hash'),
+            ('--find-type', 'match a full raw field type word'),
+            ('--find-aux', 'match a raw field auxiliary word'),
+            ('--find-size', 'match a declared owner byte size'),
+            ('--same-layout', 'match exact local layouts seeded by an owner hash, retaining conflicts')):
+        p.add_argument(flag, type=_psin_schema_word, help=description + '; metadata-only search; combine filters with AND')
     p.add_argument('--record-graph', action='store_true',
                    help='index checked local record associations and bounded candidate reachability (implies instances)')
+    p.add_argument('--context-record',dest='context_records',type=_world_context_record,action='append',default=[],
+                   help='trace zero-based BLOCK:RECORD context in the checked graph; repeat up to 32 times; implies --record-graph')
+    p.add_argument('--context-field', dest='context_fields', type=_psin_context_field, action='append', default=[],
+                   help='inspect a source-checked BLOCK:RECORD:FIELD[.FIELD...] declaration path; repeat up to 32 times; implies --instances')
+    p.add_argument('--type5c-graph', action='store_true',
+                   help='add checked type5c record-span candidate edges to the graph; implies --type5c-spans and --record-graph')
+    p.add_argument('--type5c-spans', action='store_true',
+                   help='check supported local type5c descriptor/typed-record span coverage; no element decoding; implies --instances')
+    p.add_argument('--context-map', dest='context_maps', type=_psin_context_field, action='append', default=[],
+                   help='check a selected local map header and entry spans at BLOCK:RECORD:FIELD[.FIELD...]; up to 32 queries')
+    p.add_argument('--field-tree', dest='field_trees', type=_psin_context_field, action='append', default=[],
+                   help='expand a source-checked local embedded FIELD path; uses BLOCK:RECORD:FIELD[.FIELD...], up to 32 roots')
+    p.add_argument('--hash-uses', action='store_true',
+                   help='group exact full-width opaque hash occurrences across inspected sources; no asset binding implied')
+    p.add_argument('--hash-use', dest='hash_words', type=_psin_hash_word, action='append', default=[],
+                   help='query an exact unsigned 64-bit opaque word across inspected sources; repeat up to 32 times')
+    p.add_argument('--typed-hash-candidates', action='store_true',
+                   help='compare bounded opaque type-054f slots with verified full-width preimages from explicit --names; no asset binding implied')
     p.add_argument('--bucket-maps', action='store_true',
                    help='inspect validated local bucket/reference-entry associations; opaque keys and unsupported layouts remain explicit')
     p.add_argument('--bucket-graph', action='store_true',
@@ -5193,7 +5522,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--instances', action='store_true',
                    help='include bounded values, local array associations, low-ID pools and reference diagnostics (implies schema mode)')
     p.add_argument('--max-nodes', type=int, default=100000,
-                   help='shared instance/header/record-graph/bucket-map work/output budget (default 100000)')
+                   help='shared instance/header/graph/bucket/field work and output budget (default 100000)')
     p.add_argument('--max-depth', type=int, default=16,
                    help='embedded instance / graph reachability depth limit, 1..64 (default 16)')
     p.add_argument("--out", help="write schema/optional instance JSON to a file (implies --schema)")
@@ -5262,6 +5591,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--schema-code',type=lambda value:int(value,0),help='annotate a raw field type-word query; implies --schemas')
     p.add_argument('--names',help='explicit read-only joaat dictionary for schema name candidates; implies --schemas')
     p.add_argument('--links',action='store_true',help='inspect bounded local 0DRP counted-record references')
+    p.add_argument('--manifest', help='inspect complete PSIN files pinned by a native export manifest; no archive scan')
+    p.add_argument('--raw-resources', action='store_true',
+                   help='inspect a whole direct resource file named by --archive; no carving or joining; no extraction')
+    p.add_argument('--extract-resources', action='store_true',
+                   help='export source-verified complete PSIN containers to OUT/resources; unknown boundaries are skipped')
     p.add_argument('--extent-diagnostics',action='store_true',help='report declared 0DRP extents, without joining streams')
     p.add_argument('--primitive-layouts',action='store_true',help='check supported native 0DRP raw primitive pool widths and complete coverage')
     p.add_argument('--reference-context',action='store_true',help='inspect local incoming-reference coverage without inferring owners')
