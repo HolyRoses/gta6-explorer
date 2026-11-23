@@ -87,6 +87,7 @@ work/
 .cargo-target/
 
 # Command output directories
+exports/
 movies/
 audio/
 carved/

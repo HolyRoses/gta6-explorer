@@ -50,8 +50,15 @@ def _u32(data: bytes, at: int) -> int:
     return struct.unpack_from("<I", data, at)[0]
 
 
+def _duration_range(min_ms, max_ms):
+    if (type(min_ms) is not int or type(max_ms) is not int
+            or not 0 <= min_ms <= max_ms <= 0xffffffff):
+        raise ValueError('invalid music duration range')
+
+
 def scan(blob: bytes, min_ms: int = 20_000, max_ms: int = 2_000_000) -> Iterator[MusicRecord]:
     """Yield plausible 46-byte music records from one joined config blob."""
+    _duration_range(min_ms, max_ms)
     at = 4
     size = len(blob)
     while at + 24 <= size:
@@ -98,5 +105,8 @@ def carve_config(path: str | os.PathLike, limit: int | None = None,
 
 
 def scan_file(path: str | os.PathLike, limit: int | None = None,
-              start: int | None = None) -> list[MusicRecord]:
-    return list(scan(carve_config(path, limit=limit, start=start)))
+              start: int | None = None, *, min_ms: int = 20_000,
+              max_ms: int = 2_000_000) -> list[MusicRecord]:
+    _duration_range(min_ms, max_ms)
+    return list(scan(carve_config(path, limit=limit, start=start),
+                     min_ms=min_ms, max_ms=max_ms))

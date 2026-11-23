@@ -152,6 +152,8 @@ def music_channels(bank: bytes, stream: dict) -> list[dict]:
         return []
     out = [{"index": entry["index"], "id": entry.get("id"),
             "samples": entry.get("samples") or 0,
+            "channels_per_record": entry.get("channels_per_record"),
+            "frames": entry.get("frames"),
             "sample_rate": entry.get("sample_rate") or 0,
             "codec": entry.get("codec"), "spans": []} for entry in channels]
     for block in range(blocks):
@@ -186,11 +188,34 @@ def extract_music_ogg(bank: bytes, stream: dict, channel_index: int = 0,
     if channel_index < 0 or channel_index >= len(channels):
         raise ValueError("music channel out of range")
     channel = channels[channel_index]
+    frames = channel["samples"] or 0
+    mode = channel.get('channels_per_record')
+    descriptor = stream.get('music_offset')
+    if mode is None and type(descriptor) is int and descriptor >= 0:
+        at = descriptor+12+16*channel_index
+        if at+16 <= len(bank):mode = bank[at+13]
+    if mode not in (1, 2) or frames % mode:
+        raise ValueError('music Ogg requires a supported integral mono/stereo descriptor')
+    frames //= mode
+    if mode == 2:
+        from . import audio_music_pcm, audio_pcm, audio_ogg
+        checked = audio_music_pcm.inspect_channels(bank, stream,
+            max_input_bytes=audio_music_pcm.MAX_BANK_BYTES)['channels'][channel_index]
+        if any(span['raw_skip'] for span in checked['spans']):
+            raise ValueError('stereo music with nonzero block skips is not validated')
+        packets_ = []
+        for span in checked['spans']:
+            at, size = span['data_offset'], span['byte_length']
+            packets_.extend(audio_pcm.strict_packets(bank[at:at+size]))
+        # Correct stereo granules without changing legacy mono export bytes.
+        return audio_ogg.ogg_opus(packets_, frames, channels=mode, title=title,
+            max_frames=0xffffffff//mode,max_input_bytes=256*1024*1024)[0]
     raw = b"".join(bank[at:at + length] for at, length, _skip in channel["spans"])
     packets_ = packets(raw)
     if not packets_:
         raise ValueError("no Opus packets")
-    frames = channel["samples"] or 0
+    if packet_channels(packets_) != mode:
+        raise ValueError('music Opus packet channels differ from descriptor')
     return ogg_opus(packets_, frames, title=title)
 
 

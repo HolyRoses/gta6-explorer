@@ -85,7 +85,7 @@ def packet_frames(packet: bytes) -> int:
 
 
 def ogg_opus(packets, frames: int, *, channels: int = 1, pre_skip: int = audio.PRE_SKIP,
-             title: str = 'gta6x'):
+             title: str = 'gta6x', max_frames=None, max_input_bytes=None):
     """Return (Ogg, metadata) for an explicitly selected decoded interval.
 
     All supplied packet framing is checked, including later omitted packets.
@@ -96,7 +96,15 @@ def ogg_opus(packets, frames: int, *, channels: int = 1, pre_skip: int = audio.P
     """
     if type(channels) is not int or channels not in (1, 2):
         raise ValueError('declared Ogg supports one or two channels')
-    if type(frames) is not int or frames < 1 or frames > audio_pcm.MAX_PCM_BYTES // (2 * channels):
+    if max_frames is None:
+        max_frames = audio_pcm.MAX_PCM_BYTES // (2 * channels)
+    elif type(max_frames) is not int or not 1 <= max_frames <= 0xffffffff:
+        raise ValueError('invalid explicit Ogg frame bound')
+    if max_input_bytes is None:
+        max_input_bytes = audio_pcm.MAX_INPUT_BYTES
+    elif type(max_input_bytes) is not int or not 1 <= max_input_bytes <= 256*1024*1024:
+        raise ValueError('invalid explicit Ogg input bound')
+    if type(frames) is not int or frames < 1 or frames > max_frames:
         raise ValueError('declared Ogg duration exceeds the supported PCM-equivalent bound')
     if type(pre_skip) is not int or not 0 <= pre_skip <= audio_pcm.MAX_PACKET_FRAMES:
         raise ValueError('Ogg pre-skip must be between 0 and 5760 frames')
@@ -112,7 +120,7 @@ def ogg_opus(packets, frames: int, *, channels: int = 1, pre_skip: int = audio.P
         raise ValueError('Opus packets must be a nonempty bounded sequence')
     if any(not isinstance(packet, bytes) for packet in packets):
         raise ValueError('Opus packet entries must be bytes')
-    if sum(map(len, packets)) > audio_pcm.MAX_INPUT_BYTES:
+    if sum(map(len, packets)) > max_input_bytes:
         raise ValueError('Opus packet bytes exceed input limit')
     durations = [packet_frames(packet) for packet in packets]
     if audio.packet_channels(packets) != channels:
@@ -121,7 +129,7 @@ def ogg_opus(packets, frames: int, *, channels: int = 1, pre_skip: int = audio.P
     end = pre_skip + frames
     for i, duration in enumerate(durations):
         total += duration
-        if total * channels * 2 > audio_pcm.MAX_PCM_BYTES:
+        if total > max_frames:
             raise ValueError('source Opus duration exceeds PCM-equivalent processing limit')
         if selected is None and total >= end:
             selected, retained_frames = i + 1, total

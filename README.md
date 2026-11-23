@@ -30,7 +30,8 @@ to directories you name.
 | Browse movie metadata (resolution, fps, duration, bitrate) | **yes**, `movies`; 515 titles in `movies.rpf` |
 | Find and extract **AWC** audio; list/extract streams and music channels | **yes**, exact lengths, native payloads |
 | Remux Opus streams into playable **Ogg Opus** | **yes**, lossless, no re-encode |
-| Extract audio-config **music records** | **yes**, durations, config ids, hashes and stream ids; track names/order remain unknown |
+| Extract audio-config **music records** | **yes**, durations, config ids, hashes and stream ids; optional supplied credit candidates; native station membership/order unresolved |
+| Browse indexed **audio config** | **partial**, bounded records, checked name tables and wave-slot references; unknown families/tails explicit |
 | Bink1 video | **experimental** |
 | PSIN containers, section bodies, stream-split fragments | **yes**, complete-container checksums verified (JOOAT) |
 | Browse native **LSCH/LENM schemas** and export JSON | **yes**, enum records, nine inferred type meanings and optional name candidates; unknowns preserved |
@@ -112,8 +113,8 @@ options (`--root`, `--json`) go before the subcommand.
 | `scan` | Find validated Bink2/Bink1/AWC carriers | `--kind`, `--limit`, `--full`, `--spread`, `--no-padding`, `--no-align`, `--max` |
 | `movies` | Movie metadata browser; optional extraction | `--archive`, `--limit`, `--full`, `--min/max-duration`, `--min-width/height`, `--sort`, `--out` |
 | `extract` | Carve carriers; writes `extract-index.json` | `--out`, `--max-hits`, plus `scan` options |
-| `music` | Extract the audio-config music record table | `--archive`, `--limit`, `--full`, `--min-ms`, `--max-ms`, `--out`, `--max` |
-| `awc` | Streams inside AWC containers; export native payloads, Ogg Opus and supported PCM WAV | `--archive`, `--limit`, `--max`, `--raw-out`, `--ogg-out`, `--ogg-policy`, `--ogg-pre-skip`, `--music-out`, `--wav-out`, `--wav-policy`, `--music-wav-out`, `--music-skip-policy`, `--opus-library`, `--wav-pre-skip` |
+| `music` | Extract music records, annotate supplied credit candidates or browse indexed audio config | `--archive`, `--limit`, `--full`, `--min-ms`, `--max-ms`, `--out`, `--max`, `--catalog`, `--trackids`, `--config`, `--index-sections`, `--start`, `--name`, `--max-nodes` |
+| `awc` | AWC streams, radio markers/chapters and native/Ogg/WAV export | `--archive`, `--limit`, `--full`, `--offset`, `--max`, `--max-containers`, `--radio`, `--radio-max-records`, `--chapters-out`, `--music-names`, `--raw-out`, `--ogg-out`, `--ogg-policy`, `--ogg-pre-skip`, `--music-out`, `--wav-out`, `--wav-policy`, `--music-wav-out`, `--music-skip-policy`, `--opus-library`, `--wav-pre-skip` |
 | `models` | Index, list or export drawables/fragments (SixNG backend) | `info\|index\|list\|extract`, `--archive`, `--kind`, `--name`, `--max`, `--out`, `--backend`, `--work` |
 | `world` | Export world/map resources through SixNG | `--kind`, `--archive`, `--out`, `--name`, `--bbox`, `--limit`, `--backend`, `--work` |
 | `names` | Build or query 32-bit joaat and 64-bit Murmur3 name dictionaries | `build\|lookup`, `--out`, `--index`, `--paths`, `--no-shaders` |
@@ -123,7 +124,7 @@ options (`--root`, `--json`) go before the subcommand.
 | `get` | Re-read one catalogued asset by hash or `archive:offset` | `--catalog`/`--db`, `--out` |
 | `move` | Browse MoVE envelopes and supported payload storage | `--objects`, `--children`, `--tail-forms`, `--raw`, `--archive`, `--start`, `--limit`, `--full`, `--max-nodes`, `--out` |
 | `rbf` | Browse RBF0 trees and literal rig-set/entry inventories | `--rig-sets`, `--name`, `--rig`, `--raw`, `--archive`, `--start`, `--limit`, `--full`, `--max-nodes`, `--max-depth`, `--max-string-bytes`, `--out` |
-| `psin` | Inspect PSIN containers, LSCH/LENM schemas and bounded instance blocks | `--archive`, `--limit`, `--full`, `--max`, `--schema`, `--instances`, `--resource-header`, `--record-graph`, `--max-nodes`, `--max-depth`, `--names`, `--registry`, `--registry-out`, `--out` |
+| `psin` | Inspect PSIN containers, LSCH/LENM schemas and bounded instance blocks | `--archive`, `--limit`, `--full`, `--max`, `--schema`, `--instances`, `--resource-header`, `--record-graph`, `--bucket-maps`, `--max-nodes`, `--max-depth`, `--names`, `--registry`, `--registry-out`, `--out` |
 | `shaders` | Recover DXBC binaries and inspect bounded program/signature metadata | `--archive`, `--limit`, `--full`, `--out`, `--metadata`, `--max-records`, `--max` |
 | `structured` | Recover complete XML/PSIN resources from stream-split pages | `--archive`, `--limit`, `--out`, `--max` |
 | `hunt` | Score catalogued blobs for geometry-like floats | `--db` (required), `--kind`, `--archive`, `--scan`, `--window`, `--dump` |
@@ -392,7 +393,99 @@ python3 -m gta6x --root <pkg> awc --archive audio --limit 64 \
         --ogg-out ./audio
 python3 -m gta6x --root <pkg> awc --archive audio --limit 100 --max 1000 \
         --music-out ./music
+# inspect one container and export TRACKID chapter metadata
+python3 -m gta6x --root <pkg> --json awc --archive audio \
+        --offset 0x264d72000 --radio --chapters-out ./chapters
 python3 -m gta6x --root <pkg> music --archive audio --out ./music-config
+```
+
+`awc --max` limits displayed table rows only. JSON and exports process every
+container within the selected scan range; `--max-containers N` is the explicit
+processing cap. `--limit` still bounds scanning, and `--full` scans the entire
+archive. Repeatable `--offset DEC|HEX` inspects exact container addresses without
+scanning. Music banks extend well beyond the archive head.
+
+**Radio markers and chapters:** `--radio` exposes bounded `0xBD` records with
+raw tag/value bits, known tag names, frame positions and TRACKID intervals.
+Unknown values stay explicit. `--chapters-out DIR` also writes exact-frame JSON
+and `h:mm:ss<TAB>0xb2<TAB>id` text, a tool export convention. Repeated ids are
+retained; intervals remain unclassified and can contain imaging or repeated
+material. This does not identify every song, split audio or recover station
+membership. `0xA3` tables require one ascending u32 per music block; their units
+remain unknown and are never used as file offsets. `--radio-max-records` bounds
+a shared table/marker/chapter budget. Refused tables retain reasons and emit no
+partial records. Radio-only inspection reads metadata without decoding audio.
+
+The frozen first implementation reproduces **41 intervals / 40 distinct ids**
+in the supplied Worldwide example and **25 / 23** in the Vault example. A
+supplied-location audit validates **3,008 containers / 3,116 music records**,
+**13,035 raw seek entries** and **1,042 TRACKID intervals**. Of 905 banks with
+one interval, only 828 ids are distinct. Locations came from an external list;
+these are native-byte consistency checks, not an exhaustive independent archive
+census or native song/station mapping. The stricter export regression preserves
+the original frozen reports and source roles. Complete Worldwide/Vault stereo
+Ogg remuxes also pass source framing and output-granule checks; their full PCM
+was not decoded.
+
+**TRACKID/title candidates:** `music --trackids FILE` consumes the JSON array
+from `awc --radio` and joins whole-channel marker observations to music-record
+candidates. A source needs a unique exact local marker/channel id, one TRACKID
+at frame zero, and an integral 48 kHz frame count; record candidates also need
+low29-id equality and duration agreement within one millisecond, compared
+without display rounding. Premixed intervals remain queries; they are never
+paired to records by ordinal or approximate chapter length.
+
+```bash
+# Native marker metadata for one known container; add more --offset values
+# to include whole-channel reference banks and premixed queries together.
+python3 -m gta6x --root <pkg> --json awc --archive audio \
+        --offset 0x113d76000 --radio > awc-radio.json
+python3 -m gta6x --root <pkg> music --trackids awc-radio.json \
+        --catalog ./supplied-credits.json --out ./radio-links
+```
+
+The optional catalog adds external title/credited-station contexts by complete
+32-bit hash B equality. Without it, the report contains numeric record candidates
+only. `radio-trackids.json` preserves all candidate records, conflicts, source
+addresses, marker intervals, exclusions and input hashes. `--max-nodes` bounds
+work/output and `--max` caps human display only for this mode. Supplied metadata
+is checked again, but the report does not authenticate its original game bytes.
+No catalog, native mapping table or game data is bundled.
+
+Reused native-data checks find **865 TRACKIDs / 1,042 intervals**, with record
+candidates for **823 IDs**, including **12 conflicting IDs**. **667 IDs** have
+external credit candidates (663 without a conflicting record hash). Worldwide
+has candidates for 32/41 intervals and external titles for 24/41; Vault remains
+0/25. Some IDs refer to many different hashes, and four hashes associate with
+multiple IDs. Equal numeric IDs therefore remain a candidate cross-bank join,
+not a globally unique song identifier. Native station membership and exact
+recording identity remain unresolved; credited stations are external context.
+Only premixed banks in an input report cannot supply their own whole-song
+references. Existing frozen splits remain intact; these reused checks are not
+independent semantic ground truth.
+
+Native membership research has now located proposed station hashes in
+schema-defined PSIN hash fields: five discovery observations and one reserved
+validation observation share the same structure/field. Their owner/field meaning
+and song references remain unknown, so they do not establish a playlist. A
+fixed exact-packet reuse test of Vault's 25 midpoint windows against 2,519
+non-reserved stereo banks finds no matches. This does not exclude re-encoded
+versions; Vault remains unresolved. Existing candidate conflicts and frozen
+splits are unchanged, and no speculative decoder or native station map is added.
+
+**Optional music names:** `--music-names FILE` accepts supplied labels keyed by
+archive basename, container offset, stream index and channel index. A unique
+context produces `<Station> - <Title> [<archive>_<offset>_sN_cN].opus` or `.wav`.
+Multiple contexts remain explicit in JSON and use the offset-based fallback.
+Names are sanitized, bounded to 255 UTF-8 bytes and checked for collisions.
+The map source/hash and external-evidence label accompany the output; no mapping
+is bundled and native membership remains unresolved. Example input:
+
+```json
+{"format":"gta6x-awc-names-v1","source":"user-supplied labels","entries":[
+  {"archive":"authored.rpf","awc_offset":4096,"stream_index":0,
+   "channel_index":0,"station":"Example FM","title":"Example Song"}
+]}
 ```
 
 `--raw-out` keeps the native payloads (`<archive>_<offset>_s<index>.opus`,
@@ -432,7 +525,14 @@ codec accuracy or original in-game alignment.
 Music banks use a separate `0x48` descriptor: block count, chunk size, then one
 16-byte record per channel. `--music-out` walks each block's 24-byte channel
 table, uses the per-channel subblock counts/start, and writes one
-Ogg Opus file per channel. A 100 MiB `audio.rpf` sample produced **559 AWC
+Ogg Opus file per descriptor record (which can itself be stereo). Raw sample
+counts are interleaved; duration divides by channels-per-record. Unsupported
+counts have no guessed duration. The stereo Ogg path validates complete block
+allocations, counters, packet extents/framing and zero padding, then emits
+monotonic granules with explicit final trimming. It refuses nonzero stereo
+block skips. Long remuxes use encoded-data/frame/output bounds independently
+of WAV PCM limits. Mono Ogg retains its previous bytes/timing policy.
+A 100 MiB `audio.rpf` sample produced **559 AWC
 containers, 8,683 streams and 53 music-channel Ogg files**; `ffprobe` reports
 `opus`, 48 kHz, mono, 42.03 s for the first channel.
 
@@ -507,13 +607,17 @@ python3 -m gta6x --root <pkg> awc --archive audio --limit 100 --max 1000 \
 ```
 
 The default `--music-skip-policy zero` supports 48 kHz Opus channels with
-**zero block skips**. The opt-in overlap policy below supports a measured
+**zero block skips**, including validated mono/stereo descriptor counts.
+One native stereo discovery export produces **12,676,400 frames per channel /
+264.092 seconds** at 48 kHz. Nonzero stereo skips remain refused. The opt-in
+mono overlap policy below supports a measured
 subset of nonzero skips after exact compressed-packet identity checks. `--opus-library`
 and `--wav-pre-skip` also apply here. Output uses the same explicit assumed
 pre-skip/declared-duration policy as standalone WAV. `music_wav_metadata` records
 channel identity, block skips, frame counts and decoder version;
 `music_wav_skipped` records unsupported profiles or failures. Existing music
-Ogg export remains unchanged. Missing dependencies and malformed/decode errors
+mono Ogg export remains unchanged; stereo uses the corrected path above.
+Missing dependencies and malformed/decode errors
 exit nonzero while independent requested exports continue.
 
 A separate music split was frozen before block research: **16 discovery /
@@ -556,8 +660,107 @@ decoder reset/pre-roll behavior remain unconfirmed. Legacy music Ogg is unchange
 **1,589 distinct config ids**, **272,442.8 s** total, each with duration, hash A,
 hash B and the AWC stream id (`hash B & 0x1FFFFFFF`). Records are found by the
 46-byte record layout, fixed markers and duration range (20 s to 2,000 s).
-It does not recover track
-names or playback order.
+It does not infer playback order or native station membership.
+
+`--min-ms` and `--max-ms` apply while scanning, so an explicit wider range can
+include shorter or longer marker records. The defaults still produce the
+same 1,589 rows. With `--limit 18 --min-ms 0 --max-ms 4294967295`, the measured
+prefix yields **2,406 marker observations** (812 additional short / five long).
+Those extra observations are not automatically identified songs; invalid
+duration ranges are rejected before export.
+
+**Indexed config:** `music --config` joins only immediate aligned compressed
+pages through a short terminal page, then checks the complete bounded index.
+Record spans are storage upper bounds, not proven object sizes. Raw families,
+kinds and opaque tails remain explicit. Separate name tables are accepted only
+when every encoded string offset and full name hash agrees; proximity is
+insufficient. `WaveSlotsList` references must exhaust the local kind-8 index.
+Their stored order is a wave-slot listing, not a radio playlist.
+
+```bash
+python3 -m gta6x --root <pkg> music --config --limit 8 --name Radio --max 30
+python3 -m gta6x --root <pkg> music --config --limit 18 \
+        --max-nodes 1000000 --out ./audio-config
+```
+
+`--name` filters the human display; JSON and `audio-config.json` retain the
+complete bounded report. Unsupported/incomplete resources have explicit
+reasons and a nonzero exit status; supported resources remain inspectable.
+Discovery produced **4,781 checked names and 740 wave-slot links**. A parser
+frozen before the reserved config window reproduced **3,020 index records**
+there; that window contained no eligible checked name tables or slot lists.
+No natural music-record ownership or station/playlist graph was established.
+
+Add `--index-sections` to inspect the independently measured length-section
+index profile for raw family 581:
+
+```bash
+python3 -m gta6x --root <pkg> music --config --index-sections --limit 8 \
+        --max-nodes 1000000 --out ./audio-config-sections
+```
+
+This opt-in view adds **115,183 discovery index records**, taking the same
+window to **131,523 records**, plus **2,040 counted groups / 7,305 raw u32
+values**. Group boundaries and original byte offsets are checked; group roles,
+value targets and ordering semantics remain unknown. These are not recovered
+station memberships or playlists. The original strict parser is unchanged.
+Fresh discovery ranges in `common.rpf` and later `audio.rpf` supplied no
+station-definition evidence. The separately frozen later-audio validation
+window had no eligible config indexes, so the new layout has **no positive
+held-out examples**. Existing protected station-name candidates were not used
+for fitting; a truncated final resource still produces an explicit refusal.
+
+**External credit candidates:** supply `--catalog ./credits.json` to annotate
+music records using full 32-bit hash B. The catalog contains explicit spelling
+hypotheses, for example this authored input:
+
+```json
+{
+  "format": "gta6x-music-catalog-v1",
+  "source": "authored example",
+  "entries": [
+    {"normalized_name": "authored_song", "title": "Authored Song",
+     "artist": "Authored Artist", "station": "Authored Station"}
+  ]
+}
+```
+
+```bash
+python3 -m gta6x --root <pkg> music --limit 18 --catalog ./credits.json \
+        --out ./music-credits
+```
+
+No track catalog is bundled. Supplied spelling is hashed as written using the
+existing case-insensitive JOOAT function; normalization is the catalog author's
+choice. Every distinct matching title/artist/station is retained, including
+ambiguities; a shared 29-bit stream id alone cannot match. Reports label these
+as external hypotheses and retain the original record fields. In a local
+catalog derived from [Rockstar's public credits](https://www.rockstargames.com/VI/credits),
+**673/1,589 records** matched supplied full-hash spellings; **seven** retained
+multiple credit candidates. The expanded catalog adds 74 records over the
+initial pass. This is hash agreement with external facts on
+reused observations, not held-out song-identification accuracy. The credited
+station label does not prove a native station link, an AWC bank association or
+playlist order. The name dictionary is unchanged.
+
+The public-source comparison retains all **743 entries across 20 music
+stations** in the supplied GameSpot paste, alongside Rockstar's credit
+sections. Primary credit labels are preserved when sources differ; shortened
+titles, artist-credit differences and multiple versions remain visible.
+Additional Rockstar music/program credits bring name-candidate coverage to
+**737 records**, with their station context left unassigned. The main catalog
+still has **99 unmatched credit rows**, including eight original compositions
+whose performers are unspecified. No full station or playlist extraction is
+claimed, and no song list or generated catalog is bundled.
+
+A focused Symphony/Vault follow-up found six provisional candidates in other
+sections using documented title/remix excerpts and a consistent `_dsc` station
+suffix. Each full hash was checked against fresh original record bytes. No new
+Symphony or Vault credit was resolved: they remain **0/16 and 1/24 candidate
+rows**, respectively. The Vault row uses a shared title excerpt and does not
+confirm a recording. A generic classical movement fragment matching another
+artist's title was rejected. Existing source splits and earlier results were
+preserved; the wider duration scan added no song matches.
 
 ## Video and media carriers
 
@@ -653,6 +856,35 @@ overlap. All 19,266 malformed controls and 3,211 under-budget controls refuse;
 opaque-target changes intentionally preserve the view. Prior instance readers
 and value/binding modules are unchanged. These are reused structural cohorts,
 not root-object or pointer-relocation ground truth.
+
+**PSIN bucket owners:** `psin --bucket-maps` adds a guarded local bucket/reference
+view and checks the existing LRSC record candidate. One measured profile links
+opaque-key entries to bounded, locally typed records. Exact schemas, counts,
+occupancy markers, complete allocations and every reference must agree before a
+map emits links. Duplicate key storage retains every target; missing/conflicting
+schemas and unsupported layouts remain explicit. The field type is not assigned
+a general primitive or gameplay meaning.
+
+```bash
+python3 -m gta6x psin ./metadata.psin --bucket-maps \
+        --max-nodes 100000 --out ./bucket-owners.json
+```
+
+JSON retains owner/field paths, physical slots, opaque key bytes, target record
+identities and exact agreement with the LRSC **candidate**, when present. This
+view shares `--max-nodes`; `--max-depth` bounds embedded-owner scanning. Partial
+or refused requested inspection exits nonzero while preserving independent valid
+results. Existing instance values and ordinary record-graph edges are unchanged;
+bucket links are a separate view and are not merged into graph reachability.
+
+Native role-preserving checks trace owners for **47 discovery / seven validation**
+queried hash-bearing records across **28 / seven** complete resources, including
+four resources recovered from two pages each. The broader bucket view validates
+**171 / 57 local reference links**. The seed resources include five proposed Dirty
+South Classics hash values and one Cocoteo value, among other record types. The
+container, field and key roles remain unknown; these references do **not** establish
+song-to-station membership or a playlist. Vault titles remain unresolved and the
+existing TRACKID conflicts remain intact.
 
 **PSIN record associations:** `psin --record-graph` indexes only existing
 checked local field, structure/reference/enum-array and map-entry record links.
@@ -1459,7 +1691,22 @@ python3 -m gta6x names lookup c875c99d196b2f1c --index names.json
 python3 -m gta6x --root <pkg> textures --pool vehicles --max 20 --names names.json
 ```
 
-Measured on 1.0.2.1: **50,864 lower-case hashes**, **36,943 case-sensitive
+Texture names are candidates recovered by matching observed strings to stored
+64-bit hashes. A blank name means the selected dictionary has no match; it does
+not imply a texture decode failure. The default dictionary is `names.json` in
+the current working directory; `--names PATH` selects another one.
+
+A local source-string investigation added 117 previously unresolved texture
+hashes, increasing named streamed records from 671 to 788 in the measured
+package. Each addition reproduces original source bytes and the texture's raw
+hash-table entry. Existing names and lookup order were preserved. These are
+hash/source agreements, not independent proof of asset associations. The first
+200 default rows still have 112 names; the additions occur elsewhere. Recovered
+strings and source observations stay in the private dictionary/research files,
+not a bundled game-name list. `names build` creates a fresh dictionary rather
+than merging existing enrichments; use a different `--out` to preserve one.
+
+The original build on 1.0.2.1 produced **50,864 lower-case hashes**, **36,943 case-sensitive
 hashes**, **87,807 64-bit hashes**, from 47,642 common identifiers, 4,512
 shader identifiers and 3,212 path identifiers. Real 64-bit hits include `rope`,
 `temp`, `sclera`, `mapdetail_atlas`, `veh_detail_atlas_control` and
@@ -2181,7 +2428,8 @@ decode, and external-adapter agreement does not establish confirmed ground truth
 | Opus WAV | 3,349/1,310 mono streams pass strict framing; 16 selected real decodes have exact requested lengths under explicit assumed trim |
 | Opus packet-sequence WAV | Opt-in mono/stereo output; nine stereo sequences from one previously exposed validation bank; no recovered game timing claim |
 | Declared-duration Ogg | All 4,659 supported mono streams; retained packets unchanged, 7,570 unused tail packets omitted; original alignment unconfirmed |
-| Music WAV | 35 zero-skip channels unchanged; opt-in packet overlaps add 17/18 nonzero channels; one unseen held-out skip size refused |
+| Music WAV | Existing mono profiles retained; stereo zero-skip discovery export validates per-channel frames; nonzero stereo skips refused |
+| AWC radio metadata | 3,008 supplied locations / 13,035 raw table entries / 1,042 TRACKID intervals; Worldwide 41 chapters and Vault 25; native song/station links unresolved |
 | MoVE child prefixes | 266/440 candidates supported; 174 unknowns retained; all 324 parent views unchanged |
 | PSIN contextual text links | 53 discovery / 240 supplementary links to existing pool entries; 10,920 supplementary attempts unresolved; no extra scalar observations |
 | MoVE tail forms | Kind-3/12/11/28/4 add 131 profiles; immediate coverage 397/440, with 43 unknowns; motion meanings unknown |
@@ -2193,7 +2441,7 @@ decode, and external-adapter agreement does not establish confirmed ground truth
 | Animation lookup candidates | 383/411 distinct nonzero-variable buffers pass candidate bounds; 160,104 raw entry observations; channel/order/numeric meanings unconfirmed |
 | Mixed animation prefixes | 879/908 distinct buffers; 215,213 raw words / 72,751 opaque records; numeric and slot meanings unconfirmed |
 | PSIN record associations | 3,208 graph views / 264,745 checked edges; bounded LRSC-candidate reachability, unknowns explicit; three existing instance-budget refusals |
-| `selftest` | 256 checks, all passing (AWC, Ogg, strict packet/WAV/music framing, verified overlaps and declared Ogg timing, RDS5, PSIN/LSCH/LENM/instances/registry/pools/hash32 arrays/structure/reference links/fields/map entries/text links/record associations, XML, Gfx10, DDS, PNG, shaders, txd full mip chains/arrays/volumes/tail addresses/bounds, name hashes, animation/0DRP metadata, named clip/component/buffer links, packed header/channel candidates, slot directories/storage rows/raw payload inventories/counted width tables/indexed-payload candidates/mixed prefixes, MoVE envelopes/root/child/tail storage, RBF0 trees/rig-set inventories and bounds, music, BCPack, BC2 layout, signed BC4/BC5/8-bit previews and BC6H/BC7); backend features are not self-tested |
+| `selftest` | 265 checks, all passing (AWC, Ogg, strict packet/WAV/music framing, verified overlaps and declared Ogg timing, RDS5, PSIN/LSCH/LENM/instances/registry/pools/hash32 arrays/structure/reference links/fields/map entries/text links/record associations, XML, Gfx10, DDS, PNG, shaders, txd full mip chains/arrays/volumes/tail addresses/bounds, name hashes, animation/0DRP metadata, named clip/component/buffer links, packed header/channel candidates, slot directories/storage rows/raw payload inventories/counted width tables/indexed-payload candidates/mixed prefixes, MoVE envelopes/root/child/tail storage, RBF0 trees/rig-set inventories and bounds, music, BCPack, BC2 layout, signed BC4/BC5/8-bit previews and BC6H/BC7); backend features are not self-tested |
 
 The local SQLite catalogue used during development holds 176,971 checksum-
 verified assets across 20 archives; that file is generated output, not part of
@@ -2327,10 +2575,17 @@ gta6x/
   audio_ogg.py  explicit declared-duration Opus Ogg granules and tail trimming
   audio_music_pcm.py strict zero-skip channel framing and optional music WAV
   audio_music_skips.py opt-in exact compressed-packet overlap reconstruction
+  awc_radio.py  bounded markers, TRACKID intervals and raw per-block tables
+  awc_names.py  optional external exact-source naming map
   music.py      audio-config music record metadata
+  audio_config.py bounded config index, offset/hash name tables and wave-slot lists
+  audio_config_sections.py opt-in counted raw index groups; radio meaning unknown
+  music_catalog.py supplied external credit hypotheses with full-hash matching
+  radio_trackids.py bounded native-marker/record candidates; explicit ID conflicts
   bc/           BC1-BC7 previews, BCPack reconstruction and runtime tables
   png.py        minimal PNG writer
   psin.py       PSIN containers, section bodies, stream-split fragments
+  psin_bucket_maps.py local schema-framed bucket/reference owner associations
   psin_schema.py native LSCH/LENM browser, inferred types and JSON records
   psin_instances.py bounded instance blocks and inferred member values
   psin_pools.py  low-ID hash/text pools, reference candidates and opaque views
@@ -2402,7 +2657,7 @@ Required decoder constants under `gta6x/bc/` remain part of the runtime package.
 
 ## Development
 
-`python3 -m gta6x selftest` runs 189 synthetic checks covering the AWC header and
+`python3 -m gta6x selftest` runs 265 synthetic checks covering the AWC header and
 tag table, Opus packet records and Ogg pages, RDS5/TTPF validation, PSIN
 containers/fragments, LSCH/LENM schemas, bounded instance values and cross-file
 registry resolution/conflicts, low-ID pools, bounded hash32 arrays, structure/reference-array links, local reference fields and explicit

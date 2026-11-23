@@ -44,10 +44,16 @@ AWC_FEATURE_PREFIX = 0x400000    # one extra dword after the 16-byte header
 AWC_MAX_HEADER = 4 * 1024 * 1024
 AWC_MAX_STREAMS = 8192
 
-AWC_TAG_FORMAT = 0x76
+AWC_TAG_SAMPLE_FORMAT = 0x76  # observed sample/rate/codec payload; hash-name collisions exist
 AWC_TAG_DATA = 0x55
-AWC_TAG_MUSIC = 0x48
+AWC_TAG_STREAM_FORMAT = 0x48  # observed blocked music descriptor
+# Compatibility aliases; the payload profile, not a truncated name hash, determines meaning.
+AWC_TAG_FORMAT = AWC_TAG_SAMPLE_FORMAT
+AWC_TAG_MUSIC = AWC_TAG_STREAM_FORMAT
 AWC_CODECS = {5: "xma2", 0x0B: "opus", 0: "pcm"}
+AWC_CHUNK_HASH_NAMES = {0x55:['DATA'],0xfa:['FORMAT'],0x48:['STREAMFORMAT'],
+    0x36:['PEAK'],0xa3:['SEEKTABLE','NAMETABLE'],0xbd:['MARKERS'],
+    0x2b:['GESTURE'],0x5a:['GRANULARGRAINS'],0xd9:['GRANULARLOOPS'],0x76:['ANIM']}
 
 KINDS = ("bink2", "bink1", "awc")
 _MAGICS = {"bink2": BINK2_MAGIC, "bink1": BINK1_MAGIC, "awc": AWC_MAGIC}
@@ -235,7 +241,7 @@ def validate_awc(buf: bytes) -> dict | None:
         entry: dict = {"index": i, "id": ids[i], "tags": packed >> 29,
                        "codec": None, "sample_rate": None, "channels": None,
                        "samples": None, "data_offset": None, "data_bytes": 0,
-                       "music": None}
+                       "music": None, "chunks": []}
         fmt = None
         for _ in range(packed >> 29):
             tag = _u64(buf, cursor)
@@ -245,14 +251,17 @@ def validate_awc(buf: bytes) -> dict | None:
             rel = tag & 0x0FFFFFFF
             if size and rel < header_size:
                 return None
+            entry['chunks'].append(dict(type=f'0x{tag_type:02x}',
+                data_offset=rel, byte_length=size,
+                name_candidates=AWC_CHUNK_HASH_NAMES.get(tag_type,[])))
             tag_types[tag_type] = tag_types.get(tag_type, 0) + 1
             if tag_type == AWC_TAG_DATA:
                 data_bytes += size
                 entry["data_offset"] = rel
                 entry["data_bytes"] = size
-            elif tag_type == AWC_TAG_FORMAT:
+            elif tag_type == AWC_TAG_SAMPLE_FORMAT:
                 fmt = (rel, size)
-            elif tag_type == AWC_TAG_MUSIC:
+            elif tag_type == AWC_TAG_STREAM_FORMAT:
                 entry["music_offset"] = rel
                 entry["music_size"] = size
             extent = max(extent, rel + size)
@@ -285,12 +294,19 @@ def validate_awc(buf: bytes) -> dict | None:
                     samples = _u32(buf, at + 4)
                     rate = _u16(buf, at + 10)
                     codec = buf[at + 12]
+                    channels_per_record = buf[at + 13]
+                    frames = (samples // channels_per_record
+                              if channels_per_record in (1, 2) and samples % channels_per_record == 0 else None)
                     parsed["channels"].append({
                         "index": channel, "id": channel_id,
                         "samples": samples, "sample_rate": rate,
+                        "channels_per_record": channels_per_record,
+                        "frames": frames,
+                        "raw_unknown_u16": _u16(buf, at + 8),
+                        "raw_reserved_u16": _u16(buf, at + 14),
                         "codec": codec,
                         "codec_name": AWC_CODECS.get(codec, f"0x{codec:02x}"),
-                        "duration": round(samples / rate, 3) if rate else None,
+                        "duration": round(frames / rate, 3) if rate and frames is not None else None,
                     })
                 entry["music"] = parsed
                 durations = [c["duration"] for c in parsed["channels"]
@@ -319,6 +335,7 @@ def validate_awc(buf: bytes) -> dict | None:
         "has_extra_table": bool(flags & AWC_FEATURE_EXTRA),
         "has_prefix_dword": bool(flags & AWC_FEATURE_PREFIX),
         "stream_list": stream_list,
+        "chunk_name_evidence": "low-byte hash candidates only; payload validation determines interpretation",
         "confidence": "high",
     }
 
@@ -345,6 +362,40 @@ def describe_hit(hit: Hit) -> str:
         bits.append(f"{meta.get('tags', 0)} tags")
         bits.append("size unknown" if hit.size is None else f"{hit.size:,} B")
     return "  ".join(bits)
+
+
+def awc_at(path, offset):
+    """Validate one explicitly addressed container header without scanning."""
+    size=os.path.getsize(path)
+    if type(offset) is not int or not 0<=offset<=size-16:
+        raise ValueError('AWC offset is outside the source file')
+    with open(path,'rb') as fh:
+        fh.seek(offset);needed=awc_header_length(fh.read(16))
+        if needed is None or needed>size-offset:
+            raise ValueError('invalid or truncated AWC header at requested offset')
+        fh.seek(offset);meta=validate_awc(fh.read(needed))
+    if meta is None or meta['size']>size-offset:
+        raise ValueError('AWC container extent exceeds the source file')
+    return Hit('awc',os.path.basename(path),offset,meta['size'],meta)
+
+
+def awc_metadata_at(path, offset):
+    """Read bounded header/format prefixes; encoded audio remains uninterpreted."""
+    hit=awc_at(path,offset);needed=hit.meta['header_size']
+    for stream in hit.meta['stream_list']:
+        for chunk in stream['chunks']:
+            kind=int(chunk['type'],16)
+            if kind==AWC_TAG_STREAM_FORMAT:
+                if chunk['byte_length']>4096:raise ValueError('unsupported oversized music descriptor')
+                needed=max(needed,chunk['data_offset']+chunk['byte_length'])
+            elif kind==AWC_TAG_SAMPLE_FORMAT and chunk['byte_length']>=32:
+                needed=max(needed,chunk['data_offset']+32)
+    if needed>AWC_MAX_HEADER:raise ValueError('AWC metadata prefix exceeds read limit')
+    with open(path,'rb') as fh:
+        fh.seek(offset);raw=fh.read(needed)
+    meta=validate_awc(raw)
+    if len(raw)!=needed or meta is None:raise ValueError('AWC metadata source changed or truncated')
+    return Hit('awc',hit.archive,hit.offset,hit.size,meta)
 
 
 def _hits_in_buffer(

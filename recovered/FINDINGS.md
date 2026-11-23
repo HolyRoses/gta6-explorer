@@ -60,7 +60,7 @@ covers the structural rules without game data.
 | Packed animation metadata | 3,794/3,946 discovery/validation layouts; 223,879/236,886 raw channel-binding candidate rows; bounded header/auxiliary/sample-index views, no value decoding | `anim --packed-layout` |
 | Animation | 130,771 streams / 2,327 names; `0DRP`, `MoVE`, 1,788 candidate packed-header matches, `RBF0`; clip identities/curves unverified | `anim` |
 | World data | placements, collision, navmesh, paths, lights, interiors, vehicles, meta/PSO, shader census | `world` (SixNG backend) |
-| Name hashes | 50,864 joaat hashes / 36,943 case-sensitive / 87,807 Murmur3-64 hashes | `names` |
+| Name hashes | 50,864 joaat hashes / 36,943 case-sensitive / 87,924 locally enriched Murmur3-64 hashes | `names` |
 
 The catalogue sweep is not exhaustive: per-archive limits vary, and only
 `common.rpf`, `script.rpf`, `textures.rpf`, `shaders.rpf` and the smaller archives
@@ -233,6 +233,144 @@ CLI check exports all 13 selected-bank streams, including nine stereo streams,
 with per-file frame counts matching JSON metadata. Music defaults remain 312
 pre-skip frames even when standalone packet-sequence export is also requested.
 Runtime/tests/audit were frozen before validation; prior seals remain unchanged.
+
+### Indexed audio config and external radio-credit candidates
+
+`music --config` checks bounded indexed storage independently of record-kind
+meanings. Family 26 records encode separate name-table byte offsets in the
+upper 24 bits of the first word. Two discovery tables match all 238/4,543
+index entries by complete string boundary and JOOAT hash. Their named
+`WaveSlotsList` records exhaust 236/504 local kind-8 references. These are
+wave-slot lists, not radio playlists. Unknown kinds, opaque tails, incomplete
+resources and unsupported index prefixes remain explicit; record extents are
+storage upper bounds, not proven complete objects. No checksum is claimed.
+
+The config-only byte split was fixed before inspection and stops before the
+first existing frozen AWC bank. The sealed index parser reproduces 16,340
+discovery and 3,020 validation rows. Discovery yields 4,781 checked names and
+740 slot links; validation has no eligible name/list examples. A combined
+pass adds 86,715 rows from a crossing resource, classified as mixed/reused,
+not independent validation. Six unsupported/incomplete groups stay refused.
+Index extent/count, name-offset, list-count and budget controls discriminate
+their damaged inputs. Reversing list order intentionally passes: only the
+stored order is exposed. No natural indexed music-owner links were found.
+All 1,589 legacy music observations lie in the reserved config validation
+window; diagnostic counts did not retune the parser or consume it for fitting.
+
+The shared GameSpot article led to public Rockstar credits as independent
+spelling hypotheses. The article itself was inaccessible through the browser
+tool. A private catalog retains all title/artist/station contexts from 764
+song credits across 22 station credit sections, excluding three nonstation
+performance sections. Fixed literal/transliterated/word-separated/compact
+spellings of titles and artist-title pairs give 7,334 entries. Full hash B
+matches 599/1,589 existing music observations: 593 with one credit candidate,
+six with multiple candidates; 990 unmatched. `music --catalog` exposes these
+optional external annotations without altering original record fields or the
+name dictionary. Artist-only, station-only and truncated 29-bit matches cannot
+assign songs. Duplicate credits remain ambiguous. This reused-data hash
+agreement does not establish song identity, native station membership, AWC
+bank links, playback order or independent semantic accuracy.
+
+The index profile was sealed before validation. Later catalog annotations
+are an additive CLI feature with a separate successor seal; the index parser,
+names/list rules and original sealed CLI snapshot are unchanged. All 80
+inherited frozen artifacts and BCPack labels remain unchanged. Authored tests
+cover bounds, atomic refusals, ambiguity and wrong-full-hash negative controls;
+no game/song catalog is bundled. No upstream implementation was consulted.
+
+Follow-up native-radio investigation froze new source roles before inspection:
+the unassigned common tail and audio bytes 128–160 MiB supply discovery;
+160–176 MiB of audio is reserved validation. Discovery's 359 common zlib pages
+inflate to 21,974,679 bytes, with no radio keyword strings or matches to 79
+previously fixed public station-name hashes. The audio window has no zlib
+config streams; descriptor inspection finds 35 AWC headers (34 containers
+wholly inside the window), 1,203 streams and no music channels. This yields
+no station/playlist rule. New validation has no eligible config indexes.
+
+Separately, a permitted old discovery resource exposes the reason for its
+earlier refusal: two length-prefixed sections precede its hash/offset pairs.
+`music --config --index-sections` adds that opt-in family-581 profile without
+changing the strict parser. It reproduces 115,183 distinct index rows and
+2,040 partitioned groups / 7,305 raw values, bringing the discovery window to
+131,523 rows. Extent, group-partition, index and budget controls discriminate
+damaged data. Group value order/repetition is deliberately preserved without
+playlist semantics; two incidental local hash equalities are not promoted
+to references. Raw record kinds, group meaning and value targets remain
+unresolved. The new profile was sealed before its new validation scan, but
+there are no positive held-out examples of this layout. Station-name
+candidates in the old crossing/protected resource were excluded from fitting.
+All prior source roles, seals, catalog hypotheses and provisional BCPack
+labels remain intact. No native station membership or playlist edge is claimed.
+
+Public-source reconciliation used the user's unchanged GameSpot paste and a
+fresh Rockstar credits download, byte-identical to the earlier snapshot.
+All 743 pasted entries across 20 music stations are retained. Exact normalized
+station/title/artist text agrees for 611 rows; 58 have matching titles but
+different artist text, two put the same credit in another primary section,
+15 point to unassigned DJ/program credits, and 57 lack exact primary-title
+agreement. These are source-comparison categories, not identity verdicts;
+shortened titles, versions and typography account for some differences.
+
+Fixed punctuation/transliteration/apostrophe/ampersand and explicit title-
+excerpt hypotheses increase primary-context full32 hash-B coverage from 599
+to 664 records. Separately labeled internal-period/stylized-symbol hypotheses
+add three, reaching **667 records / seven ambiguous** with no previous match
+lost. Secondary spelling transfer requires agreement on normalized station,
+artist and title; it cannot reassign a station or select a recording version.
+The catalog includes 764 SONGS credits and eight explicitly named Liquid City
+compositions with unspecified performer; 105 rows remain unmatched. All
+matching spellings and original record fields are retained for audit.
+
+Rockstar's separate Additional Music section adds 22 factual song credits to
+the 74 previously retained nonstation DJ/program/band entries. These 96 rows
+yield 72 candidate records; union with the primary contexts covers **731**
+distinct existing music records. No station is assigned from those headings.
+For example, the pasted station claim for Linkin Park's In The End is kept
+separate from Rockstar's Additional Music credit. Including all independent
+GameSpot spellings yields 733 candidate records, with the remaining extra
+spellings/assignments explicitly uncorroborated by the primary hash catalog.
+These are reused full-hash observations, not fresh held-out semantics or
+native playlist links. Private per-section CSV/JSON reports retain all songs,
+unmatched rows, ambiguous candidates and source differences. All runtime
+modules, the name dictionary, 88 inherited frozen artifacts and provisional
+BCPack labels are unchanged by this source-only follow-up; no game bytes were
+used to fit new grammar. Ten authored research tests cover parsing, provenance,
+ambiguity, full32 controls, work bounds and conservative alias transfer.
+
+The next gap investigation tests 12,274 public work/file-style spellings and
+26,936 movement/station-style spellings against the unchanged marker layout.
+Symphony and Vault produce no new song-credit candidate. Extending those
+same rules across all 105 unmatched credits finds six provisional preimages:
+three literal/remix excerpts and three full-title `_dsc` suffixes. All six
+are within the original default cohort; fresh compressed-page inflation and
+46-byte record rereads reproduce durations, ids, markers and full32 hash B.
+Recording/version identity and native membership remain unproven. A bare `I`
+movement fragment maps to the existing Black Sabbath title and is rejected,
+illustrating why hash equality and zero wrong-name controls cannot establish
+the semantic association by themselves. No catalog entry is added for it.
+
+Primary-context coverage increases 667→673, with seven ambiguous records;
+99 public rows remain unmatched. All-Rockstar context coverage is 737 and
+the all-source union is 739. Symphony remains 0/16 candidate credits, Vault
+1/24; the latter is still a shared `Baby` excerpt. Earlier catalogs, profiles,
+inputs and all 90 inherited frozen artifacts remain intact. New hypotheses
+are external preimages on reused metadata, not independent held-out accuracy
+or native grammar learned from reserved data.
+
+An authored regression exposed a separate CLI issue: requested duration bounds
+were applied after a scanner using its defaults. `scan_file` now accepts and
+validates the caller's range, and `music` forwards it. Default output matches
+all 1,589 original rows exactly. A wider 0..u32-max pass over the already-used
+18 MiB compressed prefix yields 2,406 marker observations: 812 extra short
+and five extra long, none adding a public song match. The serialized record
+layout and markers are unchanged. Existing discovery-only AWC descriptor
+inspection finds all 35 raw channel ids have their upper three bits clear;
+these provide no additional complete32 name evidence. No long observation
+or channel id is assigned a station or recording from duration/low bits alone.
+Authored tests cover duration forwarding, early range rejection, public
+movement/work labels, preserved ambiguity and work bounds. Bounds-only
+research-helper updates retain exact archived versions and reproduce every
+study spelling set, without retuning names after comparison.
 
 ### Declared Ogg granules and music WAV
 
@@ -1280,6 +1418,40 @@ The payload is a DXBC container with printable chunk tags (`SFI0`, `ISG1`,
 `OSG1`, `PSV0`, `HASH`, `DXIL`, `PRIV` in sampled shaders). 9,089 wrappers pass
 both the length and DXBC structure checks in the first 64 MiB.
 
+### Local texture-name recovery
+
+A bounded source-string search inspected 6,604,023,168 bytes of disjoint
+eligible source windows across 17 archives, excluding existing validation
+sources. The lookup target was only the metadata hash tables from all 57 TTPF
+pools; no TTPF texture payload was decoded or used for fitting. Candidate rules
+were fixed before the initial scan: bounded ASCII/ASCII-range UTF-16LE strings,
+contiguous identifier/path substrings, known texture-file stems, and exact or
+lowercase spelling. No guessed prefixes/suffixes, hash seeds or external names.
+Additional source windows were assigned before reading their contents; the
+same extraction rule remained unchanged. Native descriptor-only follow-up
+retains only candidate system pages, without image interpretation.
+
+The private dictionary gains 117 previously unresolved hashes across nine
+pools: 107 names occur exactly in bounded embedded texture-name fields and ten
+come from other observed strings. All 683 retained source observations were
+reread, including existing-name evidence; all 117 new values independently
+match their original TTPF hash-table bytes. Wrong-endian, wrong-seed and appended-
+NUL controls discriminate all 117. These are hash/source agreements, not an
+independent asset-binding or texture-image oracle.
+
+Named streamed records increase from 671 to 788; the first 200 default rows
+remain 112 named and 88 unresolved. Under the unchanged pool roles, training
+coverage is 491→505 and validation coverage 180→283. These are lookup counts,
+not learned-decoder or held-out semantic accuracy. All prior dictionary entries,
+source labels, bucket order and 32-bit indexes persist. All 75 inherited frozen
+artifacts, runtime modules and BCPack provisional labels are unchanged.
+The search is not exhaustive: protected sources, unsupported encodings,
+oversized/cross-window streams and non-descriptor regions in metadata-only
+passes remain outside its coverage. Private names, observations, backups and
+hash/count reports remain under ignored names.json/work paths. Eleven authored
+scan/merge tests and native dictionary/texture CLI checks pass; no code or
+tables from another decoder were consulted.
+
 ### Public shader metadata
 
 `shaders --metadata` now reads bounded public DXIL/SHDR/SHEX stage/model
@@ -1524,12 +1696,15 @@ exists; missing preview support preserves the complete DDS.
   formats, with explicit mip/layer/Z selection. BC6H is tone-mapped and raw
   floats clipped. DDS preserves source values with corrected standard headers/order.
 * **64-bit texture hashes.** Solved: low 64 bits of MurmurHash3 x64 128 (seed
-  0) over the exact UTF-8 name. The dictionary resolves 19 real texture names
-  (13 recovered + 6 embedded txd). Remaining hash gaps are 128-bit `LSNS`/
+  0) over the exact UTF-8 name. Initial algorithm checks used 19 real names
+  (13 recovered + six embedded txd). The enriched local dictionary now names
+  788 streamed records; recovered strings are not shipped. Remaining hash gaps are 128-bit `LSNS`/
   `LGID`, 29-bit audio ids and 15-bit surface ids.
 * **Music record table.** The audio config holds **1,589** 46-byte music
   records, **1,589** distinct config ids and **272,442.8 s** total; `music`
-  extracts duration/hash A/hash B/stream id. Names and play order are absent.
+  extracts duration/hash A/hash B/stream id. Optional external credit candidates
+  match 673 records (seven ambiguous); native station links and play order remain
+  unresolved. `music --config` separately browses bounded indexes/names/slots.
 * **Audio decode.** Optional libopus supports standalone mono declared-duration
   or opt-in mono/stereo packet sequences, plus bounded music-channel PCM/WAV.
   Exact repeated music packets can be removed with an opt-in policy;
@@ -1574,3 +1749,161 @@ executables. `recovered/defs/` and `recovered/xml/` are bulk dumps and are
 gitignored; `paths.txt` and this document are the tracked results. Every
 extraction path is read-only with respect to the package. The optional SixNG
 backend (GPL-3.0) is an external executable; nothing from it is bundled.
+
+
+## AWC radio metadata and interleaved stereo records
+
+The supplied AWC notes were checked without external implementation source.
+Descriptor byte 13 is channels-per-record (observed 1/2); sample counts and
+subblock duration counters are interleaved. Corrected stereo duration and
+zero-skip Ogg/WAV now use per-channel frames. Strict stereo remux validates
+complete allocations, counters, packets and zero padding, with explicit encoded
+bounds for long mixes. Legacy mono Ogg bytes and existing mono overlap profiles
+remain intact. Nonzero stereo skips remain unsupported; pre-skip 312 and original
+alignment are still assumptions. Native ACCUSE produces stereo 48 kHz WAV with
+12,676,400 frames/channel (264.092 s); actual TRACKID is 1034.
+
+`awc --radio` parses complete BD marker records, retaining unknown tag/value
+bits and every TRACKID occurrence. `--chapters-out` writes exact-frame JSON and
+a second-floored B2 text convention. Intervals are unclassified, not necessarily
+songs. A3 tables require one ascending raw u32 per music block; units remain
+unresolved. `--offset` addresses containers directly. `--max` now caps display
+only; `--max-containers` caps processing. Optional supplied names require the
+archive/offset/stream/channel tuple; shared contexts stay ambiguous and use the
+fallback. No station map or native graph data is bundled.
+
+The first parser was frozen before supplied Worldwide/Vault validation bytes:
+41 intervals / 40 ids and 25 / 23 respectively. An offset-column-only native
+consistency audit parses all 3,008 supplied locations, 3,116 descriptor records,
+13,035 raw table entries, 938 marker banks and 1,042 TRACKID intervals. There are
+905 single-interval banks / 828 distinct ids (1001–15102); all 905 have existing
+low29/duration candidate joins within 0.001 s. These counts correct the supplied
+notes and do not establish unique songs, full-name identity or native station
+membership. An external locator list is not an independent archive census.
+
+Post-validation review hardened stereo Ogg strict framing with authored
+corruptions; the original sealed profile/reports remain local, and its successor
+is rerun as reused regression. All 94 inherited frozen artifacts and the name
+dictionary remain unchanged. The supplied `music.dat` attribution was retracted
+after user correction; no native graph reader or rotation simulator was added.
+See local `docs/awc_radio_format.md` and `docs/awc_radio_provenance.md`.
+
+
+## Native TRACKID candidate joins and namespace conflicts
+
+`music --trackids <awc-radio.json>` now builds a bounded candidate report from
+the native marker metadata export. Raw marker words are rechecked; caller-supplied
+chapter/title labels are ignored. A whole-channel observation requires exactly
+one TRACKID at frame zero and a unique matching raw marker/channel id with the
+same frame bound. Music-record candidates require low29 equality and rational
+frame/duration agreement within one millisecond. No protected config layout was
+fitted; the original fixed record reader and previous observations are reused.
+Optional catalog contexts require complete 32-bit record hash B equality. Native
+station membership remains unresolved, independent of credited station text.
+
+The frozen candidate implementation rereads 3,008 supplied AWC metadata locations,
+reproducing 1,042 intervals / 865 distinct IDs. Of 900 whole-channel observations,
+823 IDs have record candidates, including 12 with conflicting hashes; 667 have
+external credits, 663 without record-hash conflicts and 656 with one credit
+context. Four full hashes associate with multiple IDs. For example, ID 2108 has
+31 different candidate hashes and 3401 has nine; do not choose the first or a
+majority. The supplied Worldwide example has record candidates for 32/41
+intervals and external titles for 24/41; Vault remains 0/25. ID 1034 links locally
+to raw channel 1AA8AC2F, candidate record hash DAA8AC2F and external Accuse credit.
+These are candidate chains, not confirmed exact recordings or native playlists.
+
+Controls: changing upper hash bits preserves native low29/duration candidates
+but removes all external credits; wrong durations remove all record candidates;
+changed raw channel ids remove all whole-channel associations. Marker corruption,
+repeats, unmatched/duplicate channel ids, nonzero starts, source archive mismatch,
+input/work limits and CLI overwrite/display behavior have authored tests.
+
+Discovery-only probes of the five original strict-index resources and extended
+family 581 find no ACCUSE full-hash/channel-id/float-TRACKID occurrences. Integer
+1034 occurs in unrelated opaque fields and is not a reference. A wider exact
+896-hash probe finds nine raw occurrences, including an index-name equality for
+one hash, but no validated station/track reference encoding. No grammar or native
+station edge is inferred from proximity/equality. Protected config bytes were
+not used for fitting; prior discovery/validation roles, all 102 inherited frozen
+artifacts and the name dictionary remain unchanged. Full package exposure means
+all native checks are reused consistency, not fresh held-out semantic accuracy.
+See `docs/radio_trackids_provenance.md`; private reports stay local and ignored.
+
+
+## Native station-hash PSIN lead and Vault packet-reuse check
+
+A bounded follow-up in `story000_script.rpf` preserves its original first-32-MiB
+candidate discovery window, assigns the next 32 MiB to discovery and reserves
+the final 10,914,176 bytes for validation before payload reads. No earlier
+config, PSIN or AWC source is promoted. New discovery has 1,420 complete bounded
+zlib pages / 44,469,912 inflated bytes; validation has 1,211 / 30,194,056. Neither
+has complete matching ASCII/NUL radio literals. Thousands of raw integer/hash
+query occurrences remain untyped, not station/track references.
+
+One discovery page is a checksum-verified PSIN with five proposed Dirty South
+Classics hash values in local-schema scalar hash32 fields: structure e6239fae,
+field c91bff0d, record-relative +8. After freezing a generic schema-backed
+classifier, the reserved tail has one Cocoteo FM hash candidate in the same
+structure/field. The owner/field names, neighboring values and reference meanings
+remain unknown. Schema type and exact-byte roundtrips support these six value
+observations, not a native station definition or song-membership edge. A bounded
+136-spelling field-name probe yields no matching preimage. Unknowns remain hashes.
+
+A separate frozen exact-packet experiment uses the prior authenticated native
+Vault remux as a reused validation query. All 25 intervals supply eight diverse
+packets after the midpoint. Their length-prefixed first packets have zero
+occurrences across 2,519 non-reserved stereo reference banks / 5,646,614,032
+container bytes; no eight-packet reuse is found. This does not exclude re-encoded
+or mixed audio, other points, other archives or excluded sources. Vault's 25
+intervals / 23 IDs still have no title links. No playlist, public-credit ordering
+or guessed duration pairing is substituted. Previous 12 candidate-ID conflicts
+remain unchanged.
+
+Research helpers validate role/window bounds, source identity, capped occurrence
+positions, packet framing/diversity/exact sequences and complete local-schema
+hash values. Nine authored tests were added; 956 tests (two optional skips) and
+265 selftests pass. All 108 inherited frozen artifacts, previous runtime modules,
+reports and names.json remain unchanged. No game bytes or extracted audio are
+published. See `docs/radio_vault_provenance.md`; detailed reports remain ignored
+under `work/radio_vault`. No commit or push.
+
+
+## PSIN local bucket owners for the radio-hash field
+
+Discovery-only tracing finds the five hash-bearing `e6239fae` records referenced
+from a schema-framed bucket allocation. Exact local type-75 metadata selects
+opaque type-1b4d keys and type-7 reference values. The 16-byte header selects 272-byte
+bucket records: 16 control bytes plus sixteen local 16-byte key/reference entries.
+Counts, low-seven-bit key/control witnesses, empty-slot storage, local schemas and
+all target strides/bounds must agree; failed maps emit no entry prefix. This is
+one contextual profile, not general primitive/key/lookup semantics.
+
+`psin --bucket-maps` exposes owner paths, physical slots, opaque keys and existing
+local target records. It checks LRSC independently and marks exact agreement with
+its record candidate. The seed discovery owner `f4fc446b`, field `86c765cf`, selects
+six entries: five query-hash records and a different sixth type. The frozen reader
+accepts seven entries in the reserved resource, including its Cocoteo-hash record
+and other record types. Three other map fields and one block remain unsupported
+in each seed. Six count/control/late-reference corruption controls refuse without
+partial entry lists. Duplicate storage/targets remain explicit; no first-match
+selection, opaque-key decoding or pointer-chain expansion is added.
+
+The frozen profile also applies across the existing script role windows. After
+four initially incomplete starts are recovered using the unchanged native reader
+in separate role-bounded windows, 28 discovery/seven validation complete resources
+contain 47/seven queried record observations, all with traced container owners.
+Their accepted bucket links total 171/57. Unknown values remain hashes, zero has
+no assigned semantic meaning, and the heterogeneous lookup is not identified as
+a playlist. Native song-to-station membership and Vault title links remain unknown.
+All old candidate conflicts survive unchanged.
+
+Schema/instance/ordinary record-graph defaults are exactly preserved in six native
+before/after comparisons. The bucket view is separate and does not alter old graph
+edges/reachability. All requested views share budgets; unresolved/partial bucket
+inspection is explicit and exits nonzero. Eleven authored tests cover schemas,
+counts, markers, late failures, duplicate storage/targets, ambiguity, aliases,
+allocation bounds, shared budgets, CLI behavior and nested/cyclic owner paths.
+967 tests (two optional skips) and 265 selftests pass. All 116 inherited frozen
+artifacts and names.json are unchanged; no GPL implementation or game fixtures
+were added. See `docs/radio_psin_owners_provenance.md`; audits remain local under
+ignored `work/radio_owners`. No commit or push.

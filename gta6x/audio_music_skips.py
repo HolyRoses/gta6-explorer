@@ -74,6 +74,9 @@ The original profile performs all seek-counter, descriptor and padding checks.
     view['skip_policy'] = skip_policy
     view['interpretation'] = 'exact repeated compressed packets; original alignment and game decoder state unconfirmed'
     for channel in view['channels']:
+        if channel.get('channels_per_record') == 2 and any(s['raw_skip'] for s in channel['spans']):
+            channel.update(supported_wav=False, reason='stereo nonzero block-skip policy is not validated')
+            continue
         try:
             _, evidence = _packets(bank, channel)
         except music.MusicUnsupportedError as exc:

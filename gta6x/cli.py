@@ -256,15 +256,15 @@ def _progress(name: str):
     return report
 
 
-def _collect(path: str, kinds, limit, args) -> list[media.Hit]:
+def _collect(path: str, kinds, limit, args, *, lazy=False):
     common = dict(kinds=kinds, require_padding=not args.no_padding,
                   align=None if args.no_align else args.align)
     if getattr(args, "spread", 0):
         return media.scan_windows(path, windows=args.spread,
                                   window_bytes=(limit or 48 * 1024 * 1024), **common)
-    return list(media.scan_file(path, limit=limit,
-                                progress=None if args.quiet else _progress(os.path.basename(path)),
-                                **common))
+    found = media.scan_file(path, limit=limit,
+                           progress=None if args.quiet else _progress(os.path.basename(path)), **common)
+    return found if lazy else list(found)
 
 
 def _scan_targets(args) -> list[str]:
@@ -1008,7 +1008,7 @@ def cmd_psin(args) -> int:
     if not targets:
         eprint("no archive matched")
         return 1
-    if args.schema or args.out or args.instances or args.resource_header or args.record_graph or args.registry or args.registry_out:
+    if args.schema or args.out or args.instances or args.resource_header or args.record_graph or args.bucket_maps or args.registry or args.registry_out:
         return _cmd_psin_schema(args, targets)
     if args.names:
         eprint("--names requires --schema, --instances or --out")
@@ -1076,13 +1076,15 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
 
     if args.record_graph:
         args.instances = True
+    if args.bucket_maps:
+        args.resource_header = True
     if args.max < 0 or (not args.full and args.limit < 0):
         eprint("--max and --limit must be nonnegative")
         return 1
     if args.resource_header and args.max_nodes < 1:
         eprint('--max-nodes must be positive')
         return 1
-    if args.instances and (args.max_nodes < 1 or not 1 <= args.max_depth <= 64):
+    if (args.instances or args.bucket_maps) and (args.max_nodes < 1 or not 1 <= args.max_depth <= 64):
         eprint('--max-nodes must be positive and --max-depth must be 1..64')
         return 1
     outputs = [p for p in (args.out,args.registry_out) if p]
@@ -1134,7 +1136,7 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
     report = psin_schema.inspect_sources(
         targets, limit=None if args.full else args.limit * 1024 * 1024,
         dictionary=dictionary, with_instances=args.instances, with_resource_header=args.resource_header, with_record_graph=args.record_graph,
-        max_nodes=args.max_nodes, max_depth=args.max_depth, registry=registry)
+        with_bucket_maps=args.bucket_maps, max_nodes=args.max_nodes, max_depth=args.max_depth, registry=registry)
     if build is not None:
         report['registry_build'] = build
     if args.out:
@@ -1218,6 +1220,16 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
                 eprint(f"{resource['file']}:{resource.get('offset', 0):#x}: resource header: {resource['resource_header']['reason']}")
             if resource.get('record_graph', {}).get('status') == 'refused':
                 eprint(f"{resource['file']}:{resource.get('offset', 0):#x}: record graph: {resource['record_graph']['reason']}")
+            if args.bucket_maps:
+                view=resource.get('bucket_maps',{})
+                if view.get('status')=='refused':
+                    eprint(f"{resource['file']}:{resource.get('offset',0):#x}: bucket maps: {view['reason']}")
+                else:
+                    summary=view.get('summary',{})
+                    print(f"bucket maps: {summary.get('maps_complete',0)} supported, "
+                          f"{summary.get('maps_unresolved',0)} unresolved; {summary.get('entry_links',0)} local reference links")
+                    for mapping in view.get('maps',[]):
+                        if mapping['status']!='complete':eprint(f"  {mapping['field_hash']}: {mapping['reason']}")
         if args.out:
             print(f"schema JSON: {args.out}")
     return 1 if (report['summary']['resources_refused']
@@ -1225,6 +1237,8 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
                  or (args.resource_header and (report['summary'].get('resource_headers_unresolved', 0)
                                               or report['summary'].get('resource_headers_refused', 0)))
                  or report['summary'].get('record_graph_resources_refused', 0)
+                 or (args.bucket_maps and (report['summary'].get('bucket_map_resources_refused',0)
+                                          or report['summary'].get('bucket_map_resources_partial',0)))
                  or (build is not None and build['refused'])) else 0
 
 
@@ -1587,36 +1601,123 @@ def cmd_music(args) -> int:
     """Extract the audio-config music record table."""
     from . import music as music_mod
 
+    if not 0 <= args.min_ms <= args.max_ms <= 0xffffffff:
+        eprint("invalid music duration range")
+        return 1
+    if (not args.config and (args.start or args.name)
+            or not (args.config or args.catalog or args.trackids) and args.max_nodes != 100000):
+        eprint("--start and --name require --config; --max-nodes requires --config, --catalog or --trackids")
+        return 1
+    if args.trackids and args.config:
+        eprint('--trackids joins AWC marker metadata to music records; use it without --config')
+        return 1
+    if args.config and args.catalog:
+        eprint("--catalog annotates music records; use it without --config")
+        return 1
+    if args.index_sections and not args.config:
+        eprint("--index-sections requires --config")
+        return 1
+    catalog = None
+    awc_banks = None
+    if args.trackids:
+        from . import radio_trackids
+        if args.max < 0:
+            eprint('--max must be nonnegative');return 1
+        try:awc_banks,awc_report_sha256=radio_trackids.load_awc_report(args.trackids)
+        except (OSError,ValueError) as exc:
+            eprint(f'cannot load AWC marker metadata: {exc}');return 1
+        if args.out:
+            dest=os.path.realpath(os.path.join(args.out,'radio-trackids.json'))
+            if any(os.path.realpath(p)==dest for p in (args.trackids,args.catalog) if p):
+                eprint('--out would overwrite a supplied radio-link input');return 1
+    catalog_counts = {"matched_records": 0, "ambiguous_records": 0, "unmatched_records": 0}
+    if args.catalog:
+        from . import music_catalog
+        if args.out and os.path.realpath(args.catalog) == os.path.realpath(os.path.join(args.out, "music.json")):
+            eprint("--out would overwrite the supplied --catalog file")
+            return 1
+        try:
+            catalog = music_catalog.load_catalog(args.catalog)
+            catalog_consume = music_catalog.budget(args.max_nodes)
+        except (OSError, ValueError) as exc:
+            eprint(f"cannot load music catalog: {exc}")
+            return 1
     if not args.archive:
         args.archive = ["audio"]
     targets = _scan_targets(args)
     if not targets:
         eprint("no archive matched")
         return 1
+    if args.config:
+        return _cmd_music_config(args, targets)
     limit = None if args.full else args.limit * 1024 * 1024
     rows: list[list[str]] = []
     records: list[dict] = []
     for path in targets:
         try:
-            recs = music_mod.scan_file(path, limit=limit, start=None)
+            recs = music_mod.scan_file(path, limit=limit, start=None,
+                                       min_ms=args.min_ms, max_ms=args.max_ms)
         except OSError as exc:
             eprint(f"skip {path}: {exc}")
             continue
         selected = [r for r in recs
                     if args.min_ms <= r.duration_ms <= args.max_ms]
         for rec in selected:
-            rows.append([os.path.basename(path)[:24], f"0x{rec.config_id:04x}",
-                         f"{rec.duration_ms / 1000:.3f}s",
-                         f"0x{rec.stream_id:08x}", f"0x{rec.hash_b:08x}"])
-            records.append(dict(rec.as_dict(), archive=os.path.basename(path)))
+            row = [os.path.basename(path)[:24], f"0x{rec.config_id:04x}",
+                   f"{rec.duration_ms / 1000:.3f}s",
+                   f"0x{rec.stream_id:08x}", f"0x{rec.hash_b:08x}"]
+            record = dict(rec.as_dict(), archive=os.path.basename(path))
+            if catalog is not None and awc_banks is None:
+                try:
+                    record = music_catalog.annotate(record, catalog, consume=catalog_consume)
+                except ValueError as exc:
+                    eprint(str(exc))
+                    return 1
+                matches = record["catalog_matches"]
+                catalog_counts["matched_records" if matches else "unmatched_records"] += 1
+                if len(matches) > 1:
+                    catalog_counts["ambiguous_records"] += 1
+                    row += [f"{len(matches)} candidates", "ambiguous"]
+                elif matches:
+                    row += [matches[0]["title"], matches[0]["station"]]
+                else:
+                    row += ["-", "-"]
+            rows.append(row)
+            records.append(record)
         eprint(f"{os.path.basename(path):24s} {len(selected):6d} record(s)")
+    if awc_banks is not None:
+        try:
+            result=radio_trackids.resolve(awc_banks,records,catalog=catalog,max_nodes=args.max_nodes)
+        except ValueError as exc:
+            eprint(f'radio links refused: {exc}');return 1
+        result['awc_report_sha256']=awc_report_sha256
+        if catalog is not None:
+            result['catalog']=dict(source=catalog['source'],sha256=catalog['sha256'])
+        if args.out:
+            os.makedirs(args.out,exist_ok=True)
+            dest=os.path.join(args.out,'radio-trackids.json')
+            with open(dest,'w',encoding='utf-8') as out:json.dump(result,out,indent=2)
+        if args.json:
+            print(json.dumps(result,indent=2))
+        else:
+            display=[[str(r['track_id']),r['status'],str(len(r['record_candidates'])),
+                str(len(r['credit_candidates']))] for r in result['track_ids'][:args.max]]
+            print(table(display,['TRACKID','candidate status','records','external credits'],align='llrr'))
+            print(f"{result['summary']['track_ids']:,} TRACKIDs; "
+                  f"{result['summary']['conflicting_ids']:,} with conflicting record candidates; native station membership unresolved")
+            if args.out:print(f'radio candidate report -> {dest}')
+        return 0
     if args.out:
         os.makedirs(args.out, exist_ok=True)
         dest = os.path.join(args.out, "music.json")
         with open(dest, "w", encoding="utf-8") as out:
             json.dump(records, out, indent=1)
         if args.json:
-            print(json.dumps({"records": len(records), "manifest": dest}, indent=2))
+            summary = {"records": len(records), "manifest": dest}
+            if catalog is not None:
+                summary["catalog"] = dict(catalog_counts, source=catalog['source'], sha256=catalog['sha256'],
+                    interpretation='external credit hypotheses; native station membership/order unproven')
+            print(json.dumps(summary, indent=2))
         else:
             print(f"{len(records):,} music record(s) -> {dest}")
         return 0
@@ -1626,16 +1727,113 @@ def cmd_music(args) -> int:
     if not rows:
         print("no music records found")
         return 0
-    print(table(rows[:args.max], ["archive", "id", "duration", "stream", "hashB"],
-                align="llrll"))
+    headers = ["archive", "id", "duration", "stream", "hashB"]
+    if catalog is not None:
+        headers += ["catalog title candidate", "catalog station candidate"]
+    print(table(rows[:args.max], headers, align="llrllll" if catalog is not None else "llrll"))
     total = sum(r["duration_ms"] for r in records) / 1000
     print(f"\n{len(records):,} record(s), {total:,.1f}s total; "
           f"{len({r['config_id'] for r in records}):,} distinct ids")
+    if catalog is not None:
+        print(f"catalog: {catalog_counts['matched_records']:,} matched records; "
+              f"{catalog_counts['ambiguous_records']:,} ambiguous; external hypotheses, native playlists unproven")
     return 0
+
+
+def _cmd_music_config(args, targets) -> int:
+    """Browse indexed config metadata without assigning radio semantics."""
+    from . import audio_config
+    if args.index_sections:
+        from . import audio_config_sections as config_reader
+    else:
+        config_reader = audio_config
+    if args.start < 0 or args.limit < 1 or not 1 <= args.max_nodes <= audio_config.MAX_NODES:
+        eprint("--start must be nonnegative, --limit positive and --max-nodes from 1 to 1000000")
+        return 1
+    if not 0 <= args.min_ms <= args.max_ms <= 0xffffffff:
+        eprint("invalid music duration range")
+        return 1
+    try:
+        expression = re.compile(args.name, re.IGNORECASE) if args.name else None
+    except re.error as exc:
+        eprint(f"invalid --name expression: {exc}")
+        return 1
+    archives, rows = [], []
+    remaining = args.max_nodes
+    incomplete = False
+    for path in targets:
+        try:
+            if remaining < 1:
+                raise audio_config.ConfigLimitError('audio-config report node budget exhausted')
+            size = os.path.getsize(path)
+            report = config_reader.inspect_file(path, start=args.start or None,
+                length=size if args.full else args.limit*1024*1024,
+                max_nodes=remaining, min_ms=args.min_ms, max_ms=args.max_ms)
+            remaining -= report['summary']['nodes']
+        except (OSError, ValueError) as exc:
+            report = dict(status='refused', reason=str(exc), resources=[])
+            if isinstance(exc, audio_config.ConfigLimitError):
+                remaining = 0
+        incomplete |= report['status'] != 'indexed'
+        archives.append(dict(archive=os.path.basename(path), **report))
+        for resource in report['resources']:
+            for record in resource['records']:
+                if expression and not expression.search(record['name'] or ''):
+                    continue
+                if len(rows) < args.max:
+                    rows.append([os.path.basename(path)[:22], str(resource['raw_family']),
+                        record['name_hash'], record['name'] or '-',
+                        str(record['raw_kind_u8']), str(record['byte_length'])])
+    result = dict(status='partial' if incomplete else 'indexed', archives=archives,
+        radio_linkage=dict(status='unresolved', reason='station membership and playlist ordering are not established'))
+    if args.out:
+        os.makedirs(args.out, exist_ok=True)
+        dest = os.path.join(args.out, 'audio-config.json')
+        with open(dest, 'w', encoding='utf-8') as out:
+            json.dump(result, out, indent=2)
+        if not args.json:
+            print(f"audio-config metadata -> {dest}")
+    if args.json:
+        print(json.dumps(result, indent=2))
+    else:
+        if rows:
+            print(table(rows, ['archive','family','record hash','name','kind','bounded bytes'],align='llllrr'))
+        for archive in archives:
+            if archive['status'] == 'refused':
+                eprint(f"{archive['archive']}: {archive['reason']}")
+            else:
+                summary = archive['summary']
+                print(f"{archive['archive']}: {summary['records']:,} indexed records; "
+                      f"{summary['names_resolved']:,} checked names; {summary['wave_slot_links']:,} wave-slot links; "
+                      f"{summary['music_records']:,} bounded music observations")
+                if args.index_sections:
+                    print(f"  {summary.get('raw_index_groups', 0):,} raw index groups / "
+                          f"{summary.get('raw_index_values', 0):,} raw values; roles unresolved")
+                for refusal in archive['refused']:
+                    eprint(f"  {refusal['offset']:#x}: {refusal['reason']}")
+        print("Radio station membership and playlists remain unresolved.")
+    return int(incomplete)
 
 
 def cmd_awc(args) -> int:
     """List the streams inside AWC containers, optionally extracting payloads."""
+    if (args.max < 0 or args.max_containers is not None and args.max_containers<1
+            or any(offset<0 for offset in args.offsets)):
+        eprint('AWC display/offset limits must be nonnegative and --max-containers positive')
+        return 1
+    radio_requested = args.radio or bool(args.chapters_out)
+    if not 1<=args.radio_max_records<=1000000 or not radio_requested and args.radio_max_records!=100000:
+        eprint('--radio-max-records must be from 1 to 1000000 and requires --radio or --chapters-out')
+        return 1
+    naming = None
+    if args.music_names:
+        if not (args.music_out or args.music_wav_out):
+            eprint('--music-names requires --music-out or --music-wav-out')
+            return 1
+        from . import awc_names
+        try:naming=awc_names.load(args.music_names)
+        except (OSError,ValueError) as exc:
+            eprint(f'cannot load AWC naming map: {exc}');return 1
     targets = _scan_targets(args)
     if not targets:
         eprint("no archive matched")
@@ -1649,6 +1847,29 @@ def cmd_awc(args) -> int:
     music_written = 0
     music_wav_written = 0
     music_wav_failed = False
+    music_failed = radio_failed = False
+    radio_remaining = args.radio_max_records
+    seen_containers = set()
+    claimed_music_files = {}
+
+    def music_destination(directory,path,offset,stream_index,channel_index,extension,record):
+        archive=os.path.basename(path)
+        if naming is not None:
+            filename,evidence=awc_names.filename(naming,archive,offset,stream_index,channel_index,extension)
+        else:
+            filename=f"{os.path.splitext(archive)[0]}_{offset:09x}_s{stream_index}_c{channel_index}.{extension}"
+            evidence=None
+        dest=os.path.join(directory,filename);key=os.path.realpath(dest).casefold()
+        source=(os.path.realpath(path),offset,stream_index,channel_index,extension)
+        if key in claimed_music_files and claimed_music_files[key]!=source:
+            raise ValueError('AWC export filename collision between distinct sources')
+        if args.music_names and os.path.realpath(dest)==os.path.realpath(args.music_names):
+            raise ValueError('AWC export would overwrite supplied naming map')
+        claimed_music_files[key]=source
+        if evidence is not None:
+            record.setdefault('music_naming',[]).append(dict(evidence,file=dest,
+                stream_index=stream_index,channel_index=channel_index))
+        return dest
     music_wav_skipped: dict[str, int] = {}
     wav_written = 0
     wav_failed = False
@@ -1681,15 +1902,28 @@ def cmd_awc(args) -> int:
         eprint("--ogg-pre-skip requires --ogg-out and --ogg-policy declared")
         return 1
     for path in targets:
-        hits = _collect(path, ("awc",), limit, args)
+        try:
+            hits = ([media.awc_at(path,offset) for offset in sorted(set(args.offsets))]
+                    if args.offsets else _collect(path, ("awc",), limit, args, lazy=True))
+        except (OSError,ValueError) as exc:
+            eprint(f'cannot address AWC in {path}: {exc}');return 1
         with open(path, "rb") as fh:
             for hit in hits:
-                if scanned >= args.max:
+                if args.max_containers is not None and scanned >= args.max_containers:
                     break
+                source_key=(os.path.realpath(path),hit.offset)
+                if source_key in seen_containers:continue
+                seen_containers.add(source_key)
                 scanned += 1
-                fh.seek(hit.offset)
-                buf = fh.read(hit.size or 0)
-                meta = media.validate_awc(buf) if buf else None
+                if radio_requested and not any((args.raw_out,args.ogg_out,args.music_out,args.music_wav_out,args.wav_out)):
+                    buf=None
+                    try:meta=media.awc_metadata_at(path,hit.offset).meta
+                    except (OSError, ValueError) as exc:
+                        eprint(f'AWC metadata refused at {hit.offset:#x}: {exc}');radio_failed=True;continue
+                else:
+                    fh.seek(hit.offset)
+                    buf = fh.read(hit.size or 0)
+                    meta = media.validate_awc(buf) if buf else None
                 if not meta:
                     continue
                 streams = meta.get("stream_list", [])
@@ -1703,6 +1937,29 @@ def cmd_awc(args) -> int:
                 record = {"archive": os.path.basename(path), "offset": hit.offset,
                           "size": hit.size, "flags": meta["flags"],
                           "streams": streams, "files": []}
+                record['chunk_name_evidence']=meta.get('chunk_name_evidence')
+                if radio_requested:
+                    from . import awc_radio
+                    try:
+                        if radio_remaining<1:raise ValueError('AWC radio shared record budget exhausted')
+                        radio=(awc_radio.inspect_bank(buf,max_records=radio_remaining) if buf is not None
+                               else awc_radio.inspect_file(path,hit.offset,max_records=radio_remaining))
+                        radio_remaining-=radio['summary']['nodes']
+                    except (OSError, ValueError) as exc:
+                        radio=dict(status='refused',reason=str(exc),tables=[])
+                    radio_failed |= radio['status'] in ('partial','refused')
+                    record['radio']=radio
+                    if args.chapters_out:
+                        for entry in radio['tables']:
+                            if entry.get('status')!='parsed' or not entry.get('chapters'):continue
+                            stem=f"{os.path.splitext(os.path.basename(path))[0]}_{hit.offset:09x}_s{entry['stream_index']}_t{entry['chunk_index']}"
+                            os.makedirs(args.chapters_out,exist_ok=True)
+                            for extension,content in [('json',json.dumps(entry,indent=2)+'\n'),('txt',awc_radio.chapter_text(entry['chapters']))]:
+                                dest=os.path.join(args.chapters_out,stem+'.'+extension)
+                                if args.music_names and os.path.realpath(dest)==os.path.realpath(args.music_names):
+                                    eprint('chapter export would overwrite supplied naming map');return 1
+                                with open(dest,'w',encoding='utf-8') as out:out.write(content)
+                                record.setdefault('chapter_files',[]).append(dest)
                 if args.raw_out:
                     os.makedirs(args.raw_out, exist_ok=True)
                     stem = os.path.splitext(os.path.basename(path))[0]
@@ -1726,17 +1983,30 @@ def cmd_awc(args) -> int:
                     for stream in streams:
                         if not stream.get("music"):
                             continue
-                        for channel in audio_mod.music_channels(buf, stream):
+                        channels=audio_mod.music_channels(buf, stream)
+                        if not channels:
+                            record.setdefault('music_skipped',[]).append(dict(stream_index=stream['index'],
+                                channel_index=None,reason='no supported music channel allocations'))
+                        for channel in channels:
                             if channel.get("codec") != 0x0B:
+                                record.setdefault('music_skipped',[]).append(dict(stream_index=stream['index'],
+                                    channel_index=channel['index'],reason='music remux requires Opus codec 0x0b'))
                                 continue
-                            name = (f"{stem}_{hit.offset:09x}_s{stream['index']}"
-                                    f"_c{channel['index']}.opus")
-                            dest = os.path.join(args.music_out, name)
+                            if naming is not None:
+                                name=awc_names.filename(naming,os.path.basename(path),hit.offset,
+                                    stream['index'],channel['index'],'opus')[0]
+                            else:
+                                name=f"{stem}_{hit.offset:09x}_s{stream['index']}_c{channel['index']}.opus"
                             try:
                                 blob = audio_mod.extract_music_ogg(
                                     buf, stream, channel["index"], title=name)
-                            except ValueError:
+                            except ValueError as exc:
+                                music_failed=True
+                                record.setdefault('music_skipped',[]).append(dict(stream_index=stream['index'],
+                                    channel_index=channel['index'],reason=str(exc)))
                                 continue
+                            try:dest=music_destination(args.music_out,path,hit.offset,stream['index'],channel['index'],'opus',record)
+                            except ValueError as exc:eprint(str(exc));return 1
                             with open(dest, "wb") as out:
                                 out.write(blob)
                             record.setdefault("music_files", []).append(dest)
@@ -1783,8 +2053,8 @@ def cmd_awc(args) -> int:
                                     stream_index=stream['index'], channel_index=index, reason=reason,
                                     unsupported=unsupported, decoder_unavailable=unavailable))
                                 continue
-                            dest = os.path.join(args.music_wav_out,
-                                f"{stem}_{hit.offset:09x}_s{stream['index']}_c{index}.wav")
+                            try:dest=music_destination(args.music_wav_out,path,hit.offset,stream['index'],index,'wav',record)
+                            except ValueError as exc:eprint(str(exc));return 1
                             with open(dest, "wb") as out:
                                 out.write(blob)
                             record.setdefault("music_wav_files", []).append(dest)
@@ -1853,18 +2123,18 @@ def cmd_awc(args) -> int:
                             pcm_info, stream_index=stream['index'], file=dest))
                         wav_written += 1
                 records.append(record)
-        if scanned >= args.max:
+        if args.max_containers is not None and scanned >= args.max_containers:
             break
 
     if args.json:
         print(json.dumps(records, indent=2))
-        return int(wav_failed or ogg_failed or music_wav_failed)
+        return int(wav_failed or ogg_failed or music_wav_failed or music_failed or radio_failed)
     if not rows:
         print("no AWC containers found")
         return 0
-    print(table(rows, ["archive", "offset", "bytes", "streams", "codecs", "duration"],
+    print(table(rows[:args.max], ["archive", "offset", "bytes", "streams", "codecs", "duration"],
                 align="llrrll"))
-    print(f"\n{scanned} container(s) shown; {sum(len(r['streams']) for r in records):,} stream(s)"
+    print(f"\n{scanned} container(s) processed, {min(len(rows),args.max)} shown; {sum(len(r['streams']) for r in records):,} stream(s)"
           + (f"; {written} raw payload(s) written to {args.raw_out}" if args.raw_out else "")
           + (f"; {ogg_written} Ogg Opus file(s) written to {args.ogg_out}" if args.ogg_out else "")
           + (f"; {music_written} music-channel Ogg file(s) written to {args.music_out}" if args.music_out else "")
@@ -1882,12 +2152,17 @@ def cmd_awc(args) -> int:
             print(f"Music WAV requires zero block skips; {music_pre_skip} pre-skip frames and original alignment remain unconfirmed")
         else:
             print(f"Music WAV verifies whole-packet overlaps; {music_pre_skip} pre-skip frames and original alignment remain unconfirmed")
+    if args.music_out:
+        for record in records:
+            for skipped in record.get('music_skipped',[]):
+                print(f"  music Ogg skipped {record['archive']}:{record['offset']:#x} "
+                      f"s{skipped['stream_index']} c{skipped['channel_index']}: {skipped['reason']}")
     if args.ogg_policy == "declared":
         for reason, count in sorted(ogg_skipped.items(), key=lambda item: -item[1]):
             print(f"  declared-length Ogg skipped {count:,}: {reason}")
         print("Ogg uses explicit pre-skip and declared duration; original sample alignment is unconfirmed")
     print("raw payloads keep their native codec; --ogg-out remuxes Opus losslessly; --music-out extracts one Ogg per music channel")
-    return int(wav_failed or ogg_failed or music_wav_failed)
+    return int(wav_failed or ogg_failed or music_wav_failed or music_failed or radio_failed)
 
 
 def _find_pools(root: str, wanted: list[str]) -> list[str]:
@@ -2914,6 +3189,74 @@ def cmd_selftest(args) -> int:
     check("music record parser",
           len(_mfound) == 1 and _mfound[0].config_id == 0xB422
           and _mfound[0].stream_id == 0x031EEAF6)
+    from . import audio_config as _audio_config
+    _slot_name = b'SelfSlot\0'
+    _slot_hash = _names.joaat('SelfSlot')
+    _list_hash = _names.joaat('WaveSlotsList')
+    _config_region = _s.pack('<I', 0x12345678)
+    _config_region += _s.pack('<I', 8) + b'\xaa'*4 + bytes(36)
+    _list_at = len(_config_region)
+    _config_region += (_s.pack('<I', (len(_slot_name)<<8)|9) + b'\xaa'*4
+                       + _s.pack('<II', 1, _slot_hash))
+    _config_data = (_s.pack('<II', 26, len(_config_region)) + _config_region
+                    + _audio_config.FOOTER + _s.pack('<5I', 2, _slot_hash, 4, _list_hash, _list_at))
+    _config_view = _audio_config.parse_index(_config_data)
+    check('audio-config index bounds records independently of their kind',
+          len(_config_view['records']) == 2 and _config_view['records'][0]['byte_length'] == 44)
+    _named_records = _audio_config.attach_names(_config_view, _config_data,
+                                               _slot_name+b'WaveSlotsList\0')
+    check('audio-config names require encoded offsets and exact hashes',
+          _named_records is not None and _named_records[0]['name'] == 'SelfSlot'
+          and _audio_config.attach_names(_config_view, _config_data,
+              _slot_name+b'WrongListName\0') is None)
+    _config_view['records'] = _named_records
+    _wave_slots = _audio_config.wave_slot_list(_config_view, _config_data, consume=lambda n=1:None)
+    check('audio-config wave-slot lists link the exact local index without playlist semantics',
+          _wave_slots['status'] == 'complete' and _wave_slots['count'] == 1
+          and 'not a radio playlist' in _wave_slots['interpretation'])
+    _bad_config = bytearray(_config_data)
+    _s.pack_into('<I', _bad_config, _config_view['index']['data_offset']+32, 4)
+    try:
+        _audio_config.parse_index(bytes(_bad_config))
+        _config_refused = False
+    except ValueError:
+        _config_refused = True
+    check('audio-config duplicate record origins refuse', _config_refused)
+    try:
+        _audio_config.parse_index(_config_data, max_nodes=2)
+        _config_budget_refused = False
+    except _audio_config.ConfigLimitError:
+        _config_budget_refused = True
+    check('audio-config record budgets refuse before partial output', _config_budget_refused)
+    from . import music_catalog as _music_catalog
+    _credit = dict(normalized_name='selftest_song', title='Authored Song',
+                   artist='Authored Artist', station='Authored Station')
+    _catalog = _music_catalog.parse_catalog(dict(format='gta6x-music-catalog-v1',
+        source='authored selftest', entries=[_credit, dict(_credit, station='Other Station')]))
+    _song_hash = _names.joaat('selftest_song')
+    _annotated = _music_catalog.annotate(dict(hash_b=_song_hash), _catalog)
+    check('music catalog preserves distinct credit candidates',
+          _annotated['catalog_match_status'] == 'ambiguous'
+          and len(_annotated['catalog_matches']) == 2)
+    check('music catalog requires full hash instead of truncated stream id',
+          _music_catalog.annotate(dict(hash_b=_song_hash ^ (1<<29)), _catalog)
+          ['catalog_match_status'] == 'unmatched')
+    from . import audio_config_sections as _config_sections
+    _section_data = (_s.pack('<II', 581, len(_config_region)) + _config_region
+        + _s.pack('<5I', 16, 1, 0, 1, 0x12345678) + _s.pack('<II', 4, 0)
+        + _s.pack('<5I', 2, _slot_hash, 4, _list_hash, _list_at))
+    _section_view = _config_sections.parse_index(_section_data)
+    check('extended config keeps raw index groups without playlist semantics',
+          len(_section_view['records']) == 2
+          and _section_view['index_sections'][0]['raw_u32_values'] == ['0x12345678'])
+    _broken_section = bytearray(_section_data)
+    _s.pack_into('<I', _broken_section, 8+len(_config_region)+8, 1)
+    try:
+        _config_sections.parse_index(bytes(_broken_section))
+        _section_refused = False
+    except ValueError:
+        _section_refused = True
+    check('extended config refuses nonpartitioning index groups', _section_refused)
     check("bc6h decoder", _bc6h.decode_block(
         bytes.fromhex("cee15065fdf96d84c07a79f92f6b113b"))[0]
         == (16753, 10274, 11206))
@@ -3816,7 +4159,7 @@ def cmd_selftest(args) -> int:
 
     from . import audio_music_pcm as _music_pcm
     music_descriptor = (_s.pack('<3I', 1, 4096, 1)
-                        + _s.pack('<IIHHB3x', 7, 4, 0, 48000, 11))
+                        + _s.pack('<IIHHBBH', 7, 4, 0, 48000, 11, 1, 0xffff))
     music_block_header = _s.pack('<6I', 0xffffffff, 1, 0, 480, 0, 0) + _s.pack('<I', 0)
     music_packet_block = _s.pack('<H', 1) + b'\0' + bytes(2045)
     music_block = music_block_header + bytes(2048-len(music_block_header)) + music_packet_block
@@ -4577,12 +4920,14 @@ def build_parser() -> argparse.ArgumentParser:
                    help="browse LSCH types and LENM enums in verified resources; joins split pages")
     p.add_argument('--record-graph', action='store_true',
                    help='index checked local record associations and bounded candidate reachability (implies instances)')
+    p.add_argument('--bucket-maps', action='store_true',
+                   help='inspect validated local bucket/reference-entry associations; opaque keys and unsupported layouts remain explicit')
     p.add_argument('--resource-header', action='store_true',
                    help='check LRSC header counts and a bounded local-record candidate (implies schema mode)')
     p.add_argument('--instances', action='store_true',
                    help='include bounded values, local array associations, low-ID pools and reference diagnostics (implies schema mode)')
     p.add_argument('--max-nodes', type=int, default=100000,
-                   help='shared instance/header/record-graph output budget (default 100000)')
+                   help='shared instance/header/record-graph/bucket-map work/output budget (default 100000)')
     p.add_argument('--max-depth', type=int, default=16,
                    help='embedded instance / graph reachability depth limit, 1..64 (default 16)')
     p.add_argument("--out", help="write schema/optional instance JSON to a file (implies --schema)")
@@ -4667,8 +5012,17 @@ def build_parser() -> argparse.ArgumentParser:
                    help="minimum duration (default 20000)")
     p.add_argument("--max-ms", type=int, default=2000000,
                    help="maximum duration (default 2000000)")
-    p.add_argument("--out", help="write music.json here")
+    p.add_argument("--out", help="write music.json (or --config audio-config.json) here")
     p.add_argument("--max", type=int, default=40, help="rows to display")
+    p.add_argument("--config", action="store_true",
+                   help="browse bounded indexed audio-config records and checked name/slot links")
+    p.add_argument("--index-sections", action="store_true",
+                   help="with --config, opt into discovery length-section indexes; raw groups are not playlists")
+    p.add_argument("--catalog", help="optional supplied music-credit JSON; full hash-B matches remain external hypotheses")
+    p.add_argument("--trackids", help="join an awc --radio JSON report to record candidates; TRACKID conflicts and external credits stay explicit")
+    p.add_argument("--start", type=int, default=0, help="compressed-byte start for --config (default: payload start)")
+    p.add_argument("--max-nodes", type=int, default=100000, help="shared --config/--catalog/--trackids work/output budget (default 100000)")
+    p.add_argument("--name", default="", help="case-insensitive regex on checked config names (display only)")
     p.set_defaults(func=cmd_music)
 
     p = sub.add_parser("awc", help="list streams inside AWC audio containers")
@@ -4676,7 +5030,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--archive", action="append", default=[], help="archive name fragment")
     p.add_argument("--limit", type=int, default=64, help="MiB to scan per archive")
     p.add_argument("--full", action="store_true", help="scan whole archives")
-    p.add_argument("--max", type=int, default=20, help="maximum containers (default 20)")
+    p.add_argument("--max", type=int, default=20, help="table rows to display; JSON and exports remain complete (default 20)")
+    p.add_argument("--max-containers", type=int, help="explicit processing cap across archives (default: all within scan range)")
+    p.add_argument("--offset", dest='offsets', action='append', type=lambda value:int(value,0), default=[],
+                   help="read this AWC offset directly instead of scanning (repeatable; decimal or hex)")
+    p.add_argument("--radio", action='store_true', help="inspect bounded raw seek tables, markers and unclassified TRACKID chapters")
+    p.add_argument("--radio-max-records", type=int, default=100000, help="shared radio-table output budget (maximum 1000000)")
+    p.add_argument("--chapters-out", help="write TRACKID chapter JSON and requested B2 text convention; implies --radio")
+    p.add_argument("--music-names", help="optional exact archive/offset/stream/channel naming JSON; supplied labels remain external")
     p.add_argument("--raw-out", help="write each stream payload to this directory")
     p.add_argument("--ogg-out", help="remux Opus streams to playable .opus files")
     p.add_argument("--music-out", help="extract one Ogg per AWC music channel")

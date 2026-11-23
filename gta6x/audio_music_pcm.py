@@ -1,6 +1,6 @@
 """Strict observed AWC music-channel framing and optional PCM/WAV export.
 
-Only zero-skip mono Opus channels are decoded. Nonzero block-skip meanings and
+Zero-skip mono/stereo Opus records are decoded. Nonzero block-skip meanings and
 original sample alignment remain unconfirmed. The inherited 312-frame trim is
 explicit metadata; no missing packet, channel or sample is silently replaced.
 """
@@ -26,7 +26,8 @@ def _integer(value, label, *, minimum=0, maximum=None):
     return value
 
 
-def inspect_channels(bank: bytes, stream: dict, *, max_nodes: int = MAX_NODES) -> dict:
+def inspect_channels(bank: bytes, stream: dict, *, max_nodes: int = MAX_NODES,
+                     max_input_bytes: int = audio_pcm.MAX_INPUT_BYTES) -> dict:
     """Validate complete observed music storage without loading a decoder.
 
     Every channel block, seek counter and padding span is checked before any
@@ -35,6 +36,7 @@ def inspect_channels(bank: bytes, stream: dict, *, max_nodes: int = MAX_NODES) -
     with an explicit unsupported reason; their packets are not decoded here.
     """
     _integer(max_nodes, 'node limit', minimum=1, maximum=MAX_NODES)
+    _integer(max_input_bytes, 'input byte limit', minimum=1, maximum=MAX_BANK_BYTES)
     if len(bank) > MAX_BANK_BYTES:
         raise ValueError('music container exceeds size limit')
     music = stream.get('music')
@@ -49,7 +51,7 @@ def inspect_channels(bank: bytes, stream: dict, *, max_nodes: int = MAX_NODES) -
     if chunk % audio.BLOCK:
         raise ValueError('music chunk size is not a whole 2 KiB allocation')
     data_at = _integer(stream.get('data_offset'), 'data offset')
-    data_size = _integer(stream.get('data_bytes'), 'data size', minimum=1, maximum=audio_pcm.MAX_INPUT_BYTES)
+    data_size = _integer(stream.get('data_bytes'), 'data size', minimum=1, maximum=max_input_bytes)
     if data_at > len(bank)-data_size or data_size % audio.BLOCK:
         raise ValueError('music data span exceeds the complete container or allocation')
     if not (blocks-1)*chunk < data_size <= blocks*chunk:
@@ -75,14 +77,20 @@ def inspect_channels(bank: bytes, stream: dict, *, max_nodes: int = MAX_NODES) -
         samples = struct.unpack_from('<I', bank, raw_at+4)[0]
         rate = struct.unpack_from('<H', bank, raw_at+10)[0]
         codec = bank[raw_at+12]
+        mode = bank[raw_at+13]
         if (channel.get('id') != identifier or channel.get('samples') != samples
                 or channel.get('sample_rate') != rate or channel.get('codec') != codec):
             raise ValueError('music channel metadata differs from source descriptor')
+        if 'channels_per_record' in channel and channel['channels_per_record'] != mode:
+            raise ValueError('music channel count differs from source descriptor')
+        if mode not in (1, 2) or samples % mode:
+            raise MusicUnsupportedError('music WAV requires integral mono/stereo sample counts')
         if codec != 0x0b or rate != audio_pcm.RATE:
             raise MusicUnsupportedError('music WAV requires all channels to use observed 48 kHz Opus storage')
         if not samples:
             raise MusicUnsupportedError('music WAV requires positive declared channel samples')
         result.append(dict(index=index, id=identifier, samples=samples, sample_rate=rate,
+            channels_per_record=mode, frames=samples//mode,
             codec=codec, spans=[], supported_wav=True))
     counters = [0]*count
     packet_total = 0
@@ -127,10 +135,12 @@ def inspect_channels(bank: bytes, stream: dict, *, max_nodes: int = MAX_NODES) -
                 if packet_total > audio_pcm.MAX_PACKETS:
                     raise ValueError('music packet count exceeds limit')
                 durations = [audio.packet_samples(packet) for packet in packets]
+                if any(audio.packet_channels([packet]) != result[index]['channels_per_record'] for packet in packets):
+                    raise MusicUnsupportedError('music packet channel count differs from descriptor')
                 if any(not 1 <= n <= audio_pcm.MAX_PACKET_FRAMES for n in durations):
                     raise ValueError('invalid music Opus packet duration')
                 frames = sum(durations)
-                counters[index] += frames
+                counters[index] += frames*result[index]['channels_per_record']
                 if counters[index] > 0xffffffff:
                     raise ValueError('music seek counter exceeds its stored word width')
                 decoded += frames
@@ -157,7 +167,7 @@ def extract_wav(bank: bytes, stream: dict, channel_index: int = 0, *, library_pa
                 pre_skip: int = audio.PRE_SKIP, max_pcm_bytes: int = audio_pcm.MAX_PCM_BYTES):
     """Decode one zero-skip music channel to WAV and explicit trim metadata.
 
-    Declared mono frames and an assumed inherited pre-skip select the output;
+    Declared per-channel frames and an assumed inherited pre-skip select the output;
     this does not recover original music alignment. Other channels and every
     allocation are validated, but only the selected channel is decoded.
     """
@@ -170,10 +180,14 @@ def extract_wav(bank: bytes, stream: dict, channel_index: int = 0, *, library_pa
     for span in channel['spans']:
         at, size = span['data_offset'], span['byte_length']
         packets.extend(audio_pcm.strict_packets(bank[at:at+size]))
-    pcm, info = audio_pcm.decode_packets(packets, channels=1, frames=channel['samples'],
+    mode = channel['channels_per_record']
+    pcm, info = audio_pcm.decode_packets(packets, channels=mode, frames=channel['frames'],
         pre_skip=pre_skip, library_path=library_path, max_pcm_bytes=max_pcm_bytes)
     info.update(profile=PROFILE, channel_index=channel_index, channel_id=channel['id'],
         declared_samples=channel['samples'], music_blocks=len(channel['spans']),
         source_data_sha256=view['source_data_sha256'], block_skips=[span['raw_skip'] for span in channel['spans']],
         pre_skip_assumption='312 inherited from existing Ogg policy' if pre_skip == 312 else 'explicit caller value')
-    return audio_pcm.wav_bytes(pcm, channels=1), info
+    if mode == 2:
+        info.update(channels_per_record=mode, declared_frames=channel['frames'],
+                    profile='observed_awc_music_stereo_zero_skip_pcm_v1')
+    return audio_pcm.wav_bytes(pcm, channels=mode), info
