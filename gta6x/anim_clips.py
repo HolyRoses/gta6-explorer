@@ -24,7 +24,7 @@ def is_dictionary(data):
             and data[16:56] == bytes(40) and struct.unpack_from('<I', data, 108)[0] == 2)
 
 
-def parse_dictionary(data: bytes, *, max_nodes=100000, with_components=False, with_packed_layout=False, with_channels=False, with_storage=False, with_payloads=False, with_bitrows=False, with_lookups=False, with_prefix=False):
+def parse_dictionary(data: bytes, *, max_nodes=100000, with_components=False, with_packed_layout=False, with_channels=False, with_storage=False, with_payloads=False, with_bitrows=False, with_lookups=False, with_prefix=False, with_aux_checkpoints=False, with_checkpoint_candidates=False):
     """Return inferred named record links, retaining explicit unresolved members.
 
     Malformed dictionaries and exhausted budgets raise ValueError without
@@ -33,6 +33,10 @@ def parse_dictionary(data: bytes, *, max_nodes=100000, with_components=False, wi
     curve or independently confirmed time value. No hash-bucket formula or
     complete object size is inferred from this profile.
     """
+    if with_checkpoint_candidates:
+        with_aux_checkpoints = True
+    if with_aux_checkpoints:
+        with_prefix = True
     if with_lookups or with_prefix:
         with_bitrows = True
     if with_payloads or with_bitrows:
@@ -140,7 +144,7 @@ def parse_dictionary(data: bytes, *, max_nodes=100000, with_components=False, wi
                              record_prefix_byte_length=PREFIX, name=name, duration_candidate=duration)
                 if with_components:
                     entry['components'] = anim_components.resolve(data, rec, consume=consume,
-                                                                  hash_cache=payload_hash_cache, with_packed_layout=with_packed_layout, with_channels=with_channels, with_storage=with_storage, with_payloads=with_payloads, with_bitrows=with_bitrows, with_lookups=with_lookups, with_prefix=with_prefix)
+                                                                  hash_cache=payload_hash_cache, with_packed_layout=with_packed_layout, with_channels=with_channels, with_storage=with_storage, with_payloads=with_payloads, with_bitrows=with_bitrows, with_lookups=with_lookups, with_prefix=with_prefix, with_aux_checkpoints=with_aux_checkpoints, with_checkpoint_candidates=with_checkpoint_candidates)
             except resources.ResourceLimitError:
                 raise
             except ValueError as exc:
@@ -248,11 +252,41 @@ def parse_dictionary(data: bytes, *, max_nodes=100000, with_components=False, wi
             prefix_opaque_records=sum(v['opaque_record_count'] for v in complete))
         report['interpretation'] = ('Bounded mixed prefix word groupings and counted opaque records; '
                                     'individual group/slot/numeric/codec associations remain unknown.')
+    if with_aux_checkpoints:
+        views = [buffer['auxiliary_checkpoint_layout'] for layout in layouts
+                 for buffer in layout.get('buffers', [])]
+        accepted = [view for view in views if view['status'] in ('complete','partial')]
+        report['summary'].update(aux_checkpoint_layouts_attempted=len(views),
+            aux_checkpoint_layouts_resolved=sum(v['status']=='complete' for v in views),
+            aux_checkpoint_layouts_partial=sum(v['status']=='partial' for v in views),
+            aux_checkpoint_layouts_unresolved=sum(v['status']=='unresolved' for v in views),
+            aux_checkpoint_rows_supported=sum(v['summary']['supported_rows'] for v in accepted),
+            aux_checkpoint_rows_unsupported=sum(v['summary']['unsupported_rows'] for v in accepted),
+            aux_checkpoint_source_records=sum(v['summary']['unique_source_records'] for v in accepted),
+            aux_checkpoint_bit_spans=sum(v['summary']['row_bit_checkpoints'] for v in accepted),
+            aux_checkpoint_aliases=sum(v['summary']['aliases'] for v in accepted),
+            aux_checkpoint_boundary_checkpoints=sum(v['summary'].get('boundary_checkpoints',0) for v in accepted),
+            aux_checkpoint_boundary_layouts_unresolved=sum(v['summary'].get('boundary_layouts_unresolved',0) for v in accepted))
+        report['interpretation'] = ('Explicit auxiliary source/row-bit checkpoints; compatible directory slots, '
+                                    'channels, samples, codecs and timing remain unconfirmed.')
+        if with_checkpoint_candidates:
+            candidates = [v.get('candidate_layout', {}) for v in accepted]
+            for key in ('rows','candidate_sets','candidate_slots','singleton_rows',
+                        'ambiguous_rows','unsupported_source_rows'):
+                label = 'checkpoint_'+key if key in ('candidate_sets','candidate_slots') else 'checkpoint_candidate_'+key
+                report['summary'][label] = sum(
+                    v.get('summary', {}).get(key, 0) for v in candidates)
+            report['summary']['checkpoint_candidate_layouts_unresolved'] = sum(
+                v.get('status') != 'complete' for v in candidates)
     return report
 
 
-def scan_dictionaries(path, *, start=None, limit=None, max_nodes=100000, with_components=False, with_packed_layout=False, with_channels=False, with_storage=False, with_payloads=False, with_bitrows=False, with_lookups=False, with_prefix=False):
+def scan_dictionaries(path, *, start=None, limit=None, max_nodes=100000, with_components=False, with_packed_layout=False, with_channels=False, with_storage=False, with_payloads=False, with_bitrows=False, with_lookups=False, with_prefix=False, with_aux_checkpoints=False, with_checkpoint_candidates=False):
     """Follow dictionary candidates across checked pages, sharing a node budget."""
+    if with_checkpoint_candidates:
+        with_aux_checkpoints = True
+    if with_aux_checkpoints:
+        with_prefix = True
     if with_lookups or with_prefix:
         with_bitrows = True
     if with_payloads or with_bitrows:
@@ -276,7 +310,7 @@ def scan_dictionaries(path, *, start=None, limit=None, max_nodes=100000, with_co
         # Naming metadata may fit before an exact-page boundary. This proves
         # only its required spans, not the file/curve payload's full extent.
         try:
-            summary = parse_dictionary(data, max_nodes=remaining, with_components=with_components, with_packed_layout=with_packed_layout, with_channels=with_channels, with_storage=with_storage, with_payloads=with_payloads, with_bitrows=with_bitrows, with_lookups=with_lookups, with_prefix=with_prefix)['summary']
+            summary = parse_dictionary(data, max_nodes=remaining, with_components=with_components, with_packed_layout=with_packed_layout, with_channels=with_channels, with_storage=with_storage, with_payloads=with_payloads, with_bitrows=with_bitrows, with_lookups=with_lookups, with_prefix=with_prefix, with_aux_checkpoints=with_aux_checkpoints, with_checkpoint_candidates=with_checkpoint_candidates)['summary']
             return (summary['clips_unresolved'] == 0 and not summary.get('component_clips_unresolved', 0)
                     and not summary.get('packed_layouts_unresolved', 0))
         except ValueError:
@@ -286,7 +320,7 @@ def scan_dictionaries(path, *, start=None, limit=None, max_nodes=100000, with_co
             is_start=is_dictionary, independent_start=independent, label='clip dictionary', stop_when=ready):
         if error is None:
             try:
-                parsed = parse_dictionary(data, max_nodes=remaining, with_components=with_components, with_packed_layout=with_packed_layout, with_channels=with_channels, with_storage=with_storage, with_payloads=with_payloads, with_bitrows=with_bitrows, with_lookups=with_lookups, with_prefix=with_prefix)
+                parsed = parse_dictionary(data, max_nodes=remaining, with_components=with_components, with_packed_layout=with_packed_layout, with_channels=with_channels, with_storage=with_storage, with_payloads=with_payloads, with_bitrows=with_bitrows, with_lookups=with_lookups, with_prefix=with_prefix, with_aux_checkpoints=with_aux_checkpoints, with_checkpoint_candidates=with_checkpoint_candidates)
                 remaining -= parsed['summary']['nodes']
                 row.update(parsed)
             except ValueError as exc:

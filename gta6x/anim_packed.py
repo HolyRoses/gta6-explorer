@@ -14,7 +14,7 @@ from . import anim_resources as resources
 BASE = resources.VIRTUAL_BASE
 
 
-def inspect_animation(data, animation_start, buffers, *, consume, with_channels=False, with_storage=False, with_payloads=False, with_bitrows=False, with_lookups=False, with_prefix=False):
+def inspect_animation(data, animation_start, buffers, *, consume, with_channels=False, with_storage=False, with_payloads=False, with_bitrows=False, with_lookups=False, with_prefix=False, with_aux_checkpoints=False, with_checkpoint_candidates=False):
     """Inspect one bounded animation's header/channel metadata atomically.
 
     Invalid or unsupported layouts return no prefix binding/buffer rows. Parent
@@ -22,6 +22,10 @@ def inspect_animation(data, animation_start, buffers, *, consume, with_channels=
     propagates to discard dictionary output. All offsets refer to the original
     joined dictionary; region offsets are also retained relative to each buffer.
     """
+    if with_checkpoint_candidates:
+        with_aux_checkpoints = True
+    if with_aux_checkpoints:
+        with_prefix = True
     if with_lookups or with_prefix:
         with_bitrows = True
     if with_payloads or with_bitrows:
@@ -138,6 +142,11 @@ def inspect_animation(data, animation_start, buffers, *, consume, with_channels=
                 from . import anim_prefix
                 layouts[-1]['prefix_layout'] = anim_prefix.inspect_buffer(
                     data, at, length, len(bindings), consume=consume)
+            if with_aux_checkpoints:
+                from . import anim_auxiliary
+                candidate_options = {'with_candidates': True} if with_checkpoint_candidates else {}
+                layouts[-1]['auxiliary_checkpoint_layout'] = anim_auxiliary.inspect_buffer(
+                    data, at, length, len(bindings), consume=consume, **candidate_options)
             samples.append(sample)
             auxiliary_count += aux_rows
         context = {}

@@ -40,14 +40,16 @@ MAX_CHUNKS = 64
 __all__ = ["MAGIC", "ShaderHit", "scan", "validate_dxbc", "safe_name", "metadata"]
 
 
-def metadata(data: bytes, *, max_records: int = 4096) -> dict:
+def metadata(data: bytes, *, max_records: int = 4096, with_psv_signatures: bool = False,
+             with_psv_masks: bool = False, with_features: bool = False) -> dict:
     """Inspect public program/signature headers without decoding instructions.
 
     Extraction remains independent of this optional, bounded metadata view.
     Unsupported parts retain their tag, extent and hash.
     """
     from .shader_metadata import inspect
-    return inspect(data, max_records=max_records)
+    return inspect(data, max_records=max_records, with_psv_signatures=with_psv_signatures,
+                   with_psv_masks=with_psv_masks, with_features=with_features)
 
 
 @dataclass(frozen=True)

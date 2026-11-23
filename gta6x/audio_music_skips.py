@@ -14,6 +14,7 @@ MusicUnsupportedError = music.MusicUnsupportedError
 POLICIES = ('zero', 'verified-overlap')
 OBSERVED_SKIP_FRAMES = frozenset((960, 1920, 3840, 4800, 5760, 6720, 7680,
     8640, 12480, 13440, 14400, 16320, 17280, 19200, 21120))
+OGG_PROFILE = 'observed_awc_music_declared_packet_overlap_ogg_v1'
 
 
 def _policy(value):
@@ -117,3 +118,42 @@ def extract_wav(bank: bytes, stream: dict, channel_index=0, *, skip_policy='zero
         overlap_evidence='whole compressed packet identity plus complete seek counters; game decoder state unconfirmed',
         pre_skip_assumption='312 inherited from existing Ogg policy' if pre_skip == 312 else 'explicit caller value')
     return audio_pcm.wav_bytes(pcm, channels=1), info
+
+
+def extract_ogg(bank: bytes, stream: dict, channel_index=0, *, skip_policy='zero',
+                pre_skip=audio.PRE_SKIP, title='gta6x', max_nodes=music.MAX_NODES,
+                max_frames=None, max_input_bytes=None):
+    """Remux a checked music interval without decoding or rewriting packets.
+
+    Nonzero mono skips require the existing observed-size, exact-identity
+    profile. Stereo nonzero skips remain unsupported. This API is independent
+    of the legacy Ogg exporter; its explicit declared-duration granules and
+    inherited pre-skip do not establish original game alignment.
+    """
+    from . import audio_ogg
+
+    _policy(skip_policy)
+    input_limit = audio_pcm.MAX_INPUT_BYTES if max_input_bytes is None else max_input_bytes
+    view = music.inspect_channels(bank, stream, max_nodes=max_nodes,
+                                  max_input_bytes=input_limit)
+    music._integer(channel_index, 'channel index', maximum=len(view['channels'])-1)
+    channel = view['channels'][channel_index]
+    nonzero = any(span['raw_skip'] for span in channel['spans'])
+    if nonzero and skip_policy == 'zero':
+        raise music.MusicUnsupportedError(channel['reason'])
+    if nonzero and channel['channels_per_record'] == 2:
+        raise music.MusicUnsupportedError('stereo nonzero block-skip policy is not validated')
+    packets, evidence = _packets(bank, channel)
+    result, info = audio_ogg.ogg_opus(packets, channel['frames'],
+        channels=channel['channels_per_record'], pre_skip=pre_skip, title=title,
+        max_frames=max_frames, max_input_bytes=input_limit)
+    info.update(ogg_profile=info['profile'], profile=OGG_PROFILE, skip_policy=skip_policy,
+        channel_index=channel_index, channel_id=channel['id'],
+        declared_samples=channel['samples'], declared_frames=channel['frames'],
+        music_blocks=len(channel['spans']), source_data_sha256=view['source_data_sha256'],
+        block_skips=[span['raw_skip'] for span in channel['spans']], packet_overlap=evidence,
+        removed_repeated_packets=sum(e['repeated_packets'] for e in evidence),
+        removed_repeated_frames=sum(e['repeated_frames'] for e in evidence),
+        overlap_evidence='whole compressed packet identity plus complete seek counters; game decoder state unconfirmed',
+        pre_skip_assumption='312 inherited from existing Ogg policy' if pre_skip == 312 else 'explicit caller value')
+    return result, info

@@ -32,7 +32,7 @@ def _integer(value, label, maximum=MAX_BYTES):
     return value
 
 
-def inspect(instances, resource_header=None, *, max_nodes=100000, max_depth=16):
+def inspect(instances, resource_header=None, *, max_nodes=100000, max_depth=16, bucket_maps=None):
     """Index trusted decoder output and bound candidate-anchor reachability.
 
     This checks report identities/spans, not the original container checksum.
@@ -223,6 +223,12 @@ def inspect(instances, resource_header=None, *, max_nodes=100000, max_depth=16):
                             edge(source, link, 'map_entry', path, ei)
                     else: unsupported += 1
 
+    bucket_counts = None
+    if bucket_maps is not None:
+        from . import psin_bucket_graph
+        bucket_counts = psin_bucket_graph.append(bucket_maps,nodes,sources,identities,blocks,edges,
+            consume=consume,edge=edge)
+
     reach = dict(status='unanchored', reason='no supported LRSC record candidate supplied',
                  scope='checked record associations only; candidate is not a proven root',
                  max_depth=max_depth, depth_limited=False, reachable_records=0,
@@ -255,7 +261,9 @@ def inspect(instances, resource_header=None, *, max_nodes=100000, max_depth=16):
                 candidate_node_index=anchor, depth_limited=bool(frontier),
                 reachable_records=len(distances), unreached_records=len(nodes)-len(distances), frontier_edges=frontier)
     partial = bool(unknown_fields or missing_blocks or unsupported or anchor is None or reach['depth_limited'])
-    return dict(format='gta6x-psin-record-graph-v1', profile=PROFILE,
+    if bucket_counts is not None:
+        partial = partial or bool(bucket_counts['bucket_maps_unresolved'] or bucket_counts['bucket_inline_maps_excluded'] or bucket_counts['bucket_scan_partial'])
+    result = dict(format='gta6x-psin-record-graph-v1', profile=PROFILE,
         status='partial' if partial else 'complete',
         interpretation='Existing checked record links only; unknown edges, candidate root role and application semantics remain unconfirmed.',
         nodes=nodes, edges=edges, reachability=reach,
@@ -264,3 +272,9 @@ def inspect(instances, resource_header=None, *, max_nodes=100000, max_depth=16):
             excluded_text_links=excluded_text, null_references=nulls,
             unsupported_associations=unsupported, fields_scanned=scanned,
             reachable_records=reach['reachable_records'], depth_limited=int(reach['depth_limited'])))
+
+    if bucket_counts is not None:
+        result['bucket_profile'] = psin_bucket_graph.PROFILE
+        result['summary'].update(bucket_counts)
+        result['interpretation'] += ' Includes exact checked owner-to-target bucket associations; inline values are excluded, not invented as record nodes.'
+    return result

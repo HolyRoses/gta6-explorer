@@ -1907,3 +1907,462 @@ allocation bounds, shared budgets, CLI behavior and nested/cyclic owner paths.
 artifacts and names.json are unchanged; no GPL implementation or game fixtures
 were added. See `docs/radio_psin_owners_provenance.md`; audits remain local under
 ignored `work/radio_owners`. No commit or push.
+
+
+## Parallel metadata extensions: bucket values, auxiliary checkpoints and PSV0
+
+Three isolated research tracks used only own code, public format facts and
+eligible native bytes. No external decoder/oracle or GPL/unlicensed implementation
+was read or copied; no game fixture/data is published. Old source roles/seals,
+name dictionary, radio candidate conflicts and BCPack provisional labels remain.
+
+Structure-valued local PSIN type75 buckets extend the prior reference profile
+with exact 16/24/40-byte local value bounds. Discovery/validation yield 84/21
+maps and 917/222 inline spans, while all 28/seven old reference dictionaries and
+171/57 reference links remain exact. All 315 malformed-map and 35 budget controls
+refuse. Inline spans are not standalone target rows; fields and nested pointers
+remain undecoded. Opaque keys and duplicate spans survive. CLI/schema summaries
+distinguish references from spans and explain unrepresented blocks/owner/depth
+limits even if all inspected maps succeed. No song/station semantics follow.
+
+Animation auxiliary selectors 0/1/2/4/5 redundantly select independently bounded
+source record starts and stored row-bit offsets. Frozen discovery/validation:
+879/908 buffers, 2,126/2,707 checked rows, 1,164/1,802 positive-width bit spans;
+283/354 selector7/8 rows remain unsupported. Complete view counts include empty
+tails. All 786/789 distinct earlier packed/prefix animation views remain exact;
+2,805 malformed native controls refuse without checked prefix rows. The optional
+`--aux-checkpoints` mode meters prerequisite work and preserves aliases, unknown
+selectors, partial reasons and zero-width non-emission. Channel/bone/numeric/time
+meanings and uncheckpointed order remain unknown. A 1-MiB discovery CLI check
+has 70 views, 60 checked rows / three unsupported, no budget or supported-row
+failures; a wider 8-MiB run preserves 16 explicit dictionary-budget refusals.
+
+The MoVE kind9/15 thread found no independent grammar authority and enabled
+no speculative runtime form. It moved to public PSV0 shader metadata, present
+in all 742 discovery wrappers. The sealed reader accepts 742/380 runtime/resource
+prefixes, exposing 7,505/7,510 register-binding records with exact source-word
+roundtrips. All 1,122 previous extraction hashes and program/signature views are
+unchanged. All 4,410 malformed and 1,122 under-budget controls refuse. Runtime
+stage/thread/mesh data and public resource register ranges do not identify game
+assets/materials or executable DXIL. PSV string/signature/mask suffixes and
+entry-name offsets remain opaque/unresolved. Actual native versions are the
+52-byte runtime / 24-byte binding profile; older/additive variants authored-only.
+
+New source plans, per-agent seals, malformed controls and native reports remain
+private under the parallel work directories. Provenance is in
+`docs/psin_bucket_structures_provenance.md`, `docs/anim_auxiliary_provenance.md`
+and `docs/shader_psv_provenance.md`. Root CLI tests cover parent dependencies,
+partial/late failure, shared cross-archive budgets, inline/reference counts and
+shader extraction preservation. No staging, commit or push in this round.
+
+
+## Inline bucket fields, auxiliary boundaries and PSV signature tables
+
+Three further isolated tracks preserve the existing source roles and all 133
+inherited protected artifacts. They use own code, authored tests, public shader
+format declarations and authorized native bytes; no GPL/unlicensed implementation,
+external decoder source or game fixtures are added. Native checks reuse previously
+exposed structural cohorts, not independent semantic ground truth.
+
+`psin --bucket-values` implies bucket/header inspection and reads local fields
+inside checked inline spans. Node/depth limits cover fields, structure-array
+associations and nested type75 maps; targets are not expanded. Discovery/validation
+in the same 28/seven resources produce 2,380/703 inline value observations,
+2,228/675 checked fields and 2,275/669 explicit unresolved fields. Native supported
+fields are enum32 values and bounded structure-array associations, yielding
+306/102 record links. Of 152/28 nested-map attempts, 151/28 frame successfully
+but retain partial values; one discovery empty map is refused. Counts include
+repeated storage observations. All 35 default dictionaries remain exact and 140
+array/enum/nested-map/budget controls refuse. Unknown field types and owner/key
+semantics stay explicit; this does not establish station or playlist membership.
+
+`anim --aux-checkpoints` now adds separate counted-prefix boundary/row-end cursor
+metadata for selector7/8. Discovery/validation yield 283/354 pairs: 266/336
+nonempty prefix starts and 17/18 empty-prefix boundaries. No source record, slot
+or bit span is invented for these rows. The previous17 discovery failures remain
+failures of a source-record claim; the new view checks only independently bounded
+positions and an end cursor. All 1,911 origin/boundary/cursor controls refuse;
+637 opaque-subindex controls preserve the view. All 1,787 previous auxiliary views
+and 1,575 parent views remain exact after stripping new boundary metadata/counters.
+Old unsupported selector rows, partial status, source-record counts and positive
+bit spans are unchanged. Full channel/bone, sample, codec and timing meaning remains
+unknown.
+
+`shaders --psv-signatures` implies metadata inspection and reads public counted
+string/index/signature tables, including bounded semantic and entry names. Default
+metadata dictionaries and independent prefixes remain exact across all 742/380
+wrappers. The cohorts yield 4,012/3,645 signature elements and 742/380 entry names;
+5,610 malformed-table and 1,122 budget controls refuse. Native examples are
+vertex/mesh 16-byte records. Dependency masks remain opaque hashed tails; raw
+kind/type/interpolation values and additive bytes survive. A bad suffix preserves
+the valid runtime/resource prefix and shader export, while requested metadata is
+partial. This is not full reflection, executable verification or a game-resource
+binding. Public string-padding prose differs from native declared sizes; the
+reader honors checked declared extents and four-byte alignment, without claiming
+a new general format revision.
+
+Provenance is in `docs/psin_bucket_fields_provenance.md`,
+`docs/anim_aux_boundaries_provenance.md` and
+`docs/shader_psv_signatures_provenance.md`. Private seals, role reports and negative
+controls remain ignored. Six additional command-level tests cover implied modes,
+separate counts, shared report budgets, failed cursors and suffix/export isolation.
+No staging, commit or push occurred.
+
+
+## Contextual entry maps, checkpoint alternatives and PSV dependency grids
+
+Three isolated follow-ups preserve all 143 inherited protected artifacts, existing
+source roles, names.json and BCPack provisional labels. They use own code,
+authored carriers, eligible native discovery bytes and public shader-format
+facts. No GPL/unlicensed implementation, oracle source or game fixture is added.
+The reserved evaluations reuse previously exposed structural cohorts; no blind
+semantic ground-truth claim follows.
+
+`psin --bucket-values` now matches an exact local type71 descriptor-tree profile
+to whole declared 24-byte entry records. Across 28/seven discovery/reserved
+resources, 152/28 contextual map fields include 49/25 null-empty maps and emit
+301/three entry links. Empty maps have no fabricated target. All 35 default
+bucket views and 2,903 previously complete value fields remain exact. There are
+826 malformed header/allocation and 35 budget refusals; 106 opaque-entry mutations
+intentionally preserve associations. Keys, type5c element widths/values and
+lookup semantics remain unknown; the zero type75 bucket still refuses. These
+links do not become ordinary graph edges or prove radio membership.
+
+`anim --checkpoint-candidates` adds shared directory-slot sets conditional on
+already checked source selector/subindex metadata. Discovery/reserved rows total
+2,126/2,707, with 338/433 singleton-compatible and 1,788/2,274 ambiguous rows;
+maximum alternatives 90/88. Even singleton rows remain unconfirmed and no slot
+or channel is selected. All 1,787 earlier auxiliary views and 1,575 parent views
+are preserved. All 1,787 underbudget and 935 bad-checkpoint controls refuse.
+Swapping 1,801 distinct same-subindex source records preserves metadata; nine
+all-equal controls are inconclusive. This exposes the limits of source ordering
+checks rather than claiming a binding or sample decoder. Unsupported selectors,
+partial statuses and boundary-only metadata remain unchanged.
+
+`shaders --psv-masks` implies signature metadata and checks public packed
+component dependency grids against exact suffix lengths. Discovery/reserved
+have 147/17 nonempty vertex views, totaling 1,004/84 words and 2,115/289 set dependency
+bits. The 595/363 empty mesh views are distinguished from nonempty coverage.
+All 1,122 default and signature-only views remain exact. All 3,366 dimension/stage
+and 1,122 budget controls refuse; 164 changed-mask-bit controls remain structurally
+valid. Raw words, set components and unassigned padding bits are explicit.
+Natural ViewID/pixel/geometry examples are absent; these have authored tests only.
+Specialized stage masks stay unsupported. Mask failure preserves independent
+signature/runtime views and exported shader bytes; no instruction behavior,
+full reflection or native game-resource identity is established.
+
+Provenance is in `docs/psin_inline_storage_provenance.md`,
+`docs/anim_checkpoint_candidates_provenance.md` and
+`docs/shader_psv_masks_provenance.md`. Seven command-level tests cover flag
+implications, separate association counts, unknown selector preservation, shared
+budgets, nested allocation failures and mask/export isolation. Native CLI checks
+retain explicit partial PSIN/animation states and accept all 742 shader wrappers
+in the exact discovery window. No staging, commit or push occurred.
+
+
+## Opaque pool spans, SFI0 declarations and verified-overlap Ogg export
+
+Three follow-ups preserve all 154 inherited protected artifacts, source roles,
+name dictionary and BCPack provisional labels. Work uses own readers, authored
+fixtures, authorized native discovery bytes and public shader/Opus format facts.
+No GPL/unlicensed implementation, external decoder source or game fixture is
+added. Reserved evaluations are reused source/structural consistency; no source
+promotion or independent semantic-ground-truth claim is made.
+
+`psin --bucket-pool-spans` adds storage associations for one exact local opaque
+role of type5c. All eligible physical headers in bounded local records, embedded
+values and framed buckets contribute to a complete untyped-pool coverage guard.
+The stored counts and independently bounded interval distances corroborate a
+four-byte storage stride; no primitive or array-element meaning is assigned.
+Discovery/reserved authorize 27/seven pools and retain one discovery refusal
+where an existing zero type75 owner prevents complete scanning. Requested views
+are 1,971/613: 1,805/613 have checked storage (96 discovery null-empty headers),
+166 discovery views refuse, and 6,001/2,293 raw groups round-trip. All fields stay
+semantically unresolved. All 35 default and earlier value-mode outputs remain
+exact. Bad count/alignment/nonoutput-header controls refuse in 102 cases, with
+35 budget refusals; 34 opaque-content changes preserve coverage. Known ambiguous,
+non-tiling or overlapping typed owners cannot authorize a pool.
+
+`shaders --features` reads public SFI0 declaration words, preserving every known,
+reserved and unknown bit. Discovery/reserved have 742/380 parts, with 197/23 zero
+words and 920/543 set-bit observations. Missing parts differ from present zero
+words, duplicates are retained without selecting an authoritative part, and
+malformed components preserve independent program/PSV/signature views and shader
+exports. All 1,122 outputs in each earlier metadata/signature/mask mode remain
+exact. Short-component, overlapping-container and budget controls each refuse
+1,122 cases; unknown-high-bit changes intentionally remain structurally valid.
+Only five public bit positions occur naturally; other public names have authored
+coverage. No RTS0 chunk occurs in these cohorts and no speculative root-signature
+parser was added. Feature declarations do not verify executable use, hardware
+compatibility or native game-resource identity.
+
+Stereo nonzero skips still lack newly assigned discovery evidence for their units
+and packet identities. Existing reserved examples were not reused for fitting.
+The later non-reserved stereo support list is a possible future source-selection
+input, not a newly promoted cohort. The implemented audio fallback extends the
+already proved mono-overlap policy to strict Ogg export through
+`--music-out --music-skip-policy verified-overlap`. It remuxes unchanged retained
+packets, with explicit declared-duration granules and inherited 312-frame pre-skip;
+no decoder is needed for export. Default legacy Ogg and existing WAV paths remain
+unchanged. Discovery/reserved export 35/17 channels, with all 211,545 retained
+packets exact and all 52 earlier supported WAV hashes preserved. The reserved
+25,920-frame skip and nonzero stereo skips remain refused. Existing ACCUSE
+zero-stereo Ogg remains byte-identical. Thirty wrong-byte identity, 31 node-limit,
+31 input-limit and 17 zero-policy controls refuse. Three opaque FFmpeg comparisons
+force the same libopus backend, agree on frame counts and differ by at most one
+PCM16 unit; this is wrapper agreement, not original recording alignment or an
+independent codec/game oracle.
+
+Provenance is in `docs/psin_bucket_pools_provenance.md`,
+`docs/shader_features_provenance.md` and
+`docs/audio_music_overlap_ogg_provenance.md`. Eight command-level tests cover
+implied modes, raw storage versus unresolved values, shared budgets, malformed
+feature/export isolation, exact legacy Ogg bytes, verified packet removal without
+a decoder, and retained stereo refusals. Native CLI checks accept all 742 shader
+wrappers, expose 143 raw pool groups with semantic unknowns intact, and export
+four music channels, removing 27 repeated packets across three channels. No
+staging, commit or push occurred.
+
+
+## Native world direction, bucket graph links and stereo discovery limits
+
+World/level development now prioritizes this project's own native readers.
+SixNG is an optional opaque comparison tool whose output may be incomplete or
+incorrect; it is not implementation source or guaranteed format ground truth.
+No GPL/unlicensed source was opened. The supplied compiled executable was used
+only through help/info and isolated common-archive baseline commands, with no
+inherited index changes. No new backend passthrough route was added.
+
+`psin --bucket-graph` composes independently checked reference-valued buckets
+with existing typed record graphs. Discovery/reserved add 171/57 edges to the
+existing 114/nine, increasing candidate-reached observations from 35 to 375.
+All 9,416 typed nodes and 35 default graphs remain exact. Source owners require
+an exact existing field path, targets require exact existing typed identities,
+and edges retain their intervening physical bucket/slot/reference provenance.
+There are no fabricated nodes for the 105 excluded inline maps/1,139 spans.
+One unresolved map remains explicit. All 210 malformed-report and 35 budget
+controls refuse; all 35 unanchored edge sets remain exact. Reachability is from
+an LRSC candidate, not a proven root, ownership rule or native station playlist.
+
+A separately frozen stereo cohort uses only previously non-reserved support
+sources, with older source roles and exclusions preserved. Before new payload
+reads, 96 banks were assigned discovery and 32 reserved. All 97 discovery stereo
+records have zero skips across 247 actual inter-block boundaries (343 blocks,
+148,630,608 input bytes). No nonzero skip units or new decoder rule can be fitted
+from them. All 32 reserved payloads remain unopened. The guarded research tool
+has no reserved-read mode and verifies source roles/hashes/limits before use.
+All 97 zero-stereo Ogg outputs match the existing exporter, with 432,626 retained
+packets exact; 96 budget and 96 bad-seek controls refuse. The remaining unselected
+and oversize eligible sources are future inputs, not silently promoted samples.
+Audio runtime and the mono skip whitelist remain unchanged.
+
+The native world catalog uses own checksum/stream/page/schema readers to join
+PSIN pages only under established alignment, zero-padding and full-container
+checks. Single-stream version122 0DRP views keep partial metadata/no resource
+checksum status. Source segment offsets are compressed-archive positions;
+block offsets remain within the inflated resource. Local stride/count matches
+are storage associations, not entity/placement/geometry meanings. Schema hashes
+remain namespace-qualified and conflicting layouts are retained separately.
+Node, input, inflation and repeated block-hash work are bounded; budget failure
+returns no catalog prefix. The native command never invokes a backend.
+
+Private seals and source-role audits retain all 165 inherited artifact hashes,
+previous source assignments, names.json and BCPack provisional labels. Authored
+CLI tests cover graph source identity, implied modes, shared budgets, guarded
+world requests, backend-free native output and input/output preservation. No game
+fixtures or decoded media are published. No staging, commit or push occurred.
+
+Native world discovery accounts for 34 compressed streams as eight complete
+PSIN containers (including established checked page chains) and 13 single-stream
+0DRP metadata views. There are 117 blocks, 99 local schema/stride associations,
+2,554,468 count-only storage groups and two schema groups containing nine distinct
+local structure definitions. No group is expanded into guessed entities. All
+streams in that discovery window are accounted for. The reserved window accepts
+eight 0DRP views with 67 blocks/53 associations and 1,717,366 storage groups;
+three recognized starts refuse and three streams stay unclassified. It supplies
+no PSIN positive. No decoder rule was retuned after reserved exposure. All 184
+emitted block hashes and 152 storage associations match bounded source spans;
+eight checksum, 21 pointer and four shared-budget controls refuse. A catalog
+with local refusals remains explicit and the CLI exits nonzero; a whole-report
+budget refusal leaves no new output. The two native selftests require no backend.
+
+Provenance is in `docs/native_world_resources_provenance.md`,
+`docs/world_preflight_provenance.md`, `docs/psin_bucket_graph_provenance.md` and
+`docs/stereo_overlap_discovery_provenance.md`. Supplementary stereo selection is
+preserved, with all 32 reserved payloads unopened. SixNG help/info and zero-result
+common-archive commands were isolated interface observations, not validation of
+native world layouts or evidence that its decoded values are correct. No new
+passthrough was added following the user's native-tooling direction.
+
+## Native world schema views, counted ranges and declared extents
+
+Three separate investigations extended the native resource catalog without
+external implementation source or a backend dependency. SixNG was not used to
+derive or confirm any of these rules. Existing native metadata readers provide
+the local declarations; raw source spans provide structural checks.
+
+The schema view preserves canonical format-qualified group/variant IDs while
+exposing complete raw fields, enum members, type-word usages and query matches.
+Declaration words are checked against resource-local table positions. Shared
+declarations are deduplicated; occurrences retain relocated pointers and source
+offsets. Discovery has nine shared structures/23 fields across 21 resources;
+the original reserved cohort has seven/15 across eight. All 2,820 checked u32
+words reproduce source declarations. Natural enum positives are absent in these
+cohorts; authored tests cover enum aliases/full-width value bits. Optional names
+are only independently rehashed dictionary preimages, never confirmed meanings.
+
+For the observed 0DRP structure-reference profile, a checked descriptor selects
+a local structure. A counted field occupies exactly 16 source bytes: equal
+positive u32 words and a nonnull u64 reference (or an all-zero empty header).
+Independent fitting across partitions 8..32 admits only a low 20-bit local block
+ID plus high byte offset when requiring the correct target type, whole target
+stride, alignment and complete count bounds. Fixed embedded structure arrays
+must exactly exhaust the independent owning field slot. Their paths remain
+attached to the outer source row. Primitive descriptors and unknown fields are
+not scanned for pointer-looking values.
+
+There are 214,987 discovery headers (214,024 nonnull/963 null) and 146,591 in the
+original reserved cohort (145,563 nonnull/1,028 null). Every retained range and
+source path reproduces source bytes; only the frozen 20-bit partition fits all
+ranges in both cohorts. 358,084 references use bits above bit 32. Sixty-three
+malformed-input controls and 21 one-short helper budgets refuse. These are local
+storage ranges, not world objects, placements, ownership, or proven graph roots.
+All outputs retain unknown primitive fields and partial status.
+
+The extent investigation froze a new disjoint 16-MiB discovery/reserved plan
+before payload reads, preserving all earlier roles. Its discovery has 28 0DRP
+starts: 24 bounded metadata observations and four incomplete ones. Across all
+37 original/new bounded discovery observations, the maximum declared metadata
+endpoint rounded to 64 KiB matches the stream length with zero tail. Four new
+incomplete starts now report precisely which declared spans are absent. Neither
+padding nor adjacent short-stream sizes prove resource ownership, so no joins
+were enabled and complete resource endpoints stay null. The successor reserved
+window remains unread. The original three refused starts still refuse.
+
+The three helpers and their audits were sealed before their respective reused
+reserved consistency runs. Original source cohorts were already exposed; these
+results are not fresh blind semantic validation. All 180 inherited artifact
+hashes, names.json, frozen assignments and BCPack provisional labels remain
+unchanged. Optional CLI views share node/inflation limits; global exhaustion
+returns no partial catalog, while malformed supported link views retain only a
+reason and independent metadata. Default catalog output remains identical.
+Provenance is recorded in `docs/native_world_schemas_provenance.md`,
+`docs/world_links_provenance.md`, `docs/native_world_extent_provenance.md` and
+`docs/native_world_views_provenance.md`. No game fixtures were added.
+
+## Native opaque primitive pools and transform/boundary falsification
+
+The observed primitive-descriptor profile selects raw type-hash `0x00000017`
+blocks through the same independently fitted low20-bit local block ID/high byte
+offset partition. Primitive group width was derived independently: total pool
+bytes divided by independently stored counts proposes a width, then every range
+must be aligned, bounded, nonoverlapping and exactly exhaust its target pool.
+Only partition20 and width8 satisfy all discovery observations. Smaller widths
+can fit bounds but leave gaps; they are not equivalent evidence. The helper
+checks the full supported pool before emitting compact source/pool layouts.
+Unsupported descriptors, unreferenced pools, scalar semantics and transforms
+remain explicit. No opaque groups are expanded by default.
+
+Discovery: 2,520,960 headers (1,000,598 nonnull/1,520,362 null), 18 pools,
+1,759,794 eight-byte groups and 14,078,352 pool bytes. Original reserved under
+the unchanged profile: 1,715,520 headers (746,911 nonnull/968,609 null), 14 pools,
+1,253,065 groups and 10,024,520 bytes. Eight-byte type15 field slots have
+2,626/1,787 source observations, with value width and meaning unconfirmed.
+All 84 native malformed-profile controls and 21 one-short helper budgets refuse.
+The original three metadata refusals and three unknown streams remain intact.
+Full discovery helper work needs 4,522,963 aggregate nodes; per-resource runs stay
+bounded and the catalog's shared cap is not raised. One discovery CLI observation
+uses 319,045 nodes with schemas, structure links, extents and primitive layouts.
+
+Transform research tested only uniquely declared whole16/48/64-byte rows and
+independently bounded eight-byte slots, without concatenating records. There
+are no whole48/64-byte owners in the measured family. The primitive header rows
+alone produce 3,895/2,940 apparent unit-float4 fits, all surviving lane reversal.
+Eight-byte slots yield 3/0 signed16x4 unit fits, while wrong byte order yields
+11/6. These mathematical predicates do not identify quaternions, component order
+or coordinate systems. No transform decoder/export was added.
+
+Boundary research remains discovery-only. It checks 66 individual zlib envelopes
+across original and successor discovery windows (41 0DRP starts, eight PSIN
+starts, 17 other streams). All 41 0DRP streams begin at4096n+16 with zero16-byte
+preambles; no checked resource length or allocation owner follows. Sixty-three
+of64 interstream gaps are zero. The four successor incomplete starts have nearby
+short opaque streams, but no independent ownership rule. A proposed header-word
+rounded-extent interpretation fits34/41 and fails even on three fully bounded
+metadata observations. All264 mutated envelope controls refuse; their individual
+zlib checksums are not full-resource checksums. No joins enabled, and the
+successor reserved window remains unopened.
+
+All 211 protected artifacts, frozen roles, the dictionary and BCPack labels
+remain unchanged. Original discovery/reserved results are reused structural
+consistency, not fresh blind or semantic ground truth. Numerical/profile rules
+were sealed before reused reserved evaluation. Review then strengthened audit
+output aliases (including dictionary/frozen files and hardlinks); these safety
+fixes have separate versioned seals and did not retune numerical rules. See
+`docs/world_primitives_provenance.md`, `docs/world_transforms_provenance.md`,
+`docs/world_boundaries_provenance.md` and
+`docs/native_world_primitive_views_provenance.md`. No external implementation
+source or SixNG output was used for these rules; no game fixtures were added.
+
+## Native reference context, asset equalities and header-selected metadata
+
+The native reference-context helper revalidates every supplied source path,
+declared inline stride, count/header word and bounded target range against the
+same resource. Interval sweeps compute incoming-reference multiplicity without
+expanding target records. Equal multiplicities coalesce into compact spans.
+Queries return selected complete source paths and raw header evidence even when
+the separate link view is absent. Out-of-scope queries stay unresolved; multiple
+incoming references, actual record cycles and depth limits remain explicit.
+Block-graph cycles are reported separately because aggregating records into one
+block can introduce a block cycle without any record cycle.
+
+Discovery covers 83 typed blocks/2,523,662 records: 2,523,649 singly referenced,
+13 unreferenced, none multiply referenced. The unchanged original-reserved
+profile covers 53 blocks/1,717,366 records: 1,717,358 singly referenced and eight
+unreferenced, none multiply referenced. All block aggregations are acyclic, with
+one unreferenced record per accepted 0DRP. This is observed reference incidence,
+not independent root, semantic ownership or transform authority. The original
+three metadata refusals and three unknown streams remain unchanged. Selected
+query paths round-trip 342/222 source headers across 166/106 query chains;
+21 wrong-source and 21 one-short helper-budget controls refuse. Range-order
+controls preserve incidence. Exact source-header deduplication prevents a
+corrupted duplicate-path report from double-counting the same field.
+
+Asset research independently rehashes dictionary candidates under whole64 and
+split32 hypotheses. Original discovery has no whole64 preimage matches in
+1,759,794 checked pool groups or 2,626 leading eight-byte slots. The slots all
+have zero upper32 bits; that does not independently establish a 32-bit value
+width, asset namespace or reference role. Split-word equalities remain only
+mathematical coincidences/candidates. No asset resolver was added.
+
+After auditing all 253 inherited artifacts for source exclusions, two disjoint
+supplementary eight-MiB discovery windows and paired adjacent eight-MiB reserves
+were frozen before new payload reads. Discovery carves 35 capped streams with
+63,542,976 inflated bytes: 12 recognized 0DRP starts, of which 11 have bounded
+metadata, plus 23 other binary streams. The accepted declarations match the
+existing family, supplying no new asset-ID authority. The separate supplementary
+reserves and earlier successor reserve remain unread. No source role is promoted.
+
+Boundary research adds exact header relationships across all 41 original and
+successor discovery starts. The full-width word at0x08 matches the declared
+block-table end; the word at0x40 matches a final structure-field-list end. The
+latter is below the maximum declared block extent in three incomplete starts,
+so it cannot universally supply a resource endpoint. At the first candidate
+offset, a zero u64 prefix and count-like word of one/two precede that many zero
+u64 slots; a separately declared 16-byte block follows exactly in all41 cases.
+Its structure hash matches the observed unreferenced record family. These
+discovery observations corroborate local context only; they do not identify
+root roles, page/stream counts, resource lengths or ownership of adjacent data.
+205 source-word mutations break the intended hypotheses while unrelated metadata
+remains available; 41 one-short budgets refuse. No resource joins were enabled.
+
+The context and asset profiles are sealed before their own reused original-
+reserved evaluations. Previously exposed cohorts provide structural consistency,
+not fresh blind semantic validation. Tool output guards protect the dictionary,
+frozen prerequisites, runtime/tool files and hardlink/symlink aliases before
+source reads. Dictionary misses are not retained in an unbounded negative cache.
+All 253 inherited artifacts, names.json and BCPack provisional labels remain
+unchanged. Provenance is in `docs/world_owners_provenance.md`,
+`docs/world_assets_provenance.md`, `docs/world_boundary_authority_provenance.md`
+and `docs/native_world_reference_context_provenance.md`. No external source or
+SixNG output was used to establish these rules, and no game fixtures were added.

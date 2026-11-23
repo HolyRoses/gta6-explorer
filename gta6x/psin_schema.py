@@ -355,7 +355,9 @@ def iter_sources(paths, *, limit):
 def inspect_sources(paths: list[str], *, limit: int | None,
                     dictionary: dict | None = None, with_instances: bool = False,
                     with_resource_header: bool = False, with_record_graph: bool = False,
-                    with_bucket_maps: bool = False, max_nodes: int = 100000, max_depth: int = 16, registry=None) -> dict:
+                    with_bucket_maps: bool = False, with_bucket_values: bool = False,
+                    with_bucket_pool_spans: bool = False, with_bucket_graph: bool = False,
+                    max_nodes: int = 100000, max_depth: int = 16, registry=None) -> dict:
     """Inspect raw PSIN files or complete joined resources inside archives.
 
     Identical LSCH+LENM pairs share one schema; differing definitions of the
@@ -366,6 +368,12 @@ def inspect_sources(paths: list[str], *, limit: int | None,
     """
     from . import structured
 
+    if with_bucket_graph:
+        with_record_graph = with_bucket_maps = True
+    if with_bucket_pool_spans:
+        with_bucket_values = True
+    if with_bucket_values:
+        with_bucket_maps = True
     if with_bucket_maps:
         with_resource_header = True
         if type(max_depth) is not int or not 1 <= max_depth <= 64:
@@ -423,16 +431,22 @@ def inspect_sources(paths: list[str], *, limit: int | None,
             except ValueError as exc:
                 result['resource_header'] = dict(status='refused', reason=str(exc))
             resource_header_nodes_used += before - remaining_nodes
-        if with_record_graph:
+        def add_graph(bucket_view=None):
+            nonlocal remaining_nodes, record_graph_nodes_used
             from . import psin_record_graph
             before = remaining_nodes
             if result['instances'].get('status') == 'refused':
                 result['record_graph'] = dict(status='refused', reason='record graph requires an available instance view')
+            elif with_bucket_graph and (not isinstance(bucket_view, dict) or bucket_view.get('status') not in ('complete', 'partial')):
+                result['record_graph'] = dict(status='refused', reason='bucket graph requires an available bucket-map view')
             else:
                 try:
+                    if with_bucket_graph and bucket_view.get('source_sha256') != source['sha256']:
+                        raise ValueError('bucket graph source hash differs from the verified resource')
+                    bucket_options = {'bucket_maps': bucket_view} if with_bucket_graph else {}
                     result['record_graph'] = psin_record_graph.inspect(
                         result['instances'], result.get('resource_header'),
-                        max_nodes=remaining_nodes, max_depth=max_depth)
+                        max_nodes=remaining_nodes, max_depth=max_depth, **bucket_options)
                     remaining_nodes -= result['record_graph']['summary']['nodes']
                 except psin_record_graph.RecordGraphLimitError as exc:
                     remaining_nodes = 0
@@ -440,11 +454,16 @@ def inspect_sources(paths: list[str], *, limit: int | None,
                 except ValueError as exc:
                     result['record_graph'] = dict(status='refused', reason=str(exc))
             record_graph_nodes_used += before - remaining_nodes
+        if with_record_graph and not with_bucket_graph:
+            add_graph()
         if with_bucket_maps:
             from . import psin_bucket_maps
             before = remaining_nodes
             try:
-                view = psin_bucket_maps.inspect(data,max_nodes=remaining_nodes,max_depth=max_depth)
+                value_options = {'with_values': True} if with_bucket_values else {}
+                if with_bucket_pool_spans:
+                    value_options['with_pool_spans'] = True
+                view = psin_bucket_maps.inspect(data,max_nodes=remaining_nodes,max_depth=max_depth,**value_options)
                 remaining_nodes -= view['summary']['nodes']
                 header = result.get('resource_header',{})
                 anchor = header.get('record_candidate',{}) if header.get('status')=='complete' else {}
@@ -458,6 +477,8 @@ def inspect_sources(paths: list[str], *, limit: int | None,
             except ValueError as exc:
                 result['bucket_maps'] = dict(status='refused',reason=str(exc))
             bucket_map_nodes_used += before - remaining_nodes
+        if with_bucket_graph:
+            add_graph(result.get('bucket_maps'))
         resources.append(result)
 
     for source, data, error in iter_sources(paths, limit=limit):
@@ -511,6 +532,11 @@ def inspect_sources(paths: list[str], *, limit: int | None,
             summary['record_graph_' + target] = sum(g.get('summary', {}).get(source_key, 0) for g in graphs)
         summary['record_graph_unanchored'] = sum(g.get('reachability', {}).get('status') == 'unanchored'
                                                 for g in graphs)
+        if with_bucket_graph:
+            for key in ('bucket_maps_supported','bucket_maps_unresolved',
+                        'bucket_reference_edges','bucket_inline_maps_excluded',
+                        'bucket_inline_entries_excluded','bucket_scan_partial'):
+                summary['record_graph_'+key]=sum(g.get('summary',{}).get(key,0) for g in graphs)
         summary['metadata_nodes'] = max_nodes - remaining_nodes
     if with_bucket_maps:
         views=[r['bucket_maps'] for r in resources if 'bucket_maps' in r]
@@ -519,6 +545,23 @@ def inspect_sources(paths: list[str], *, limit: int | None,
         summary['bucket_map_nodes']=bucket_map_nodes_used
         for key in ('maps_complete','maps_unresolved','entry_links','depth_limited'):
             summary['bucket_'+key]=sum(v.get('summary',{}).get(key,0) for v in views)
+        if any('structure_value_spans' in v.get('summary',{}) for v in views):
+            summary['bucket_structure_value_spans']=sum(v.get('summary',{}).get('structure_value_spans',0) for v in views)
+            summary['bucket_reference_links']=sum(v.get('summary',{}).get('reference_links',
+                v.get('summary',{}).get('entry_links',0)) for v in views)
+        if with_bucket_values:
+            for key in ('bucket_value_records','bucket_value_fields','bucket_value_fields_complete',
+                        'bucket_value_fields_unresolved','bucket_value_array_links','bucket_value_reference_links',
+                        'bucket_value_nested_maps','bucket_value_nested_maps_unresolved',
+                        'bucket_value_map_fields','bucket_value_map_fields_complete','bucket_value_map_links'):
+                summary[key]=sum(v.get('summary',{}).get(key,0) for v in views)
+        if with_bucket_pool_spans:
+            for key in ('bucket_value_pool_fields','bucket_value_pool_spans_complete',
+                        'bucket_value_pool_spans_unresolved','bucket_value_pool_words',
+                        'bucket_pool_headers','bucket_pools_complete','bucket_pools_unresolved'):
+                summary[key]=sum(v.get('summary',{}).get(key,0) for v in views)
+            summary['bucket_pool_scans_complete']=sum(
+                v.get('summary',{}).get('bucket_pool_scan_complete',0) for v in views)
         summary['metadata_nodes']=max_nodes-remaining_nodes
     result = dict(format='gta6x-psin-schemas-v2', summary=summary,
                 scope='Complete recovered PSIN containers only; archive fragments are omitted.',

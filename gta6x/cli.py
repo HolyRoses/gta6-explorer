@@ -292,6 +292,10 @@ def cmd_anim(args) -> int:
     """Index animation archive streams and name tables (no clip decode)."""
     from . import anim as anim_mod
 
+    if args.checkpoint_candidates:
+        args.aux_checkpoints = True
+    if args.aux_checkpoints:
+        args.prefix_layout = True
     if args.prefix_layout:
         args.bit_layout = True
     if args.lookup_candidates:
@@ -358,10 +362,13 @@ def cmd_anim(args) -> int:
                 return 1
         if args.clip_records:
             from . import anim_clips
+            checkpoint_options = {'with_aux_checkpoints': True} if args.aux_checkpoints else {}
+            if args.checkpoint_candidates:
+                checkpoint_options['with_checkpoint_candidates'] = True
             try:
                 for dictionary in anim_clips.scan_dictionaries(path, start=args.start, limit=limit,
                                                                max_nodes=remaining_nodes, with_components=args.clip_components,
-                                                               with_packed_layout=args.packed_layout, with_channels=args.channel_layout, with_storage=args.storage_layout, with_payloads=args.payload_layout, with_bitrows=args.bit_layout, with_lookups=args.lookup_candidates, with_prefix=args.prefix_layout):
+                                                               with_packed_layout=args.packed_layout, with_channels=args.channel_layout, with_storage=args.storage_layout, with_payloads=args.payload_layout, with_bitrows=args.bit_layout, with_lookups=args.lookup_candidates, with_prefix=args.prefix_layout, **checkpoint_options):
                     clip_dictionaries.append(dictionary)
                     remaining_nodes -= dictionary.get('summary', {}).get('nodes', 0)
                     names.update(e['name']['value'] for e in dictionary.get('entries', [])
@@ -384,6 +391,9 @@ def cmd_anim(args) -> int:
                      or r.get('summary', {}).get('bitrow_layouts_unresolved', 0)
                      or r.get('summary', {}).get('lookup_layouts_unresolved', 0)
                      or r.get('summary', {}).get('prefix_layouts_unresolved', 0)
+                     or r.get('summary', {}).get('aux_checkpoint_layouts_partial', 0)
+                     or r.get('summary', {}).get('aux_checkpoint_layouts_unresolved', 0)
+                     or r.get('summary', {}).get('checkpoint_candidate_layouts_unresolved', 0)
                      for r in resources + clip_dictionaries))
     if not records:
         print("no animation streams found")
@@ -448,6 +458,18 @@ def cmd_anim(args) -> int:
             for key in ('prefix_layouts_attempted', 'prefix_layouts_resolved', 'prefix_layouts_unresolved',
                         'prefix_triplet_records', 'prefix_raw_words', 'prefix_opaque_records'):
                 clip_summary[key] = sum(r.get('summary', {}).get(key, 0) for r in clip_dictionaries)
+        if args.aux_checkpoints:
+            for key in ('aux_checkpoint_layouts_attempted','aux_checkpoint_layouts_resolved',
+                        'aux_checkpoint_layouts_partial','aux_checkpoint_layouts_unresolved',
+                        'aux_checkpoint_rows_supported','aux_checkpoint_rows_unsupported',
+                        'aux_checkpoint_source_records','aux_checkpoint_bit_spans','aux_checkpoint_aliases',
+                        'aux_checkpoint_boundary_checkpoints','aux_checkpoint_boundary_layouts_unresolved'):
+                clip_summary[key] = sum(r.get('summary', {}).get(key, 0) for r in clip_dictionaries)
+        if args.checkpoint_candidates:
+            for key in ('rows','candidate_sets','candidate_slots','singleton_rows',
+                        'ambiguous_rows','unsupported_source_rows','layouts_unresolved'):
+                label = 'checkpoint_'+key if key in ('candidate_sets','candidate_slots') else 'checkpoint_candidate_'+key
+                clip_summary[label] = sum(r.get('summary', {}).get(label, 0) for r in clip_dictionaries)
         detail.update(clip_record_summary=clip_summary, clip_dictionaries=clip_dictionaries)
         if not args.json:
             print(f"named clips: {clip_summary['clips_linked']:,} linked, "
@@ -488,6 +510,19 @@ def cmd_anim(args) -> int:
                 print(f"prefix layouts: {clip_summary['prefix_layouts_resolved']:,} resolved, "
                       f"{clip_summary['prefix_layouts_unresolved']:,} unresolved; "
                       f"{clip_summary['prefix_raw_words']:,} raw words / {clip_summary['prefix_opaque_records']:,} opaque records; associations unknown")
+            if args.aux_checkpoints:
+                print(f"auxiliary checkpoints: {clip_summary['aux_checkpoint_layouts_resolved']:,} complete, "
+                      f"{clip_summary['aux_checkpoint_layouts_partial']:,} partial, "
+                      f"{clip_summary['aux_checkpoint_layouts_unresolved']:,} unresolved; "
+                      f"{clip_summary['aux_checkpoint_rows_supported']:,} checked rows / "
+                      f"{clip_summary['aux_checkpoint_rows_unsupported']:,} unsupported rows; "
+                      f"{clip_summary['aux_checkpoint_boundary_checkpoints']:,} separate boundary checkpoints; "
+                      f"{clip_summary['aux_checkpoint_boundary_layouts_unresolved']:,} unresolved boundary views; "
+                      "samples and channel meanings unknown")
+            if args.checkpoint_candidates:
+                print(f"checkpoint candidates: {clip_summary['checkpoint_candidate_singleton_rows']:,} singleton rows, "
+                      f"{clip_summary['checkpoint_candidate_ambiguous_rows']:,} ambiguous rows; "
+                      "compatible sets only, channel ownership unconfirmed")
             reasons = [(r['offset'], r['reason']) for r in clip_dictionaries if r['status'] == 'refused']
             reasons += [(r['offset'], e['reason']) for r in clip_dictionaries for e in r.get('entries', [])
                         if e['status'] == 'unresolved']
@@ -546,6 +581,29 @@ def cmd_anim(args) -> int:
                             if segment['animation'].get('packed_layout', {}).get('status') == 'complete'
                             for buffer in segment['animation']['packed_layout']['buffers']
                             if buffer['prefix_layout']['status'] == 'unresolved']
+            if args.aux_checkpoints:
+                reasons += [(r['offset'],buffer['auxiliary_checkpoint_layout'].get('reason','unsupported auxiliary checkpoint rows remain'))
+                            for r in clip_dictionaries for e in r.get('entries', [])
+                            if e.get('components', {}).get('status') == 'complete'
+                            for group in e['components']['groups'] for segment in group['segments']
+                            if segment['animation'].get('packed_layout', {}).get('status') == 'complete'
+                            for buffer in segment['animation']['packed_layout']['buffers']
+                            if buffer.get('auxiliary_checkpoint_layout',{}).get('status') in ('partial','unresolved')]
+                reasons += [(r['offset'],boundary['reason'])
+                            for r in clip_dictionaries for e in r.get('entries', [])
+                            if e.get('components', {}).get('status') == 'complete'
+                            for group in e['components']['groups'] for segment in group['segments']
+                            for buffer in segment['animation'].get('packed_layout', {}).get('buffers', [])
+                            for boundary in [buffer.get('auxiliary_checkpoint_layout', {}).get('boundary_checkpoint_layout', {})]
+                            if boundary.get('status') == 'unresolved']
+            if args.checkpoint_candidates:
+                reasons += [(r['offset'],candidate['reason'])
+                            for r in clip_dictionaries for e in r.get('entries', [])
+                            if e.get('components', {}).get('status') == 'complete'
+                            for group in e['components']['groups'] for segment in group['segments']
+                            for buffer in segment['animation'].get('packed_layout', {}).get('buffers', [])
+                            for candidate in [buffer.get('auxiliary_checkpoint_layout', {}).get('candidate_layout', {})]
+                            if candidate.get('status') == 'unresolved']
             for offset, reason in reasons[:args.max]:
                 print(f"  clip dictionary at 0x{offset:x}: {reason}")
     if args.out:
@@ -1008,7 +1066,7 @@ def cmd_psin(args) -> int:
     if not targets:
         eprint("no archive matched")
         return 1
-    if args.schema or args.out or args.instances or args.resource_header or args.record_graph or args.bucket_maps or args.registry or args.registry_out:
+    if args.schema or args.out or args.instances or args.resource_header or args.record_graph or args.bucket_graph or args.bucket_maps or args.bucket_values or args.bucket_pool_spans or args.registry or args.registry_out:
         return _cmd_psin_schema(args, targets)
     if args.names:
         eprint("--names requires --schema, --instances or --out")
@@ -1074,8 +1132,14 @@ def cmd_psin(args) -> int:
 def _cmd_psin_schema(args, targets: list[str]) -> int:
     from . import names as names_mod, psin_schema, psin_registry
 
+    if args.bucket_graph:
+        args.record_graph = args.bucket_maps = True
     if args.record_graph:
         args.instances = True
+    if args.bucket_pool_spans:
+        args.bucket_values = True
+    if args.bucket_values:
+        args.bucket_maps = True
     if args.bucket_maps:
         args.resource_header = True
     if args.max < 0 or (not args.full and args.limit < 0):
@@ -1136,7 +1200,10 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
     report = psin_schema.inspect_sources(
         targets, limit=None if args.full else args.limit * 1024 * 1024,
         dictionary=dictionary, with_instances=args.instances, with_resource_header=args.resource_header, with_record_graph=args.record_graph,
-        with_bucket_maps=args.bucket_maps, max_nodes=args.max_nodes, max_depth=args.max_depth, registry=registry)
+        with_bucket_maps=args.bucket_maps, with_bucket_values=args.bucket_values,
+        with_bucket_pool_spans=args.bucket_pool_spans,
+        with_bucket_graph=args.bucket_graph,
+        max_nodes=args.max_nodes, max_depth=args.max_depth, registry=registry)
     if build is not None:
         report['registry_build'] = build
     if args.out:
@@ -1208,6 +1275,10 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
             print(f"candidate reachability: {info['record_graph_reachable_records']:,} records; "
                   f"{info['record_graph_unanchored']:,} unanchored resources; "
                   f"{info['record_graph_depth_limited']:,} depth-limited views")
+            if args.bucket_graph:
+                print(f"bucket graph: {info['record_graph_bucket_reference_edges']:,} checked reference links; "
+                      f"{info['record_graph_bucket_inline_maps_excluded']:,} inline maps excluded; "
+                      "candidate reachability only, ownership roles unknown")
         print(report['interpretation'])
         if registry is not None:
             print(f"registry: {registry.summary()['schema_pairs']:,} schema pairs; local definitions take precedence")
@@ -1226,8 +1297,27 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
                     eprint(f"{resource['file']}:{resource.get('offset',0):#x}: bucket maps: {view['reason']}")
                 else:
                     summary=view.get('summary',{})
+                    details=f"{summary.get('reference_links',summary.get('entry_links',0))} local reference links"
+                    if 'structure_value_spans' in summary:
+                        details+=f"; {summary['structure_value_spans']} inline structure spans"
                     print(f"bucket maps: {summary.get('maps_complete',0)} supported, "
-                          f"{summary.get('maps_unresolved',0)} unresolved; {summary.get('entry_links',0)} local reference links")
+                          f"{summary.get('maps_unresolved',0)} unresolved; {details}")
+                    if args.bucket_values:
+                        print(f"bucket values ({view.get('values_status','unavailable')}): "
+                              f"{summary.get('bucket_value_records',0)} inline records; "
+                              f"{summary.get('bucket_value_fields_complete',0)} checked fields, "
+                              f"{summary.get('bucket_value_fields_unresolved',0)} unresolved fields; "
+                              f"{summary.get('bucket_value_map_links',0)} local map-entry links")
+                    if args.bucket_pool_spans:
+                        print(f"bucket pool storage: {summary.get('bucket_pools_complete',0)} checked pools, "
+                              f"{summary.get('bucket_pools_unresolved',0)} unresolved; "
+                              f"{summary.get('bucket_value_pool_spans_complete',0)} checked spans, "
+                              f"{summary.get('bucket_value_pool_words',0)} opaque four-byte groups; "
+                              "value meanings remain unknown")
+                    if any(summary.get(key,0) for key in ('unrepresented_blocks','unresolved_embedded_owners','depth_limited')):
+                        eprint(f"  bucket scan incomplete: {summary.get('unrepresented_blocks',0)} unrepresented blocks, "
+                               f"{summary.get('unresolved_embedded_owners',0)} unresolved embedded owners, "
+                               f"{summary.get('depth_limited',0)} depth-limited paths")
                     for mapping in view.get('maps',[]):
                         if mapping['status']!='complete':eprint(f"  {mapping['field_hash']}: {mapping['reason']}")
         if args.out:
@@ -1409,7 +1499,10 @@ def cmd_shaders(args) -> int:
     """Recover DXBC shaders from RPF9 archives."""
     from . import shaders as shaders_mod
 
-    include_metadata = getattr(args, "metadata", False)
+    include_psv_masks = getattr(args, "psv_masks", False)
+    include_psv_signatures = getattr(args, "psv_signatures", False) or include_psv_masks
+    include_features = getattr(args, "features", False)
+    include_metadata = getattr(args, "metadata", False) or include_psv_signatures or include_features
     max_records = getattr(args, "max_records", 4096)
     if include_metadata:
         from .shader_metadata import MAX_RECORDS
@@ -1435,7 +1528,12 @@ def cmd_shaders(args) -> int:
             name = shaders_mod.safe_name(hit.name)
             record = hit.as_dict() if include_metadata or args.out else None
             if include_metadata:
-                record["metadata"] = shaders_mod.metadata(hit.data, max_records=max_records)
+                signature_options = {'with_psv_signatures': True} if include_psv_signatures else {}
+                if include_psv_masks:
+                    signature_options['with_psv_masks'] = True
+                if include_features:
+                    signature_options['with_features'] = True
+                record["metadata"] = shaders_mod.metadata(hit.data, max_records=max_records, **signature_options)
                 if record["metadata"]["status"] != "complete":
                     metadata_incomplete += 1
             if args.out:
@@ -1889,8 +1987,8 @@ def cmd_awc(args) -> int:
     if wav_pre_skip is None:
         wav_pre_skip = 0 if args.wav_policy == "packet-sequence" else 312
     music_pre_skip = 312 if args.wav_pre_skip is None else args.wav_pre_skip
-    if args.music_skip_policy != "zero" and not args.music_wav_out:
-        eprint("--music-skip-policy verified-overlap requires --music-wav-out")
+    if args.music_skip_policy != "zero" and not (args.music_out or args.music_wav_out):
+        eprint("--music-skip-policy verified-overlap requires --music-wav-out or --music-out")
         return 1
     if args.ogg_policy != "legacy" and not args.ogg_out:
         eprint("--ogg-policy declared requires --ogg-out")
@@ -1983,7 +2081,18 @@ def cmd_awc(args) -> int:
                     for stream in streams:
                         if not stream.get("music"):
                             continue
-                        channels=audio_mod.music_channels(buf, stream)
+                        if args.music_skip_policy == 'verified-overlap':
+                            from . import audio_music_skips
+                            try:
+                                channels=audio_music_skips.inspect_channels(
+                                    buf,stream,skip_policy='verified-overlap')['channels']
+                            except ValueError as exc:
+                                music_failed=True
+                                record.setdefault('music_skipped',[]).append(dict(stream_index=stream['index'],
+                                    channel_index=None,reason=str(exc)))
+                                continue
+                        else:
+                            channels=audio_mod.music_channels(buf, stream)
                         if not channels:
                             record.setdefault('music_skipped',[]).append(dict(stream_index=stream['index'],
                                 channel_index=None,reason='no supported music channel allocations'))
@@ -1998,8 +2107,13 @@ def cmd_awc(args) -> int:
                             else:
                                 name=f"{stem}_{hit.offset:09x}_s{stream['index']}_c{channel['index']}.opus"
                             try:
-                                blob = audio_mod.extract_music_ogg(
-                                    buf, stream, channel["index"], title=name)
+                                music_ogg_info = None
+                                if args.music_skip_policy == 'verified-overlap':
+                                    blob,music_ogg_info = audio_music_skips.extract_ogg(
+                                        buf,stream,channel['index'],title=name,skip_policy='verified-overlap')
+                                else:
+                                    blob = audio_mod.extract_music_ogg(
+                                        buf, stream, channel["index"], title=name)
                             except ValueError as exc:
                                 music_failed=True
                                 record.setdefault('music_skipped',[]).append(dict(stream_index=stream['index'],
@@ -2010,6 +2124,9 @@ def cmd_awc(args) -> int:
                             with open(dest, "wb") as out:
                                 out.write(blob)
                             record.setdefault("music_files", []).append(dest)
+                            if music_ogg_info is not None:
+                                record.setdefault('music_ogg_metadata',[]).append(dict(
+                                    music_ogg_info,stream_index=stream['index'],file=dest))
                             music_written += 1
                 if args.music_wav_out:
                     from . import audio_music_pcm, audio_pcm
@@ -2153,6 +2270,9 @@ def cmd_awc(args) -> int:
         else:
             print(f"Music WAV verifies whole-packet overlaps; {music_pre_skip} pre-skip frames and original alignment remain unconfirmed")
     if args.music_out:
+        if args.music_skip_policy == 'verified-overlap':
+            print("Music Ogg verifies whole-packet overlaps and uses declared duration with inherited "
+                  "312-frame pre-skip; original alignment remains unconfirmed")
         for record in records:
             for skipped in record.get('music_skipped',[]):
                 print(f"  music Ogg skipped {record['archive']}:{record['offset']:#x} "
@@ -2695,20 +2815,140 @@ def cmd_names(args) -> int:
     return 0
 
 
+def _world_context_record(value):
+    """Parse a zero-based block/record query without implying ownership."""
+    try:
+        parts = value.split(':')
+        if len(parts) != 2:
+            raise ValueError
+        pair = tuple(int(part, 0) for part in parts)
+        if any(not 0 <= number <= 0xffffffff for number in pair):
+            raise ValueError
+        return pair
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError('expected unsigned BLOCK:RECORD indices, e.g. 0:0') from exc
+
+
+def _cmd_world_resources(args) -> int:
+    """Browse bounded native resource metadata without a backend."""
+    from . import world_resources, world as world_mod
+
+    if args.kind != 'resources':
+        eprint('--via native currently supports --kind resources only')
+        return 1
+    if not args.out.strip() or '\0' in args.out:
+        eprint('--out must be a nonempty directory path without NUL bytes')
+        return 1
+    unsupported = [flag for flag,value in (
+        ('--name',args.name),('--exclude-name',args.exclude_name),('--min-size',args.min_size),
+        ('--bbox',args.bbox),('--dump',args.dump),('--roads-only',args.roads_only),
+        ('--batches',args.batches),('--batches-only',args.batches_only),('--backend',args.backend)) if value]
+    if args.navmeshes != 'navmeshes':
+        unsupported.append('--navmeshes')
+    if args.work != '.sixng-work':
+        unsupported.append('--work')
+    if unsupported:
+        eprint('native resource browsing does not use '+', '.join(unsupported))
+        return 1
+    if args.limit < 0 or not 1 <= args.scan_mib <= 64 or args.max_nodes < 1 or (args.start is not None and args.start < 0):
+        eprint('--limit and --start must be nonnegative; --scan-mib must be 1..64; --max-nodes must be positive')
+        return 1
+    standalone = bool(args.archive and os.path.isfile(args.archive))
+    if standalone:
+        targets = [os.path.abspath(args.archive)]
+    else:
+        needle = (args.archive or 'levels').lower()
+        targets = [p for p in find_archives(args.root) if needle in os.path.basename(p).lower()]
+    if not targets:
+        eprint('no archive matched')
+        return 1
+    destination = os.path.join(args.out,'world_resources.json')
+    try:
+        if not standalone or getattr(args,'_root_explicit',False) or os.environ.get('GTA6_ROOT'):
+            game_path=world_mod._path(args.root,'--root')
+            output_path=world_mod._path(args.out,'--out')
+            if world_mod._contains(game_path,output_path) or world_mod._contains(output_path,game_path):
+                raise ValueError('--root and --out directories must not overlap')
+        for source in targets:
+            if os.path.realpath(destination)==os.path.realpath(source) or (
+                    os.path.exists(destination) and os.path.samefile(destination,source)):
+                raise ValueError('native world output must not overwrite an input archive')
+        dictionary = None
+        if args.names:
+            if os.path.realpath(destination)==os.path.realpath(args.names) or (
+                    os.path.exists(destination) and os.path.samefile(destination,args.names)):
+                raise ValueError('native world output must not overwrite its name dictionary')
+            from . import names as names_mod
+            dictionary = names_mod.load(args.names)
+        report = world_resources.inspect_sources(targets,start=args.start,
+            scan_bytes=args.scan_mib*1024*1024,max_nodes=args.max_nodes,max_resources=args.limit,
+            with_schemas=args.schemas, dictionary=dictionary, structure_hash=args.schema_type,
+            field_hash=args.schema_field, type_word=args.schema_code, with_links=args.links,
+            with_extent_diagnostics=args.extent_diagnostics,
+            with_primitive_layouts=args.primitive_layouts,
+            with_reference_context=args.reference_context, context_records=args.context_records)
+        os.makedirs(args.out,exist_ok=True)
+        with open(destination,'w',encoding='utf-8') as handle:
+            json.dump(report,handle,indent=2)
+            handle.write('\n')
+    except (OSError,ValueError) as exc:
+        eprint(str(exc))
+        return 1
+    if args.json:
+        print(json.dumps(report,indent=2))
+    else:
+        summary=report['summary']
+        print(f"native world metadata: {summary['psin_resources']} PSIN, {summary['drp_resources']} 0DRP views; "
+              f"{summary['unclassified_streams']} unclassified streams, {summary['resources_refused']} refused starts")
+        print(f"{summary['blocks_typed']} locally typed blocks / {summary['blocks_unresolved']} unresolved; "
+              'placements and geometry remain undecoded')
+        if args.links:
+            print(f"{summary['local_reference_ranges']} local counted-reference ranges; primitive fields remain unknown")
+        if args.primitive_layouts:
+            print(f"{summary['primitive_pools']} checked raw primitive pools / {summary['primitive_groups']} opaque groups; "
+                  'numeric types and meanings remain unknown')
+        if args.reference_context or args.context_records:
+            print('reference context traces observed local ranges; semantic owners and transforms remain unknown')
+        if summary.get('views_refused'):
+            print(f"{summary['views_refused']} requested views refused; see per-resource reasons")
+        print(f'resource catalog: {destination}')
+    return int(report['summary']['resources_refused']>0 or report['summary'].get('views_refused',0)>0)
+
+
 def cmd_world(args) -> int:
     """Extract world/map data through the optional SixNG backend."""
     from . import models as models_mod
     from . import world as world_mod
 
-    backend = models_mod.find_backend(args.backend)
-    if not backend:
-        eprint("no sixng backend found; build it (see README) or pass --backend")
-        return 2
+    via=args.via or ('native' if args.kind=='resources' else 'sixng')
+    if via=='native':
+        return _cmd_world_resources(args)
+    if args.kind=='resources':
+        eprint('--kind resources requires --via native')
+        return 1
+    if args.start is not None or args.scan_mib!=8 or args.max_nodes!=100000:
+        eprint('--start, --scan-mib and --max-nodes apply to native resource browsing')
+        return 1
+    if (args.schemas or args.names or args.links or args.extent_diagnostics or args.primitive_layouts or
+            args.reference_context or args.context_records or
+            any(v is not None for v in (args.schema_type,args.schema_field,args.schema_code))):
+        eprint('schema, link, primitive, context and extent options apply to native resource browsing')
+        return 1
     filters = {"name": args.name, "exclude_name": args.exclude_name,
                "min_size": args.min_size, "limit": args.limit,
                "bbox": args.bbox}
     options = {"dump": args.dump, "roads_only": args.roads_only,
                "batches": args.batches, "batches_only": args.batches_only}
+    try:
+        world_mod.validate_request(args.root, os.path.abspath(args.work), args.kind,
+            args.archive, args.out, filters=filters, options=options, navmeshes=args.navmeshes)
+    except (world_mod.WorldError, OSError) as exc:
+        eprint(str(exc))
+        return 1
+    backend = models_mod.find_backend(args.backend)
+    if not backend:
+        eprint("no sixng backend found; build it (see README) or pass --backend")
+        return 2
     try:
         archive_label, result = world_mod.run(
             backend, args.root, os.path.abspath(args.work), args.kind,
@@ -3809,6 +4049,22 @@ def cmd_selftest(args) -> int:
         missing_directory = list(_anim_resources.scan_resources(directory_path, start=0))
         check('0DRP missing continuation refuses metadata without prefix output',
               missing_directory[0]['status'] == 'refused' and 'structures' not in missing_directory[0])
+        from . import world_resources as _world_resources
+        with open(directory_path, 'wb') as handle:
+            handle.write(_directory_zlib.compress(directory_data))
+        native_world = _world_resources.inspect_sources([directory_path], start=0)
+        check('Native world metadata preserves unknown semantics and counted local storage',
+              native_world['summary']['drp_resources'] == 1
+              and native_world['summary']['typed_records'] == 1
+              and native_world['resources'][0]['status'] == 'partial'
+              and not native_world['resources'][0]['checksum_verified'])
+        try:
+            _world_resources.inspect_sources([directory_path], start=0,
+                max_nodes=native_world['summary']['metadata_nodes'] - 1)
+            native_world_budget_refused = False
+        except _world_resources.WorldResourceLimitError:
+            native_world_budget_refused = True
+        check('Native world metadata refuses an insufficient shared budget atomically', native_world_budget_refused)
 
     from . import anim_clips as _anim_clips
     clip_fixture = bytearray(344)
@@ -4815,6 +5071,10 @@ def build_parser() -> argparse.ArgumentParser:
                    help="inspect bounded packed sample-storage rows; implies --channel-layout")
     p.add_argument("--prefix-layout", action="store_true",
                    help="inspect bounded mixed prefix words and counted opaque records; implies --bit-layout")
+    p.add_argument("--aux-checkpoints", action="store_true",
+                   help="check auxiliary source-record/row-bit checkpoints; implies --prefix-layout; samples and channel meanings remain unknown")
+    p.add_argument("--checkpoint-candidates", action="store_true",
+                   help="report compatible directory-slot sets without selecting channels (implies --aux-checkpoints)")
     p.add_argument("--lookup-candidates", action="store_true",
                    help="check source-order indexed-payload candidates; implies --bit-layout; assignments unconfirmed")
     p.add_argument("--bit-layout", action="store_true",
@@ -4922,6 +5182,12 @@ def build_parser() -> argparse.ArgumentParser:
                    help='index checked local record associations and bounded candidate reachability (implies instances)')
     p.add_argument('--bucket-maps', action='store_true',
                    help='inspect validated local bucket/reference-entry associations; opaque keys and unsupported layouts remain explicit')
+    p.add_argument('--bucket-graph', action='store_true',
+                   help='add checked bucket references to the record graph (implies --record-graph and --bucket-maps)')
+    p.add_argument('--bucket-values', action='store_true',
+                   help='inspect bounded local fields in inline bucket values (implies --bucket-maps)')
+    p.add_argument('--bucket-pool-spans', action='store_true',
+                   help='inspect corroborated opaque pool storage spans (implies --bucket-values)')
     p.add_argument('--resource-header', action='store_true',
                    help='check LRSC header counts and a bounded local-record candidate (implies schema mode)')
     p.add_argument('--instances', action='store_true',
@@ -4966,11 +5232,13 @@ def build_parser() -> argparse.ArgumentParser:
                    help="skip the shaders.rpf C-string scan")
     p.set_defaults(func=cmd_names)
 
-    p = sub.add_parser("world", help="extract world/map data (SixNG backend)")
+    p = sub.add_parser("world", help="browse native resource metadata or extract world data through SixNG")
     p.add_argument("--kind", required=True, choices=sorted([
         "all", "collision", "handling", "interiors", "lights", "meta",
         "navmesh", "paths", "pso", "placements", "shaders", "surfaces",
-        "vehicles"]), help="world data step")
+        "vehicles", "resources"]), help="world data step; resources uses the native browser")
+    p.add_argument('--via',choices=('native','sixng'),default=None,
+                   help='default native for resources; sixng for existing export kinds')
     p.add_argument("--archive", help="RPF archive fragment (kind-specific default)")
     p.add_argument("--out", required=True, help="output directory")
     p.add_argument("--name", default="", help="regex on recovered names")
@@ -4985,6 +5253,20 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--navmeshes", default="navmeshes", help="surfaces: navmesh archive")
     p.add_argument("--backend", default=None, help="path to the sixng executable")
     p.add_argument("--work", default=".sixng-work", help="backend work/index directory")
+    p.add_argument('--start',type=int,default=None,help='native resource scan start in compressed bytes')
+    p.add_argument('--scan-mib',type=int,default=8,help='native resource scan window per archive, 1..64 MiB (default 8)')
+    p.add_argument('--max-nodes',type=int,default=100000,help='shared native resource metadata budget (default 100000)')
+    p.add_argument('--schemas',action='store_true',help='include full raw local structures, fields and enums')
+    p.add_argument('--schema-type',type=lambda value:int(value,0),help='annotate a structure hash query (unsigned word, e.g. 0x12345678); implies --schemas')
+    p.add_argument('--schema-field',type=lambda value:int(value,0),help='annotate a field hash query; implies --schemas')
+    p.add_argument('--schema-code',type=lambda value:int(value,0),help='annotate a raw field type-word query; implies --schemas')
+    p.add_argument('--names',help='explicit read-only joaat dictionary for schema name candidates; implies --schemas')
+    p.add_argument('--links',action='store_true',help='inspect bounded local 0DRP counted-record references')
+    p.add_argument('--extent-diagnostics',action='store_true',help='report declared 0DRP extents, without joining streams')
+    p.add_argument('--primitive-layouts',action='store_true',help='check supported native 0DRP raw primitive pool widths and complete coverage')
+    p.add_argument('--reference-context',action='store_true',help='inspect local incoming-reference coverage without inferring owners')
+    p.add_argument('--context-record',dest='context_records',type=_world_context_record,action='append',default=[],
+                   help='trace zero-based BLOCK:RECORD ancestry; repeat up to 32 times; implies --reference-context')
     p.set_defaults(func=cmd_world)
 
     p = sub.add_parser("models", help="list/extract drawables via the SixNG backend")
@@ -5043,7 +5325,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--music-out", help="extract one Ogg per AWC music channel")
     p.add_argument("--music-wav-out", help="decode supported music channels to separate PCM16 WAV files")
     p.add_argument("--music-skip-policy", choices=("zero", "verified-overlap"), default="zero",
-                   help="music WAV block-skip policy (default zero; overlap mode requires exact packet identity)")
+                   help="music export policy: verified-overlap checks exact repeated packets; zero keeps existing export paths")
     p.add_argument("--ogg-policy", choices=("legacy", "declared"), default="legacy",
                    help="standalone Ogg timing policy (default: preserve legacy output)")
     p.add_argument("--ogg-pre-skip", type=int,
@@ -5065,6 +5347,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", help="write .cso files into this directory")
     p.add_argument("--metadata", action="store_true",
                    help="include bounded native DXBC stage/model and signature metadata")
+    p.add_argument("--psv-signatures", action="store_true",
+                   help="inspect public PSV0 signature/name tables (implies --metadata)")
+    p.add_argument("--psv-masks", action="store_true",
+                   help="inspect supported public PSV0 dependency masks (implies --psv-signatures)")
+    p.add_argument("--features", action="store_true",
+                   help="inspect public SFI0 shader feature flags (implies --metadata)")
     p.add_argument("--max-records", type=int, default=4096,
                    help="metadata output record limit per shader (default 4096)")
     p.add_argument("--max", type=int, default=20, help="rows to display (default 20)")
@@ -5122,7 +5410,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    arguments = sys.argv[1:] if argv is None else argv
+    parser = build_parser()
+    args = parser.parse_args(arguments)
+    args._root_explicit = args.root != parser.get_default('root') or any(
+        value == '--root' or value.startswith('--root=') for value in arguments)
     return args.func(args)
 
 
