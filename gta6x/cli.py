@@ -292,6 +292,12 @@ def cmd_anim(args) -> int:
     """Index animation archive streams and name tables (no clip decode)."""
     from . import anim as anim_mod
 
+    if args.prefix_layout:
+        args.bit_layout = True
+    if args.lookup_candidates:
+        args.bit_layout = True
+    if args.bit_layout:
+        args.storage_layout = True
     if args.payload_layout:
         args.storage_layout = True
     if args.storage_layout:
@@ -355,7 +361,7 @@ def cmd_anim(args) -> int:
             try:
                 for dictionary in anim_clips.scan_dictionaries(path, start=args.start, limit=limit,
                                                                max_nodes=remaining_nodes, with_components=args.clip_components,
-                                                               with_packed_layout=args.packed_layout, with_channels=args.channel_layout, with_storage=args.storage_layout, with_payloads=args.payload_layout):
+                                                               with_packed_layout=args.packed_layout, with_channels=args.channel_layout, with_storage=args.storage_layout, with_payloads=args.payload_layout, with_bitrows=args.bit_layout, with_lookups=args.lookup_candidates, with_prefix=args.prefix_layout):
                     clip_dictionaries.append(dictionary)
                     remaining_nodes -= dictionary.get('summary', {}).get('nodes', 0)
                     names.update(e['name']['value'] for e in dictionary.get('entries', [])
@@ -375,6 +381,9 @@ def cmd_anim(args) -> int:
                      or r.get('summary', {}).get('channel_layouts_unresolved', 0)
                      or r.get('summary', {}).get('storage_layouts_unresolved', 0)
                      or r.get('summary', {}).get('payload_layouts_unresolved', 0)
+                     or r.get('summary', {}).get('bitrow_layouts_unresolved', 0)
+                     or r.get('summary', {}).get('lookup_layouts_unresolved', 0)
+                     or r.get('summary', {}).get('prefix_layouts_unresolved', 0)
                      for r in resources + clip_dictionaries))
     if not records:
         print("no animation streams found")
@@ -427,6 +436,18 @@ def cmd_anim(args) -> int:
             for key in ('payload_layouts_attempted', 'payload_layouts_resolved', 'payload_layouts_unresolved',
                         'payload_word_records', 'payload_words', 'payload_slot_candidates'):
                 clip_summary[key] = sum(r.get('summary', {}).get(key, 0) for r in clip_dictionaries)
+        if args.bit_layout:
+            for key in ('bitrow_layouts_attempted', 'bitrow_layouts_resolved', 'bitrow_layouts_unresolved',
+                        'bitrow_fixed_records', 'bitrow_variable_records', 'bitrow_raw_rows', 'bitrow_nonzero_views'):
+                clip_summary[key] = sum(r.get('summary', {}).get(key, 0) for r in clip_dictionaries)
+        if args.lookup_candidates:
+            for key in ('lookup_layouts_attempted', 'lookup_layouts_resolved', 'lookup_layouts_unresolved',
+                        'lookup_records', 'lookup_entries', 'lookup_index_observations'):
+                clip_summary[key] = sum(r.get('summary', {}).get(key, 0) for r in clip_dictionaries)
+        if args.prefix_layout:
+            for key in ('prefix_layouts_attempted', 'prefix_layouts_resolved', 'prefix_layouts_unresolved',
+                        'prefix_triplet_records', 'prefix_raw_words', 'prefix_opaque_records'):
+                clip_summary[key] = sum(r.get('summary', {}).get(key, 0) for r in clip_dictionaries)
         detail.update(clip_record_summary=clip_summary, clip_dictionaries=clip_dictionaries)
         if not args.json:
             print(f"named clips: {clip_summary['clips_linked']:,} linked, "
@@ -446,14 +467,27 @@ def cmd_anim(args) -> int:
                       f"{clip_summary['channel_layouts_unresolved']:,} unresolved; "
                       f"{clip_summary['channel_slots']:,} slot associations; group meanings remain unknown")
             if args.storage_layout:
+                storage_bit_label = 'unresolved in storage-only view' if args.bit_layout else 'unknown'
                 print(f"storage layouts: {clip_summary['storage_layouts_resolved']:,} resolved, "
                       f"{clip_summary['storage_layouts_unresolved']:,} unresolved; "
                       f"{clip_summary['stored_sample_rows']:,} opaque sample rows; "
-                      f"{clip_summary['sample_bit_layouts_unresolved']:,} bit grammars unknown")
+                      f"{clip_summary['sample_bit_layouts_unresolved']:,} bit grammars {storage_bit_label}")
             if args.payload_layout:
                 print(f"payload word inventories: {clip_summary['payload_layouts_resolved']:,} resolved, "
                       f"{clip_summary['payload_layouts_unresolved']:,} unsupported; "
                       f"{clip_summary['payload_words']:,} raw words; slot associations unconfirmed")
+            if args.bit_layout:
+                print(f"bit-row layouts: {clip_summary['bitrow_layouts_resolved']:,} resolved, "
+                      f"{clip_summary['bitrow_layouts_unresolved']:,} unresolved; "
+                      f"{clip_summary['bitrow_nonzero_views']:,} nonzero-table views; scalar and codec meanings unknown")
+            if args.lookup_candidates:
+                print(f"lookup candidate views: {clip_summary['lookup_layouts_resolved']:,} checked, "
+                      f"{clip_summary['lookup_layouts_unresolved']:,} unresolved; "
+                      f"{clip_summary['lookup_entries']:,} raw entries; order and channel assignments unconfirmed")
+            if args.prefix_layout:
+                print(f"prefix layouts: {clip_summary['prefix_layouts_resolved']:,} resolved, "
+                      f"{clip_summary['prefix_layouts_unresolved']:,} unresolved; "
+                      f"{clip_summary['prefix_raw_words']:,} raw words / {clip_summary['prefix_opaque_records']:,} opaque records; associations unknown")
             reasons = [(r['offset'], r['reason']) for r in clip_dictionaries if r['status'] == 'refused']
             reasons += [(r['offset'], e['reason']) for r in clip_dictionaries for e in r.get('entries', [])
                         if e['status'] == 'unresolved']
@@ -488,6 +522,30 @@ def cmd_anim(args) -> int:
                             if segment['animation'].get('packed_layout', {}).get('status') == 'complete'
                             for buffer in segment['animation']['packed_layout']['buffers']
                             if buffer['payload_layout']['status'] == 'unresolved']
+            if args.bit_layout:
+                reasons += [(r['offset'], buffer['bitrow_layout']['reason'])
+                            for r in clip_dictionaries for e in r.get('entries', [])
+                            if e.get('components', {}).get('status') == 'complete'
+                            for group in e['components']['groups'] for segment in group['segments']
+                            if segment['animation'].get('packed_layout', {}).get('status') == 'complete'
+                            for buffer in segment['animation']['packed_layout']['buffers']
+                            if buffer['bitrow_layout']['status'] == 'unresolved']
+            if args.lookup_candidates:
+                reasons += [(r['offset'], buffer['lookup_layout']['reason'])
+                            for r in clip_dictionaries for e in r.get('entries', [])
+                            if e.get('components', {}).get('status') == 'complete'
+                            for group in e['components']['groups'] for segment in group['segments']
+                            if segment['animation'].get('packed_layout', {}).get('status') == 'complete'
+                            for buffer in segment['animation']['packed_layout']['buffers']
+                            if buffer['lookup_layout']['status'] == 'unresolved']
+            if args.prefix_layout:
+                reasons += [(r['offset'], buffer['prefix_layout']['reason'])
+                            for r in clip_dictionaries for e in r.get('entries', [])
+                            if e.get('components', {}).get('status') == 'complete'
+                            for group in e['components']['groups'] for segment in group['segments']
+                            if segment['animation'].get('packed_layout', {}).get('status') == 'complete'
+                            for buffer in segment['animation']['packed_layout']['buffers']
+                            if buffer['prefix_layout']['status'] == 'unresolved']
             for offset, reason in reasons[:args.max]:
                 print(f"  clip dictionary at 0x{offset:x}: {reason}")
     if args.out:
@@ -947,7 +1005,7 @@ def cmd_psin(args) -> int:
     if not targets:
         eprint("no archive matched")
         return 1
-    if args.schema or args.out or args.instances or args.registry or args.registry_out:
+    if args.schema or args.out or args.instances or args.resource_header or args.record_graph or args.registry or args.registry_out:
         return _cmd_psin_schema(args, targets)
     if args.names:
         eprint("--names requires --schema, --instances or --out")
@@ -1013,8 +1071,13 @@ def cmd_psin(args) -> int:
 def _cmd_psin_schema(args, targets: list[str]) -> int:
     from . import names as names_mod, psin_schema, psin_registry
 
+    if args.record_graph:
+        args.instances = True
     if args.max < 0 or (not args.full and args.limit < 0):
         eprint("--max and --limit must be nonnegative")
+        return 1
+    if args.resource_header and args.max_nodes < 1:
+        eprint('--max-nodes must be positive')
         return 1
     if args.instances and (args.max_nodes < 1 or not 1 <= args.max_depth <= 64):
         eprint('--max-nodes must be positive and --max-depth must be 1..64')
@@ -1054,7 +1117,7 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
     except (OSError, ValueError) as exc:
         eprint(f'cannot build/load PSIN registry: {exc}')
         return 1
-    if args.registry_out and not (args.schema or args.out or args.instances):
+    if args.registry_out and not (args.schema or args.out or args.instances or args.resource_header):
         result = dict(format='gta6x-psin-registry-build-v1', summary=registry.summary(), build=build)
         if args.json:
             print(json.dumps(result, indent=2))
@@ -1067,7 +1130,7 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
         return 1 if build['refused'] else 0
     report = psin_schema.inspect_sources(
         targets, limit=None if args.full else args.limit * 1024 * 1024,
-        dictionary=dictionary, with_instances=args.instances,
+        dictionary=dictionary, with_instances=args.instances, with_resource_header=args.resource_header, with_record_graph=args.record_graph,
         max_nodes=args.max_nodes, max_depth=args.max_depth, registry=registry)
     if build is not None:
         report['registry_build'] = build
@@ -1120,10 +1183,26 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
                 print(f"reference fields: linked {info['instance_reference_fields_linked']:,}"
                       f"   nulls {info['instance_reference_fields_null']:,}"
                       f"   unresolved {info['instance_reference_fields_unresolved']:,}")
+            if info['instance_text_reference_fields_attempted']:
+                print(f"text fields: linked {info['instance_text_reference_pool_entries_linked']:,}"
+                      f"   unresolved {info['instance_text_reference_fields_unresolved']:,}")
             if info['instance_maps_resolved'] or info['instance_maps_unresolved']:
                 print(f"maps: resolved {info['instance_maps_resolved']:,}"
                       f"   entry links {info['instance_map_entries_linked']:,}"
                       f"   unresolved {info['instance_maps_unresolved']:,}")
+        if args.resource_header or args.record_graph:
+            print(f"LRSC headers: {info['resource_headers_complete']:,} complete, "
+                  f"{info['resource_headers_unresolved']:,} unresolved, "
+                  f"{info['resource_headers_refused']:,} refused; "
+                  f"{info['resource_header_record_candidates']:,} record candidates; roles unconfirmed")
+        if args.record_graph:
+            print(f"record association views: {info['record_graph_resources_complete']:,} complete, "
+                  f"{info['record_graph_resources_partial']:,} partial, "
+                  f"{info['record_graph_resources_refused']:,} refused; "
+                  f"{info['record_graph_records']:,} records / {info['record_graph_edges']:,} links")
+            print(f"candidate reachability: {info['record_graph_reachable_records']:,} records; "
+                  f"{info['record_graph_unanchored']:,} unanchored resources; "
+                  f"{info['record_graph_depth_limited']:,} depth-limited views")
         print(report['interpretation'])
         if registry is not None:
             print(f"registry: {registry.summary()['schema_pairs']:,} schema pairs; local definitions take precedence")
@@ -1132,10 +1211,17 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
                 eprint(f"{resource['file']}:{resource.get('offset', 0):#x}: {resource['error']}")
             elif resource.get('instances', {}).get('status') == 'refused':
                 eprint(f"{resource['file']}:{resource.get('offset', 0):#x}: instances: {resource['instances']['reason']}")
+            if args.resource_header and resource.get('resource_header', {}).get('status') in ('unresolved', 'refused'):
+                eprint(f"{resource['file']}:{resource.get('offset', 0):#x}: resource header: {resource['resource_header']['reason']}")
+            if resource.get('record_graph', {}).get('status') == 'refused':
+                eprint(f"{resource['file']}:{resource.get('offset', 0):#x}: record graph: {resource['record_graph']['reason']}")
         if args.out:
             print(f"schema JSON: {args.out}")
     return 1 if (report['summary']['resources_refused']
                  or report['summary'].get('instance_resources_refused', 0)
+                 or (args.resource_header and (report['summary'].get('resource_headers_unresolved', 0)
+                                              or report['summary'].get('resource_headers_refused', 0)))
+                 or report['summary'].get('record_graph_resources_refused', 0)
                  or (build is not None and build['refused'])) else 0
 
 
@@ -1523,14 +1609,31 @@ def cmd_awc(args) -> int:
     written = 0
     ogg_written = 0
     music_written = 0
+    music_wav_written = 0
+    music_wav_failed = False
+    music_wav_skipped: dict[str, int] = {}
     wav_written = 0
     wav_failed = False
+    ogg_failed = False
     wav_skipped: dict[str, int] = {}
-    if args.opus_library and not args.wav_out:
-        eprint("--opus-library requires --wav-out")
+    ogg_skipped: dict[str, int] = {}
+    if args.opus_library and not (args.wav_out or args.music_wav_out):
+        eprint("--opus-library requires --wav-out or --music-wav-out")
         return 1
     if not 0 <= args.wav_pre_skip <= 5760:
         eprint("--wav-pre-skip must be between 0 and 5760 frames")
+        return 1
+    if args.music_skip_policy != "zero" and not args.music_wav_out:
+        eprint("--music-skip-policy verified-overlap requires --music-wav-out")
+        return 1
+    if args.ogg_policy != "legacy" and not args.ogg_out:
+        eprint("--ogg-policy declared requires --ogg-out")
+        return 1
+    if args.ogg_pre_skip is not None and not 0 <= args.ogg_pre_skip <= 5760:
+        eprint("--ogg-pre-skip must be between 0 and 5760 frames")
+        return 1
+    if args.ogg_pre_skip is not None and (not args.ogg_out or args.ogg_policy != "declared"):
+        eprint("--ogg-pre-skip requires --ogg-out and --ogg-policy declared")
         return 1
     for path in targets:
         hits = _collect(path, ("awc",), limit, args)
@@ -1593,22 +1696,87 @@ def cmd_awc(args) -> int:
                                 out.write(blob)
                             record.setdefault("music_files", []).append(dest)
                             music_written += 1
+                if args.music_wav_out:
+                    from . import audio_music_pcm, audio_pcm
+                    music_pcm_backend = audio_music_pcm
+                    music_pcm_options = {}
+                    if args.music_skip_policy == "verified-overlap":
+                        from . import audio_music_skips
+                        music_pcm_backend = audio_music_skips
+                        music_pcm_options['skip_policy'] = 'verified-overlap'
+                    os.makedirs(args.music_wav_out, exist_ok=True)
+                    stem = os.path.splitext(os.path.basename(path))[0]
+                    for stream in streams:
+                        if not stream.get("music"):
+                            continue
+                        try:
+                            music_view = music_pcm_backend.inspect_channels(buf, stream, **music_pcm_options)
+                        except ValueError as exc:
+                            reason = str(exc)
+                            unsupported = isinstance(exc, audio_music_pcm.MusicUnsupportedError)
+                            music_wav_failed = music_wav_failed or not unsupported
+                            music_wav_skipped[reason] = music_wav_skipped.get(reason, 0) + 1
+                            record.setdefault("music_wav_skipped", []).append(dict(
+                                stream_index=stream['index'], channel_index=None, reason=reason,
+                                unsupported=unsupported, decoder_unavailable=False))
+                            continue
+                        for channel in music_view['channels']:
+                            index = channel['index']
+                            try:
+                                if not channel['supported_wav']:
+                                    raise audio_music_pcm.MusicUnsupportedError(channel['reason'])
+                                blob, music_pcm_info = music_pcm_backend.extract_wav(
+                                    buf, stream, index, library_path=args.opus_library,
+                                    pre_skip=args.wav_pre_skip, **music_pcm_options)
+                            except (ValueError, audio_pcm.OpusUnavailableError) as exc:
+                                reason = str(exc)
+                                unsupported = isinstance(exc, audio_music_pcm.MusicUnsupportedError)
+                                unavailable = isinstance(exc, audio_pcm.OpusUnavailableError)
+                                music_wav_failed = music_wav_failed or not unsupported
+                                music_wav_skipped[reason] = music_wav_skipped.get(reason, 0) + 1
+                                record.setdefault("music_wav_skipped", []).append(dict(
+                                    stream_index=stream['index'], channel_index=index, reason=reason,
+                                    unsupported=unsupported, decoder_unavailable=unavailable))
+                                continue
+                            dest = os.path.join(args.music_wav_out,
+                                f"{stem}_{hit.offset:09x}_s{stream['index']}_c{index}.wav")
+                            with open(dest, "wb") as out:
+                                out.write(blob)
+                            record.setdefault("music_wav_files", []).append(dest)
+                            record.setdefault("music_wav_metadata", []).append(dict(
+                                music_pcm_info, stream_index=stream['index'], file=dest))
+                            music_wav_written += 1
                 if args.ogg_out:
                     from . import audio as audio_mod
                     os.makedirs(args.ogg_out, exist_ok=True)
                     stem = os.path.splitext(os.path.basename(path))[0]
                     for stream in streams:
-                        if stream.get("codec_name") != "opus":
+                        if stream.get("codec_name") != "opus" and args.ogg_policy == "legacy":
                             continue
                         name = f"{stem}_{hit.offset:09x}_s{stream['index']}.opus"
                         dest = os.path.join(args.ogg_out, name)
                         try:
-                            blob = audio_mod.extract_ogg(buf, stream, title=name)
-                        except ValueError:
+                            if args.ogg_policy == "declared":
+                                from . import audio_ogg
+                                skip = 312 if args.ogg_pre_skip is None else args.ogg_pre_skip
+                                blob, ogg_info = audio_ogg.extract_ogg(buf, stream, pre_skip=skip, title=name)
+                            else:
+                                blob = audio_mod.extract_ogg(buf, stream, title=name)
+                                ogg_info = None
+                        except ValueError as exc:
+                            if args.ogg_policy == "declared":
+                                reason = str(exc)
+                                candidate = (stream.get("codec") == 0x0b and not stream.get("music")
+                                             and stream.get("channels") == 1 and stream.get("sample_rate") == 48000)
+                                ogg_failed = ogg_failed or candidate
+                                ogg_skipped[reason] = ogg_skipped.get(reason, 0) + 1
+                                record.setdefault("ogg_skipped", []).append(dict(stream_index=stream['index'], reason=reason))
                             continue
                         with open(dest, "wb") as out:
                             out.write(blob)
                         record.setdefault("ogg_files", []).append(dest)
+                        if ogg_info is not None:
+                            record.setdefault("ogg_metadata", []).append(dict(ogg_info, stream_index=stream['index'], file=dest))
                         ogg_written += 1
                 if args.wav_out:
                     from . import audio_pcm
@@ -1643,7 +1811,7 @@ def cmd_awc(args) -> int:
 
     if args.json:
         print(json.dumps(records, indent=2))
-        return int(wav_failed)
+        return int(wav_failed or ogg_failed or music_wav_failed)
     if not rows:
         print("no AWC containers found")
         return 0
@@ -1653,13 +1821,25 @@ def cmd_awc(args) -> int:
           + (f"; {written} raw payload(s) written to {args.raw_out}" if args.raw_out else "")
           + (f"; {ogg_written} Ogg Opus file(s) written to {args.ogg_out}" if args.ogg_out else "")
           + (f"; {music_written} music-channel Ogg file(s) written to {args.music_out}" if args.music_out else "")
-          + (f"; {wav_written} PCM WAV file(s) written to {args.wav_out}" if args.wav_out else ""))
+          + (f"; {wav_written} PCM WAV file(s) written to {args.wav_out}" if args.wav_out else "")
+          + (f"; {music_wav_written} music-channel WAV file(s) written to {args.music_wav_out}" if args.music_wav_out else ""))
     if args.wav_out:
         for reason, count in sorted(wav_skipped.items(), key=lambda item: -item[1]):
             print(f"  WAV skipped {count:,}: {reason}")
         print(f"WAV uses {args.wav_pre_skip} pre-skip frames and declared duration; original sample alignment is unconfirmed")
+    if args.music_wav_out:
+        for reason, count in sorted(music_wav_skipped.items(), key=lambda item: -item[1]):
+            print(f"  music WAV skipped {count:,}: {reason}")
+        if args.music_skip_policy == "zero":
+            print(f"Music WAV requires zero block skips; {args.wav_pre_skip} pre-skip frames and original alignment remain unconfirmed")
+        else:
+            print(f"Music WAV verifies whole-packet overlaps; {args.wav_pre_skip} pre-skip frames and original alignment remain unconfirmed")
+    if args.ogg_policy == "declared":
+        for reason, count in sorted(ogg_skipped.items(), key=lambda item: -item[1]):
+            print(f"  declared-length Ogg skipped {count:,}: {reason}")
+        print("Ogg uses explicit pre-skip and declared duration; original sample alignment is unconfirmed")
     print("raw payloads keep their native codec; --ogg-out remuxes Opus losslessly; --music-out extracts one Ogg per music channel")
-    return int(wav_failed)
+    return int(wav_failed or ogg_failed or music_wav_failed)
 
 
 def _find_pools(root: str, wanted: list[str]) -> list[str]:
@@ -2701,10 +2881,11 @@ def cmd_selftest(args) -> int:
     _s.pack_into('<II', instance_schema, 48, 1, 0)
     _s.pack_into('<II', instance_schema, 64, 0x21, 0)
 
-    def instance_fixture(ls, body=instance_body, enm=None):
+    def instance_fixture(ls, body=instance_body, enm=None, lrsc=None):
         value = body + bytes(ls)
         value += b'LENM' + _s.pack('>I', 8) if enm is None else bytes(enm)
-        value += b''.join(tag + _s.pack('>I', 8) for tag in (b'LSNS', b'LGID', b'LRSC'))
+        value += b''.join(tag + _s.pack('>I', 8) for tag in (b'LSNS', b'LGID'))
+        value += b'LRSC' + _s.pack('>I', 8 + len(lrsc or b'')) + (lrsc or b'')
         trailer = len(value)
         value += b'CHKS' + _s.pack('>III', 20, trailer + 20, 0) + b'zppp'
         checksum = _psin.container_checksum(value, trailer)
@@ -2921,13 +3102,13 @@ def cmd_selftest(args) -> int:
         + _s.pack('<4I', 0x87654321, 0, 7, 0)
         + _s.pack('<4I', 0x12345678, 0, 0x4a, 0))
 
-    def reference_field_fixture(word=2):
+    def reference_field_fixture(word=2, lrsc=None):
         body = (b'PSIN' + _s.pack('>I', 80)
             + _s.pack('<II', 0x11223344, 8) + b'\xaa' * 8
             + _s.pack('<II', 0x22334455, 8) + b'\xaa' * 8 + b'p' * 8
             + _s.pack('<Q', word) + bytes(8)
             + _s.pack('<II', 0x11111111, 0x22222222) + bytes(8))
-        return instance_fixture(reference_field_schema, body)
+        return instance_fixture(reference_field_schema, body, lrsc=lrsc)
 
     field_data = reference_field_fixture()
     field_report = _instances.decode_instances(field_data)
@@ -3450,6 +3631,418 @@ def cmd_selftest(args) -> int:
           and _s.unpack_from('<I', pcm_wav, 24)[0] == 48000
           and pcm_wav[44:] == pcm_bytes)
 
+    from . import audio_ogg as _audio_ogg
+    declared_ogg, declared_info = _audio_ogg.ogg_opus([b'\0'] * 3, 600, pre_skip=0)
+    check('declared Ogg retains the packet prefix and exact final granule',
+          declared_ogg[:4] == b'OggS' and declared_info['retained_packet_count'] == 2
+          and declared_info['dropped_tail_packets'] == 1 and declared_info['final_granule'] == 600)
+    boundary_ogg, boundary_info = _audio_ogg.ogg_opus([b'\0'] * 3, 960, pre_skip=0)
+    check('declared Ogg handles an exact packet-boundary end without an extra packet',
+          boundary_info['retained_packet_count'] == 2 and boundary_info['final_packet_trim_frames'] == 0)
+    try:
+        _audio_ogg.ogg_opus([b'\0', b'\x02'], 1, pre_skip=0)
+        malformed_tail_refused = False
+    except ValueError:
+        malformed_tail_refused = True
+    check('declared Ogg validates omitted source packet tails before emission', malformed_tail_refused)
+
+    from . import audio_music_pcm as _music_pcm
+    music_descriptor = (_s.pack('<3I', 1, 4096, 1)
+                        + _s.pack('<IIHHB3x', 7, 4, 0, 48000, 11))
+    music_block_header = _s.pack('<6I', 0xffffffff, 1, 0, 480, 0, 0) + _s.pack('<I', 0)
+    music_packet_block = _s.pack('<H', 1) + b'\0' + bytes(2045)
+    music_block = music_block_header + bytes(2048-len(music_block_header)) + music_packet_block
+    music_bank = music_descriptor + bytes(2048-len(music_descriptor)) + music_block
+    music_entry = dict(data_offset=2048, data_bytes=4096, music_offset=0, music_size=28,
+        music=dict(blocks=1, chunk_bytes=4096, channels=[dict(index=0, id=7, samples=4,
+                                                          sample_rate=48000, codec=11)]))
+    music_storage = _music_pcm.inspect_channels(music_bank, music_entry)
+    check('music WAV framing validates full channel allocations without a decoder',
+          music_storage['summary']['supported_channels'] == 1
+          and music_storage['channels'][0]['spans'][0]['data_offset'] == 4096)
+    try:
+        _music_pcm.inspect_channels(music_bank[:-1], music_entry)
+        music_truncation_refused = False
+    except ValueError:
+        music_truncation_refused = True
+    check('music WAV framing cannot consume a truncated allocation', music_truncation_refused)
+    two_descriptor = _s.pack('<3I', 2, 4096, 1) + music_descriptor[12:]
+    second_music_block = bytearray(music_block)
+    _s.pack_into('<I', second_music_block, 8, 1)
+    _s.pack_into('<I', second_music_block, 24, 479)
+    two_music_bank = two_descriptor + bytes(2048-len(two_descriptor)) + music_block + bytes(second_music_block)
+    two_music_entry = dict(music_entry, data_bytes=8192,
+        music=dict(music_entry['music'], blocks=2))
+    try:
+        _music_pcm.extract_wav(two_music_bank, two_music_entry)
+        unknown_music_skip_refused = False
+    except _music_pcm.MusicUnsupportedError:
+        unknown_music_skip_refused = True
+    check('music WAV refuses unconfirmed nonzero skips before decoder loading', unknown_music_skip_refused)
+
+    from . import move_children as _move_children
+    descriptor_child = bytearray(48)
+    _s.pack_into('<HHI', descriptor_child, 0, 22, 0, 0x12345678)
+    descriptor_child[18:20] = bytes((1, 1))
+    _s.pack_into('<4I', descriptor_child, 32, 0, 12, 28, 1)
+    descriptor_child.extend(bytes(16) + _s.pack('<I', 20))
+    descriptor_child.extend(_s.pack('<IH6B', 12, 0, 0, 0, 0, 0, 0, 0))
+    descriptor_child.extend(_s.pack('<HHI', 31337, 0, 0x87654321))
+    child_root = bytearray(84)
+    _s.pack_into('<HHI', child_root, 0, 1, 0, 0xabcdef01)
+    _s.pack_into('<H', child_root, 18, 1)
+    _s.pack_into('<I', child_root, 36, 60)
+    child_root.extend(_s.pack('<3I', 12, 0x12345678, 4) + descriptor_child)
+    child_view = _move_children.inspect_payload(bytes(child_root), 0, len(child_root))
+    check('MoVE child prefixes validate extension lengths and descriptor spans',
+          child_view['status'] == 'complete' and child_view['summary']['resolved'] == 1
+          and child_view['children'][0]['extensions'][0]['byte_length'] == 20
+          and child_view['children'][0]['descriptor_table']['data_offset'] == 164)
+    bad_child_root = bytearray(child_root)
+    _s.pack_into('<I', bad_child_root, 160, 24)
+    bad_child_view = _move_children.inspect_payload(bytes(bad_child_root), 0, len(bad_child_root))
+    check('MoVE malformed child prefixes preserve explicit unsupported status without prefix records',
+          bad_child_view['summary']['unresolved'] == 1
+          and bad_child_view['children'][0]['descriptors'] == [])
+    try:
+        _move_children.inspect_payload(bytes(child_root), 0, len(child_root),
+                                       max_nodes=child_view['summary']['nodes']-1)
+        child_budget_refused = False
+    except _move.MoveLimitError:
+        child_budget_refused = True
+    check('MoVE child prefix rows share a bounded output budget', child_budget_refused)
+
+    # Contextual text links select an existing bounded pool entry, without a
+    # global schema type annotation or a second decoded string observation.
+    text_schema = (b'LSCH' + _s.pack('>I', 56)
+        + _s.pack('<4I8sIHH', 0x11223344, 0, 0, 0, b'\xaa' * 8, 24, 0, 1)
+        + _s.pack('<4I', 0x12345678, 0, 0x44, 0))
+    text_body = (b'PSIN' + _s.pack('>I', 96)
+        + _s.pack('<II', 0x11223344, 24) + b'\xaa' * 8
+        + _s.pack('<II', 0x10, 11) + b'\xaa' * 8 + b'p' * 8
+        + _s.pack('<QHHIQ', (6 << 20) | 2, 4, 5, 1, 0) + bytes(8)
+        + b'Alpha\0Beta\0' + bytes(5))
+    text_report = _instances.decode_instances(instance_fixture(text_schema, text_body))
+    text_field = text_report['blocks'][0]['records'][0]['fields'][0]
+    check('PSIN contextual text header links an existing exact ASCII pool entry',
+          text_field['text_reference']['status'] == 'pool_element_reference'
+          and text_field['text_reference']['pool_element_index'] == 1
+          and text_report['summary']['decoded_values'] == 2 and text_field['type_name'] is None)
+    bad_text_body = bytearray(text_body)
+    _s.pack_into('<Q', bad_text_body, 48, (7 << 20) | 2)
+    bad_text = _instances.decode_instances(instance_fixture(text_schema, bad_text_body))
+    check('PSIN contextual text rejects an interior substring without guessing a target',
+          bad_text['summary']['text_reference_fields_unresolved'] == 1
+          and 'pool_element_index' not in bad_text['blocks'][0]['records'][0]['fields'][0]['text_reference'])
+    bad_text_header = bytearray(text_body)
+    _s.pack_into('<H', bad_text_header, 56, 3)
+    bad_text = _instances.decode_instances(instance_fixture(text_schema, bad_text_header))
+    check('PSIN contextual text rejects inconsistent lengths while preserving pool values',
+          bad_text['summary']['text_reference_fields_unresolved'] == 1
+          and bad_text['summary']['decoded_values'] == 2)
+
+    from . import audio_music_skips as _music_skips
+    overlap_packet = _s.pack('<H', 2) + b'\x08A' + bytes(2044)
+    overlap_first = music_block_header + bytes(2048-len(music_block_header)) + overlap_packet
+    overlap_second = bytearray(overlap_first)
+    _s.pack_into('<I', overlap_second, 8, 960)
+    overlap_bank = two_descriptor + bytes(2048-len(two_descriptor)) + overlap_first + bytes(overlap_second)
+    overlap_view = _music_skips.inspect_channels(overlap_bank, two_music_entry,
+                                                skip_policy='verified-overlap')
+    check('music overlap verifies whole compressed packet identity before decoder loading',
+          overlap_view['channels'][0]['supported_wav']
+          and overlap_view['channels'][0]['packet_overlap'][1]['repeated_frames'] == 960)
+    bad_overlap_bank = bytearray(overlap_bank)
+    bad_overlap_bank[8195] = ord('B')
+    bad_overlap = _music_skips.inspect_channels(bytes(bad_overlap_bank), two_music_entry,
+                                               skip_policy='verified-overlap')
+    check('music overlap refuses same-duration packets with different compressed bytes',
+          not bad_overlap['channels'][0]['supported_wav'])
+    check('music overlap remains opt-in and preserves the original zero policy',
+          _music_skips.inspect_channels(overlap_bank, two_music_entry)
+              == _music_pcm.inspect_channels(overlap_bank, two_music_entry))
+
+    from . import move_tail_forms as _move_tail_forms
+    tail_kind3 = bytearray(84)
+    _s.pack_into('<HHI', tail_kind3, 0, 3, 0, 0x12345678)
+    tail_kind3[18] = 1
+    _s.pack_into('<I', tail_kind3, 8, 112)
+    _s.pack_into('<I', tail_kind3, 80, 1)
+    tail_kind3.extend(_s.pack('<5I', 20, 1, 40, 0x87654321, 20))
+    tail_kind3.extend(_s.pack('<HH', 16, 257) + bytes(12))
+    tail_kind3.extend(_s.pack('<HHI', 22, 0, 0x87654321) + b'body' + b'opaque tail!')
+    tail_parent = bytearray(48)
+    _s.pack_into('<HHI', tail_parent, 0, 22, 0, 0xabcdef01)
+    _s.pack_into('<H', tail_parent, 18, 1)
+    _s.pack_into('<3I', tail_parent, 32, 0, 12, 8)
+    tail_payload = bytes(tail_parent) + bytes(tail_kind3)
+    tail_view = _move_tail_forms.inspect_payload(tail_payload, 0, len(tail_payload))
+    check('MoVE kind-3 storage bounds reference rows and counted opaque records',
+          tail_view['status'] == 'complete' and tail_view['summary']['references'] == 1
+          and tail_view['forms'][0]['records'][0]['byte_length'] == 16)
+    bad_tail = bytearray(tail_payload)
+    _s.pack_into('<I', bad_tail, 48 + 96, 0)
+    bad_tail_view = _move_tail_forms.inspect_payload(bytes(bad_tail), 0, len(bad_tail))
+    check('MoVE kind-3 hash mismatch emits no partial deeper records',
+          bad_tail_view['summary']['unresolved'] == 1
+          and bad_tail_view['forms'][0]['references'] == []
+          and bad_tail_view['forms'][0]['records'] == [])
+    try:
+        _move_tail_forms.inspect_payload(tail_payload, 0, len(tail_payload),
+                                        max_nodes=tail_view['summary']['nodes']-1)
+        tail_budget_refused = False
+    except _move.MoveLimitError:
+        tail_budget_refused = True
+    check('MoVE kind-3 references and opaque records share a metadata budget', tail_budget_refused)
+
+    # Kind-12 stores five counted groups. Cell bits remain opaque.
+    counted_header = bytearray(52)
+    _s.pack_into('<HHI', counted_header, 0, 12, 0, 0x12345678)
+    _s.pack_into('<I', counted_header, 12, 0x1156)
+    counted_cells = (bytes(counted_header) + _s.pack('<IIQQ', 2, 10, 0xffffffffffffffff, 7)
+                     + _s.pack('<4I', 0, 0, 0, 0))
+    counted_payload = bytes(tail_parent) + counted_cells
+    counted_view = _move_tail_forms.inspect_payload(counted_payload, 0, len(counted_payload))
+    check('MoVE kind-12 bounds five counted groups and retains opaque cell bits once',
+          counted_view['status'] == 'complete' and counted_view['summary']['opaque_cells'] == 2
+          and len(counted_view['forms'][0]['groups']) == 5
+          and counted_view['forms'][0]['records'] == [])
+    bad_counted = bytearray(counted_payload)
+    _s.pack_into('<I', bad_counted, 48 + 56, 0x8000000a)
+    bad_counted_view = _move_tail_forms.inspect_payload(bytes(bad_counted), 0, len(bad_counted))
+    check('MoVE kind-12 rejects nonzero unused selector bits without prefix groups',
+          bad_counted_view['summary']['unresolved'] == 1
+          and 'groups' not in bad_counted_view['forms'][0])
+    try:
+        _move_tail_forms.inspect_payload(counted_payload, 0, len(counted_payload),
+                                        max_nodes=counted_view['summary']['nodes']-1)
+        counted_budget_refused = False
+    except _move.MoveLimitError:
+        counted_budget_refused = True
+    check('MoVE kind-12 cells and groups share the output budget', counted_budget_refused)
+
+    from . import psin_nested_maps as _nested_maps
+    nested_owner_fields = [
+        _schema.SchemaField(0, 0x100, 0, 0x15, 0),
+        _schema.SchemaField(16, 0x100, 0, 0x4a, 0),
+        _schema.SchemaField(32, 0x100, 0, 0x4a, 0),
+        _schema.SchemaField(48, 0x100, 0, 0x71, (2 << 16) | 1),
+        _schema.SchemaField(64, 101, 0, 0x71, 3 << 16)]
+    nested_entry_fields = [
+        _schema.SchemaField(0, 102, 0, 0x15, 0),
+        _schema.SchemaField(16, 0x100, 0, 0x4a, 0),
+        _schema.SchemaField(32, 0x100, 0, 0x4a, 0),
+        _schema.SchemaField(48, 103, 8, 0x71, (2 << 16) | 1)]
+    nested_owner = _schema.SchemaStructure(8, 0x11223344, 0, 0, 0, 24, 0, nested_owner_fields)
+    nested_entry = _schema.SchemaStructure(40, 0x22334455, 0, 0, 0, 32, 0, nested_entry_fields)
+    nested_data = _s.pack('<QQHHI', 1, 2, 1, 1, 0) + bytes(40)
+    nested_blocks = [_instances.InstanceBlock(0, 8, 0x11223344, 24, 0),
+                     _instances.InstanceBlock(1, 24, 0x22334455, 32, 32)]
+    def nested_resolve(data=nested_data, structures=None):
+        return _nested_maps.resolve_entries(data, 0, nested_owner_fields[4], nested_owner,
+            24, nested_blocks, local_owner=True,
+            local_structures={0x22334455: [nested_entry]} if structures is None else structures,
+            consume=lambda: None)
+    nested_link = nested_resolve()
+    check('PSIN nested maps compare local descriptor trees and link existing bounded rows',
+          nested_link['status'] == 'complete' and nested_link['key_type'] == 'opaque'
+          and nested_link['entries'][0]['record_index'] == 0
+          and 'value' not in nested_link['entries'][0])
+    from dataclasses import replace as _replace
+    wrong_nested_entry = _replace(nested_entry, fields=[
+        _replace(nested_entry_fields[0], type_word=0x4a)] + nested_entry_fields[1:])
+    mismatched_nested = nested_resolve(structures={0x22334455: [wrong_nested_entry]})
+    check('PSIN nested maps refuse different descriptor trees without prefix links',
+          mismatched_nested['status'] == 'unresolved' and mismatched_nested['entries'] == [])
+    empty_nested = nested_resolve(_s.pack('<QQHHI', 1, 0, 0, 0, 0) + bytes(40))
+    check('PSIN nested maps leave unvalidated empty profiles explicit',
+          empty_nested['status'] == 'unresolved' and 'empty' in empty_nested['reason'])
+
+    from . import anim_bitrows as _anim_bitrows
+    bit_prefix = (_s.pack('<III', 5, 0xdeadbeef, 0x7fc00000)
+                  + _s.pack('<6I', 3, 19, 1, 0x80000000, 0x7f800000, 0x12345678))
+    bit_rows = _s.pack('<3I', 1, 127, 255)
+    bit_directory = (_s.pack('<11H', 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0)
+                     + _s.pack('<8H', 0, 8, 8, 8, 1, 8, 8, 8))
+    bit_end = 32 + len(bit_prefix) + len(bit_rows) + len(bit_directory)
+    bit_header = _s.pack('<5I5H2B', 0x12345678, bit_end-32, 0, len(bit_prefix),
+                         bit_end, 2, 3, 4, 6, 5, 11, 0)
+    bit_buffer = bit_header + bit_prefix + bit_rows + bit_directory
+    def inspect_bit_buffer(data):
+        return _anim_bitrows.inspect_buffer(data, 0, len(data), 2, consume=lambda n=1: None)
+    bit_view = inspect_bit_buffer(bit_buffer)
+    check('animation counted width tables explain complete opaque row widths',
+          bit_view['status'] == 'complete' and bit_view['row_layout']['active_bits_per_row'] == 8
+          and [int(r['raw_bits'], 16) for r in bit_view['rows']] == [1, 127, 255]
+          and 'unconfirmed' in bit_view['association_status'])
+    bad_bit_padding = bytearray(bit_buffer)
+    _s.pack_into('<I', bad_bit_padding, 68, 1 << 8)
+    bad_bit_view = inspect_bit_buffer(bytes(bad_bit_padding))
+    check('animation bit rows reject nonzero high padding without partial rows',
+          bad_bit_view['status'] == 'unresolved' and bad_bit_view['rows'] == []
+          and bad_bit_view['variable_width_records'] == [])
+    bad_bit_extent = bytearray(bit_buffer)
+    _s.pack_into('<H', bad_bit_extent, 26, 5)
+    bad_bit_view = inspect_bit_buffer(bytes(bad_bit_extent))
+    check('animation variable width-table count must exhaust its independent extent',
+          bad_bit_view['status'] == 'unresolved' and bad_bit_view['fixed_width_records'] == [])
+
+    from . import psin_resource_header as _resource_header
+    lrsc_header = (b'0DRP' + _s.pack('<I', 122) + bytes(8) + _s.pack('<Q', 1)
+                   + b'\xbb' * 32 + _s.pack('<4H', 1, 0, 2, 0) + b'\xbb' * 8 + bytes(8))
+    lrsc_data = instance_fixture(text_schema, text_body, lrsc=lrsc_header)
+    lrsc_view = _resource_header.inspect(lrsc_data)
+    check('PSIN LRSC header counts select one bounded local-record candidate',
+          lrsc_view['status'] == 'complete' and lrsc_view['counts']['blocks'] == 2
+          and lrsc_view['record_candidate']['block_index'] == 0
+          and lrsc_view['record_candidate']['status'] == 'candidate'
+          and 'fields' not in lrsc_view['record_candidate'])
+    bad_lrsc = bytearray(lrsc_header)
+    _s.pack_into('<H', bad_lrsc, 56, 2)
+    bad_lrsc_view = _resource_header.inspect(instance_fixture(text_schema, text_body, lrsc=bytes(bad_lrsc)))
+    check('PSIN LRSC header rejects mismatched independent counts atomically',
+          bad_lrsc_view['status'] == 'unresolved' and 'record_candidate' not in bad_lrsc_view
+          and 'header' not in bad_lrsc_view)
+    _s.pack_into('<H', bad_lrsc, 56, 1)
+    _s.pack_into('<Q', bad_lrsc, 16, (1 << 20) | 1)
+    bad_lrsc_view = _resource_header.inspect(instance_fixture(text_schema, text_body, lrsc=bytes(bad_lrsc)))
+    check('PSIN LRSC selector retains its full word without masking an offset',
+          bad_lrsc_view['status'] == 'unresolved' and 'record_candidate' not in bad_lrsc_view)
+
+    kind11_header = bytearray(44)
+    _s.pack_into('<HHII', kind11_header, 0, 11, 0, 0x12345678, 0x556a)
+    kind11_payload = bytes(tail_parent) + bytes(kind11_header) + _s.pack('<HHI', 31337, 1, 0x87654321)
+    kind11_view = _move_tail_forms.inspect_payload(kind11_payload, 0, len(kind11_payload))
+    check('MoVE kind-11 exposes checked selector headers while keeping remainders opaque',
+          kind11_view['status'] == 'complete' and kind11_view['summary']['header_selector_fields'] == 10
+          and kind11_view['forms'][0]['header']['byte_length'] == 44
+          and kind11_view['forms'][0]['references'] == [])
+    bad_kind11 = bytearray(kind11_payload)
+    _s.pack_into('<I', bad_kind11, 48 + 24, 1)
+    bad_kind11_view = _move_tail_forms.inspect_payload(bytes(bad_kind11), 0, len(bad_kind11))
+    check('MoVE kind-11 rejects inconsistent zero slots without prefix metadata',
+          bad_kind11_view['summary']['unresolved'] == 1
+          and 'header' not in bad_kind11_view['forms'][0]
+          and bad_kind11_view['forms'][0]['opaque_regions'] == [])
+    try:
+        _move_tail_forms.inspect_payload(kind11_payload, 0, len(kind11_payload),
+                                        max_nodes=kind11_view['summary']['nodes']-1)
+        kind11_budget_refused = False
+    except _move.MoveLimitError:
+        kind11_budget_refused = True
+    check('MoVE kind-11 selector metadata shares the node budget', kind11_budget_refused)
+
+    from . import anim_lookups as _anim_lookups
+    lookup_prefix = (_s.pack('<3I', 5, 0x7fc00000, 0x80000000)
+                     + _s.pack('<6I', 2, 5, 1, 0x80000000, 0x7f800000, 0x7ce1))
+    lookup_rows = _s.pack('<4I', 0, 33, 66, 99)
+    lookup_end = 32 + len(lookup_prefix) + len(lookup_rows) + len(bit_directory)
+    lookup_header = _s.pack('<5I5H2B', 0x12345678, lookup_end-32, 0,
+                           len(lookup_prefix), lookup_end, 2, 4, 4, 6, 5, 11, 0)
+    lookup_buffer = lookup_header + lookup_prefix + lookup_rows + bit_directory
+    def inspect_lookup(data):
+        return _anim_lookups.inspect_buffer(data, 0, len(data), 2, consume=lambda n=1: None)
+    lookup_view = inspect_lookup(lookup_buffer)
+    check('animation source-order lookup candidates retain raw entries and uncertain assignments',
+          lookup_view['status'] == 'complete' and lookup_view['entry_count'] == 4
+          and [int(e['raw_bits'], 16) for e in lookup_view['lookup_candidates'][0]['entries']] == [1, 7, 31, 0]
+          and 'unconfirmed' in lookup_view['association_status'])
+    bad_lookup = bytearray(lookup_buffer)
+    _s.pack_into('<I', bad_lookup, 76, 34)
+    bad_lookup_view = inspect_lookup(bytes(bad_lookup))
+    check('animation lookup candidates reject sparse observed indices without prefix entries',
+          bad_lookup_view['status'] == 'unresolved' and bad_lookup_view['lookup_candidates'] == [])
+    bad_lookup = bytearray(lookup_buffer)
+    _s.pack_into('<I', bad_lookup, 64, 0x80007ce1)
+    bad_lookup_view = inspect_lookup(bytes(bad_lookup))
+    check('animation lookup candidates check high packed-entry padding',
+          bad_lookup_view['status'] == 'unresolved' and bad_lookup_view['lookup_candidates'] == [])
+
+    from . import psin_record_graph as _record_graph
+    graph_lrsc = (b'0DRP' + _s.pack('<I', 122) + bytes(8) + _s.pack('<Q', 1)
+                  + b'\xbb'*32 + _s.pack('<4H', 2, 0, 2, 0) + b'\xbb'*8 + bytes(8))
+    graph_header = _resource_header.inspect(reference_field_fixture(lrsc=graph_lrsc))
+    graph_view = _record_graph.inspect(field_report, graph_header)
+    check('PSIN record graph links existing rows with bounded candidate reachability',
+          graph_view['summary']['record_nodes'] == 3 and graph_view['summary']['record_edges'] == 1
+          and graph_view['reachability']['reachable_records'] == 2
+          and 'fields' not in graph_view['nodes'][0] and 'value' not in graph_view['nodes'][0])
+    graph_cycle = _record_graph.inspect(field_cycle)
+    check('PSIN record graph retains finite self-links without inventing an anchor',
+          len(graph_cycle['nodes']) == 1 and len(graph_cycle['edges']) == 1
+          and graph_cycle['edges'][0]['source_node_index'] == graph_cycle['edges'][0]['target_node_index']
+          and graph_cycle['reachability']['status'] == 'unanchored')
+    try:
+        _record_graph.inspect(field_report, graph_header, max_nodes=graph_view['summary']['nodes']-1)
+        graph_budget_refused = False
+    except _record_graph.RecordGraphLimitError:
+        graph_budget_refused = True
+    check('PSIN graph nodes and field-path edges share a bounded output budget', graph_budget_refused)
+
+    from . import anim_prefix as _anim_prefix
+    mixed_prefix = (_s.pack('<4I', 0xffffffff, 0x7fc00000, 0x80000000, 0xdeadbeef)
+                    + _s.pack('<3I', 5, 1, 2)
+                    + _s.pack('<6I', 3, 19, 1, 0x80000000, 0x7f800000, 0x12345678)
+                    + _s.pack('<I', 13) + bytes(48))
+    mixed_directory = _s.pack('<11H', 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1)
+    mixed_directory += _s.pack('<4H', 0, 8, 8, 8) * 5
+    mixed_end = 32 + len(mixed_prefix) + len(bit_rows) + len(mixed_directory)
+    mixed_buffer = (_s.pack('<5I5H2B', 0x12345678, mixed_end-32, 0, len(mixed_prefix),
+                    mixed_end, 2, 3, 4, 6, 5, 11, 0) + mixed_prefix + bit_rows + mixed_directory)
+    def inspect_mixed_prefix(data, consume=lambda n=1: None):
+        return _anim_prefix.inspect_buffer(data, 0, len(data), 2, consume=consume)
+    mixed_view = inspect_mixed_prefix(mixed_buffer)
+    check('animation mixed prefix retains raw word groupings and bounded opaque records',
+          mixed_view['status'] == 'complete' and mixed_view['word_count'] == 4
+          and mixed_view['opaque_record_count'] == 1
+          and mixed_view['triplet_records'][0]['raw_words'][1] == '0x7fc00000'
+          and 'unconfirmed' in mixed_view['association_status'])
+    bad_mixed = bytearray(mixed_buffer)
+    _s.pack_into('<I', bad_mixed, 84, 14)
+    bad_mixed_view = inspect_mixed_prefix(bytes(bad_mixed))
+    check('animation counted prefix must exhaust its independently bounded remainder',
+          bad_mixed_view['status'] == 'unresolved' and bad_mixed_view['regions'] == []
+          and bad_mixed_view['triplet_records'] == [])
+    prefix_budget = [0]
+    def count_prefix(amount=1):
+        prefix_budget[0] += amount
+    inspect_mixed_prefix(mixed_buffer, count_prefix)
+    prefix_remaining = [prefix_budget[0]-1]
+    def limit_prefix(amount=1):
+        if amount > prefix_remaining[0]:
+            raise _anim_resources.ResourceLimitError('authored mixed-prefix budget')
+        prefix_remaining[0] -= amount
+    try:
+        inspect_mixed_prefix(mixed_buffer, limit_prefix)
+        mixed_budget_refused = False
+    except _anim_resources.ResourceLimitError:
+        mixed_budget_refused = True
+    check('animation raw prefix records share the existing metadata budget', mixed_budget_refused)
+
+    kind28_header = bytearray(36)
+    _s.pack_into('<HHIII', kind28_header, 0, 28, 0, 0x12345678, 0xabcdef01, 0xa)
+    _s.pack_into('<I', kind28_header, 28, 0x7fc00001)
+    kind28_payload = bytes(tail_parent) + bytes(kind28_header)
+    kind28_view = _move_tail_forms.inspect_payload(kind28_payload, 0, len(kind28_payload))
+    check('MoVE kind-28 retains measured whole-selector headers without field-width guesses',
+          kind28_view['status'] == 'complete' and kind28_view['summary']['header_selector_fields'] == 16
+          and kind28_view['forms'][0]['header']['byte_length'] == 36
+          and 'field_byte_lengths' not in kind28_view['forms'][0]['header'])
+    bad_kind28 = bytearray(kind28_payload)
+    _s.pack_into('<I', bad_kind28, 48 + 12, 0x6)
+    bad_kind28_view = _move_tail_forms.inspect_payload(bytes(bad_kind28), 0, len(bad_kind28))
+    check('MoVE kind-28 refuses unfitted selector words without a partial prefix',
+          bad_kind28_view['summary']['unresolved'] == 1
+          and 'header' not in bad_kind28_view['forms'][0]
+          and bad_kind28_view['forms'][0]['regions'] == [])
+    try:
+        _move_tail_forms.inspect_payload(kind28_payload, 0, len(kind28_payload),
+                                        max_nodes=kind28_view['summary']['nodes']-1)
+        kind28_budget_refused = False
+    except _move.MoveLimitError:
+        kind28_budget_refused = True
+    check('MoVE kind-28 raw selector fields share the node budget', kind28_budget_refused)
+
     print(f"\n{len(failures)} failure(s)")
     return 0 if not failures else 1
 
@@ -3528,6 +4121,12 @@ def build_parser() -> argparse.ArgumentParser:
                    help="inspect bounded packed-channel storage metadata; implies --packed-layout")
     p.add_argument("--storage-layout", action="store_true",
                    help="inspect bounded packed sample-storage rows; implies --channel-layout")
+    p.add_argument("--prefix-layout", action="store_true",
+                   help="inspect bounded mixed prefix words and counted opaque records; implies --bit-layout")
+    p.add_argument("--lookup-candidates", action="store_true",
+                   help="check source-order indexed-payload candidates; implies --bit-layout; assignments unconfirmed")
+    p.add_argument("--bit-layout", action="store_true",
+                   help="inspect supported packed bit-row profiles; implies --storage-layout")
     p.add_argument("--payload-layout", action="store_true",
                    help="inspect supported packed payload-word profiles; implies --storage-layout")
     p.set_defaults(func=cmd_anim)
@@ -3627,12 +4226,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max", type=int, default=12)
     p.add_argument("--schema", action="store_true",
                    help="browse LSCH types and LENM enums in verified resources; joins split pages")
+    p.add_argument('--record-graph', action='store_true',
+                   help='index checked local record associations and bounded candidate reachability (implies instances)')
+    p.add_argument('--resource-header', action='store_true',
+                   help='check LRSC header counts and a bounded local-record candidate (implies schema mode)')
     p.add_argument('--instances', action='store_true',
                    help='include bounded values, local array associations, low-ID pools and reference diagnostics (implies schema mode)')
     p.add_argument('--max-nodes', type=int, default=100000,
-                   help='instance output budget across the report (default 100000)')
+                   help='shared instance/header/record-graph output budget (default 100000)')
     p.add_argument('--max-depth', type=int, default=16,
-                   help='embedded instance depth limit, 1..64 (default 16)')
+                   help='embedded instance / graph reachability depth limit, 1..64 (default 16)')
     p.add_argument("--out", help="write schema/optional instance JSON to a file (implies --schema)")
     p.add_argument("--names", help="optional local name dictionary for schema hash candidates")
     p.add_argument('--registry', help='load a local PSIN cross-file schema registry')
@@ -3728,8 +4331,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--raw-out", help="write each stream payload to this directory")
     p.add_argument("--ogg-out", help="remux Opus streams to playable .opus files")
     p.add_argument("--music-out", help="extract one Ogg per AWC music channel")
+    p.add_argument("--music-wav-out", help="decode supported music channels to separate PCM16 WAV files")
+    p.add_argument("--music-skip-policy", choices=("zero", "verified-overlap"), default="zero",
+                   help="music WAV block-skip policy (default zero; overlap mode requires exact packet identity)")
+    p.add_argument("--ogg-policy", choices=("legacy", "declared"), default="legacy",
+                   help="standalone Ogg timing policy (default: preserve legacy output)")
+    p.add_argument("--ogg-pre-skip", type=int,
+                   help="explicit pre-skip for --ogg-policy declared (default 312; original alignment unconfirmed)")
     p.add_argument("--wav-out", help="decode supported mono 48 kHz Opus streams to PCM16 WAV using optional libopus")
-    p.add_argument("--opus-library", help="path to a compatible libopus library for --wav-out")
+    p.add_argument("--opus-library", help="path to a compatible libopus library for standalone or music WAV export")
     p.add_argument("--wav-pre-skip", type=int, default=312,
                    help="explicit WAV pre-skip frames; default 312 is inherited, not confirmed original alignment")
     p.set_defaults(func=cmd_awc, spread=0, quiet=False, no_padding=False,

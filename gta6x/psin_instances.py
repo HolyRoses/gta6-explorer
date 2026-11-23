@@ -14,7 +14,7 @@ import hashlib
 import math
 import struct
 
-from . import psin_schema, psin_pools, psin_arrays, psin_references, psin_maps, psin_enum_arrays
+from . import psin_schema, psin_pools, psin_arrays, psin_references, psin_maps, psin_enum_arrays, psin_text_references
 from .psin_blocks import InstanceBlock, InstanceLimitError, parse_blocks
 
 __all__ = ['InstanceBlock', 'InstanceLimitError', 'parse_blocks', 'decode_instances']
@@ -50,9 +50,13 @@ def decode_instances(data: bytes, dictionary: dict | None = None, *,
                   reference_array_null_entries=0, reference_fields_attempted=0,
                   reference_fields_resolved=0, reference_fields_linked=0,
                   reference_fields_null=0, reference_fields_unresolved=0,
+                  text_reference_fields_attempted=0, text_reference_fields_resolved=0,
+                  text_reference_fields_unresolved=0, text_reference_pool_entries_linked=0,
                   maps_attempted=0, maps_resolved=0, maps_unresolved=0, map_entries_linked=0)
     type_cache = {}
     reference_slot_cache = {}
+    pool_cache = {}
+    text_entry_cache = {}
 
     def consume():
         if counts['nodes'] >= max_nodes:
@@ -63,6 +67,17 @@ def decode_instances(data: bytes, dictionary: dict | None = None, *,
         result.update(status='unresolved', reason=reason)
         counts['unresolved_fields'] += 1
         return result
+
+    def pool_for_block(block):
+        # The same budgeted pool objects serve forward links and block output.
+        # Registry definitions may suppress a pool view, but never authorize it.
+        candidates = scope.structures.get(block.type_hash, []) if scope else structures.get(block.type_hash, [])
+        if candidates or structures.get(block.type_hash):
+            return None
+        if block.index not in pool_cache:
+            pool_cache[block.index] = psin_pools.inspect_pool(
+                data, block, blocks, consume=consume, dictionary=dictionary)
+        return pool_cache[block.index]
 
     def record(owner, at, block_end, depth, active, context):
         consume()
@@ -119,6 +134,23 @@ def decode_instances(data: bytes, dictionary: dict | None = None, *,
                     counts['reference_fields_resolved'] += 1
                     counts['reference_fields_linked'] += reference['status'] == 'record_reference'
                     counts['reference_fields_null'] += reference['status'] == 'null_reference'
+                continue
+            if f.type_word & 0xff in (0x42, 0x44):
+                consume()
+                counts['text_reference_fields_attempted'] += 1
+                reference = psin_text_references.resolve_field(
+                    data, start, f, owner, block_end, blocks,
+                    local_owner=context is None or context.schema is not None,
+                    local_structures=structures, pool_for_block=pool_for_block,
+                    slot_cache=reference_slot_cache, entry_cache=text_entry_cache)
+                value['text_reference'] = reference
+                if reference['status'] == 'unresolved':
+                    counts['text_reference_fields_unresolved'] += 1
+                    unresolved(value, reference['reason'])
+                else:
+                    value['status'] = 'complete'
+                    counts['text_reference_fields_resolved'] += 1
+                    counts['text_reference_pool_entries_linked'] += 1
                 continue
             if kind == 'embedded_structure':
                 target = struct_index.get(f.auxiliary)[0]
@@ -253,8 +285,7 @@ def decode_instances(data: bytes, dictionary: dict | None = None, *,
         if len(candidates) != 1:
             # Intrinsic-pool views never override any local definition,
             # including duplicate/ambiguous definitions or incompatible strides.
-            pool = (psin_pools.inspect_pool(data, block, blocks, consume=consume,
-                                          dictionary=dictionary) if not candidates else None)
+            pool = pool_for_block(block) if not candidates else None
             if pool is not None:
                 row.update(pool=pool, status=pool['status'], record_count=None)
                 counts['pool_blocks'] += 1
@@ -283,7 +314,7 @@ def decode_instances(data: bytes, dictionary: dict | None = None, *,
                    status='complete' if all(r['status'] == 'complete' for r in records) else 'partial')
     return dict(format='gta6x-psin-instances-v1', schema_id=schema.schema_id,
                 interpretation=('Inferred scalar/enum/embedded values, hash/ASCII pools, bounded hash32 arrays '
-                                'and bounded local field/array/map-entry record links; '
+                                'and bounded local field/array/map-entry record links and ASCII-pool entry links; '
                                 'bare reference candidates and opaque pools remain unresolved; '
                                 + ('local-first registry resolution; ' if registry is not None else '')
                                 + 'no general pointer traversal or complete object-graph claim.'),

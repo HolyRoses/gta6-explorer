@@ -50,6 +50,13 @@ def resolve_entries(data, start, field, owner, block_end, blocks, *, local_owner
     key, value = owner.fields[ki], owner.fields[vi]
     if any(d.name_hash != 0x100 or d.data_offset != 0 for d in (key, value)):
         return refuse('map requires local synthetic descriptors at offset zero')
+    if value.type_word == 0x71:
+        # Compare bounded descriptor trees within each local schema. This only
+        # links observed entry storage; opaque keys and target values stay so.
+        from . import psin_nested_maps
+        return psin_nested_maps.resolve_entries(
+            data, start, field, owner, block_end, blocks, local_owner=local_owner,
+            local_structures=local_structures, consume=consume, slot_cache=slot_cache)
     enum_keys = None
     if key.type_word == 0x4a and key.auxiliary == 0:
         key_type = 'hash32'

@@ -18,13 +18,17 @@ class MoveLimitError(ValueError):
     """An explicit input or metadata output limit was exceeded."""
 
 
-def parse(data: bytes, *, max_nodes=100000, with_objects=False) -> dict:
+def parse(data: bytes, *, max_nodes=100000, with_objects=False, with_children=False, with_tail_forms=False) -> dict:
     """Inspect the supported exact envelope, or raise ValueError atomically.
 
     Regions partition the input, with an opaque payload rather than guessed
     object/pointer interpretation. All counts and the redundant total-length
     relationship are checked before any table rows are emitted.
     """
+    if with_tail_forms:
+        with_children = True
+    if with_children:
+        with_objects = True
     if type(max_nodes) is not int or max_nodes < 1:
         raise ValueError('MoVE max_nodes must be a positive integer')
     if len(data) > MAX_BYTES:
@@ -105,10 +109,40 @@ def parse(data: bytes, *, max_nodes=100000, with_objects=False) -> dict:
             immediate_references=detail.get('references',0),
             descriptor_records=detail.get('descriptor_records',0), fixed_cells=detail.get('fixed_cells',0),
             nested_subblocks=detail.get('nested_blocks',0))
+    if with_children:
+        from . import move_children
+        child_view = move_children.inspect_payload(data, payload_at, len(data)-payload_at,
+                                                  max_nodes=max_nodes-result['summary']['nodes'])
+        result['child_layout'] = child_view
+        detail = child_view['summary']
+        result['summary'].update(nodes=result['summary']['nodes']+detail['nodes'], child_nodes=detail['nodes'],
+            child_views_partial=int(child_view['status']=='partial'),
+            child_views_unresolved=int(child_view['status']=='unresolved'),
+            child_profiles_resolved=detail['resolved'], child_profiles_unresolved=detail['unresolved'],
+            child_candidates=detail['candidates'],
+            child_extension_records=detail.get('extension_records',0),
+            child_references=detail.get('references',0), child_descriptor_records=detail.get('descriptor_records',0),
+            child_fixed_cells=detail.get('fixed_cells',0), child_subblocks=detail.get('nested_blocks',0))
+    if with_tail_forms:
+        from . import move_tail_forms
+        view = move_tail_forms.inspect_payload(data, payload_at, len(data)-payload_at,
+                                              max_nodes=max_nodes-result['summary']['nodes'])
+        result['tail_form_layout'] = view
+        detail = view['summary']
+        result['summary'].update(nodes=result['summary']['nodes']+detail['nodes'],
+            tail_form_nodes=detail['nodes'], tail_form_candidates=detail['candidates'],
+            tail_forms_resolved=detail['resolved'], tail_forms_unresolved=detail['unresolved'],
+            tail_form_references=detail['references'], tail_form_opaque_records=detail['opaque_records'])
+        for key in ('counted_groups', 'selector_words', 'opaque_cells'):
+            if key in detail:
+                result['summary']['tail_form_' + key] = detail[key]
+        for key in ('header_prefixes', 'header_selector_fields', 'header_prefix_bytes'):
+            if key in detail:
+                result['summary']['tail_form_' + key] = detail[key]
     return result
 
 
-def scan(path, *, start=None, limit=None, max_nodes=100000, with_objects=False):
+def scan(path, *, start=None, limit=None, max_nodes=100000, with_objects=False, with_children=False, with_tail_forms=False):
     """Yield checked adjacent-page candidates and explicit envelope refusals."""
     from . import anim_resources, anim_clips
     if type(max_nodes) is not int or max_nodes < 1:
@@ -120,7 +154,7 @@ def scan(path, *, start=None, limit=None, max_nodes=100000, with_objects=False):
             label='MoVE'):
         if error is None:
             try:
-                parsed = parse(data, max_nodes=remaining, with_objects=with_objects)
+                parsed = parse(data, max_nodes=remaining, with_objects=with_objects, with_children=with_children, with_tail_forms=with_tail_forms)
                 remaining -= parsed['summary']['nodes']
                 row.update(parsed)
             except ValueError as exc:

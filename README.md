@@ -35,19 +35,19 @@ to directories you name.
 | PSIN containers, section bodies, stream-split fragments | **yes**, complete-container checksums verified (JOOAT) |
 | Browse native **LSCH/LENM schemas** and export JSON | **yes**, enum records, nine inferred type meanings and optional name candidates; unknowns preserved |
 | Resolve **cross-file PSIN schemas** | **partial**, private signature-aware registry; local definitions win and conflicting versions remain unresolved |
-| Read native **PSIN instance blocks** | **partial**, scalar/enum/embedded values, local hash32 arrays, local reference-field, structure/reference-array and map-entry links, hash/text pools and opaque/reference diagnostics with `psin --instances`; unknowns remain explicit |
+| Read native **PSIN instance blocks** | **partial**, scalar/enum/embedded values, local hash32 arrays, local reference-field, structure/reference-array, map-entry and ASCII-pool entry links, hash/text pools and opaque/reference diagnostics with `psin --instances`; optional checked-link record graphs; unknowns remain explicit |
 | Recover **DXBC shaders** from `shaders.rpf` | **yes**, 9,089 in the first 64 MiB |
-| Browse native **MoVE motion metadata** | **partial**, bounded version-19 envelope tables, immediate reference spans and descriptor prefixes; child motion bodies remain opaque |
+| Browse native **MoVE motion metadata** | **partial**, bounded version-19 envelopes, reference/descriptor prefixes and optional kind-3/kind-12/kind-11/kind-28 tail storage; motion bodies remain opaque |
 | Browse native **RBF0 metadata** | **partial**, bounded token trees and searchable literal rig-set/entry inventories; raw Priority bits, no script or runtime rig semantics |
 | Recover complete **XML/PSIN** resources split across zlib pages | **yes**, 259 XML / 1,048 PSIN in 16 MiB samples |
 | Carve zlib streams; catalogue; browser; reports; TUI | **yes** |
 | List/extract **models** to glTF/GLB | **yes**, via optional SixNG backend |
-| Browse **animation resources**, names and clip-record links | **yes**, `anim --resources` exports bounded `0DRP` metadata; `--clip-records` binds names/record prefixes; `--clip-components` follows animation/buffer links; `--packed-layout` inspects bounded headers/raw channel rows; `--channel-layout` adds slot directories; `--storage-layout` adds opaque fixed-stride rows; `--payload-layout` adds a narrow raw-word inventory; curves remain unknown |
+| Browse **animation resources**, names and clip-record links | **yes**, `anim --resources` exports bounded `0DRP` metadata; `--clip-records` binds names/record prefixes; `--clip-components` follows animation/buffer links; `--packed-layout` inspects bounded headers/raw channel rows; `--channel-layout` adds slot directories; `--storage-layout` adds opaque fixed-stride rows; `--payload-layout` adds a narrow raw-word inventory; `--bit-layout` checks width tables/raw rows; `--lookup-candidates` inspects bounded indexed-payload candidates; `--prefix-layout` inventories mixed raw prefix storage; curves remain unknown |
 | Extract **world/map data** (placements, collision, navmesh, paths, lights, interiors, vehicles, meta/PSO) | **yes**, via optional SixNG backend |
 | Build a local **joaat name dictionary** and resolve 32-bit hashes | **yes**, ~50k names from XML/text, shaders and paths |
 | Decrypt the RPF9 index | **no** — no index key is supplied or recovered |
 | Decode BCPack texture payloads | **partial** — native BC1/BC3/BC4/BC5; BC3/4/5 unfitted history is refused and provisional history warns; optional external fallback |
-| Decode supported AWC Opus to **WAV** | **partial**, standalone mono 48 kHz using optional libopus; assumed pre-skip is explicit; XMA2/music/stereo AWC remain unsupported |
+| Decode supported AWC Opus to **WAV** | **partial**, standalone mono 48 kHz and supported music channels using optional libopus; exact packet overlaps are opt-in, trimming is explicit; XMA2/stereo AWC and unverified skip profiles remain unsupported |
 | Native model decoding (no external tool) | **no** — use the backend |
 
 ## Requirements
@@ -107,13 +107,13 @@ options (`--root`, `--json`) go before the subcommand.
 | `info` | Package overview, store identity, chunk counts, composition by type | `--json` |
 | `headers` | RPF9 header table: index size, constants, fingerprint, encryption test | `--json`, explicit files |
 | `resources` | TTPF pool index: header fields, chunks, codecs, virtual size, ETPF, validation | `--json` |
-| `anim` | Index streams/names, browse resource metadata and named record links | `--archive`, `--start`, `--limit`, `--full`, `--clips`, `--resources`, `--clip-records`, `--clip-components`, `--packed-layout`, `--channel-layout`, `--storage-layout`, `--payload-layout`, `--max-nodes`, `--out`, `--max` |
+| `anim` | Index streams/names, browse resource metadata and named record links | `--archive`, `--start`, `--limit`, `--full`, `--clips`, `--resources`, `--clip-records`, `--clip-components`, `--packed-layout`, `--channel-layout`, `--storage-layout`, `--payload-layout`, `--bit-layout`, `--lookup-candidates`, `--prefix-layout`, `--max-nodes`, `--out`, `--max` |
 | `textures` | TTPF pools and embedded txd dictionaries; export DDS/PNG | `--pool`, `--embedded`, `--archive`, `--via`, `--out`, `--png`, `--bcpack`, `--bcpack-helper`, `--max`, `--all`, `--hash-prefix`, `--min-size` |
 | `scan` | Find validated Bink2/Bink1/AWC carriers | `--kind`, `--limit`, `--full`, `--spread`, `--no-padding`, `--no-align`, `--max` |
 | `movies` | Movie metadata browser; optional extraction | `--archive`, `--limit`, `--full`, `--min/max-duration`, `--min-width/height`, `--sort`, `--out` |
 | `extract` | Carve carriers; writes `extract-index.json` | `--out`, `--max-hits`, plus `scan` options |
 | `music` | Extract the audio-config music record table | `--archive`, `--limit`, `--full`, `--min-ms`, `--max-ms`, `--out`, `--max` |
-| `awc` | Streams inside AWC containers; export native payloads, Ogg Opus and supported PCM WAV | `--archive`, `--limit`, `--max`, `--raw-out`, `--ogg-out`, `--music-out`, `--wav-out`, `--opus-library`, `--wav-pre-skip` |
+| `awc` | Streams inside AWC containers; export native payloads, Ogg Opus and supported PCM WAV | `--archive`, `--limit`, `--max`, `--raw-out`, `--ogg-out`, `--ogg-policy`, `--ogg-pre-skip`, `--music-out`, `--wav-out`, `--music-wav-out`, `--music-skip-policy`, `--opus-library`, `--wav-pre-skip` |
 | `models` | Index, list or export drawables/fragments (SixNG backend) | `info\|index\|list\|extract`, `--archive`, `--kind`, `--name`, `--max`, `--out`, `--backend`, `--work` |
 | `world` | Export world/map resources through SixNG | `--kind`, `--archive`, `--out`, `--name`, `--bbox`, `--limit`, `--backend`, `--work` |
 | `names` | Build or query 32-bit joaat and 64-bit Murmur3 name dictionaries | `build\|lookup`, `--out`, `--index`, `--paths`, `--no-shaders` |
@@ -121,9 +121,9 @@ options (`--root`, `--json`) go before the subcommand.
 | `catalog` | Carve + verify + index assets into JSON or SQLite | `--out`, `--db`, `--limit`, `--full`, `--skip-done`, `--archive` |
 | `browse` | Render a searchable HTML browser from a catalogue | `--catalog`/`--db`, `--out`, `--chunk`, `--paths` |
 | `get` | Re-read one catalogued asset by hash or `archive:offset` | `--catalog`/`--db`, `--out` |
-| `move` | Browse MoVE envelopes and supported payload storage | `--objects`, `--raw`, `--archive`, `--start`, `--limit`, `--full`, `--max-nodes`, `--out` |
+| `move` | Browse MoVE envelopes and supported payload storage | `--objects`, `--children`, `--tail-forms`, `--raw`, `--archive`, `--start`, `--limit`, `--full`, `--max-nodes`, `--out` |
 | `rbf` | Browse RBF0 trees and literal rig-set/entry inventories | `--rig-sets`, `--name`, `--rig`, `--raw`, `--archive`, `--start`, `--limit`, `--full`, `--max-nodes`, `--max-depth`, `--max-string-bytes`, `--out` |
-| `psin` | Inspect PSIN containers, LSCH/LENM schemas and bounded instance blocks | `--archive`, `--limit`, `--full`, `--max`, `--schema`, `--instances`, `--max-nodes`, `--max-depth`, `--names`, `--registry`, `--registry-out`, `--out` |
+| `psin` | Inspect PSIN containers, LSCH/LENM schemas and bounded instance blocks | `--archive`, `--limit`, `--full`, `--max`, `--schema`, `--instances`, `--resource-header`, `--record-graph`, `--max-nodes`, `--max-depth`, `--names`, `--registry`, `--registry-out`, `--out` |
 | `shaders` | Recover DXBC shader binaries from wrapper records | `--archive`, `--limit`, `--full`, `--out`, `--max` |
 | `structured` | Recover complete XML/PSIN resources from stream-split pages | `--archive`, `--limit`, `--out`, `--max` |
 | `hunt` | Score catalogued blobs for geometry-like floats | `--db` (required), `--kind`, `--archive`, `--scan`, `--window`, `--dump` |
@@ -332,9 +332,36 @@ python3 -m gta6x --root <pkg> music --archive audio --out ./music-config
 `--raw-out` keeps the native payloads (`<archive>_<offset>_s<index>.opus`,
 `.xma`, `.pcm`, `.bin`). `--ogg-out` additionally remuxes Opus streams into
 standard Ogg Opus files with the original packets, without re-encoding.
-The existing pre-skip/final-granule policy is retained for compatibility;
-its decoded duration differs from declared-length PCM in all 16 new audit
-samples. Treat that legacy duration/alignment as unconfirmed.
+The default `--ogg-policy legacy` retains the existing pre-skip/final-granule
+policy for compatibility. Its decoded duration differs from declared-length
+PCM in all 16 audit samples. The explicit declared policy below corrects
+container timing for a selected interval; original alignment stays unconfirmed.
+
+**Declared-duration Ogg:** `--ogg-policy declared` uses cumulative packet
+sample counts, monotonic granules and final EOS trimming. It retains unchanged
+packet bytes through the first packet covering pre-skip plus declared mono
+frames, then omits unused whole tail packets. All source packet framing is
+checked, including omitted tails. This remux is pure Python and does not load
+libopus; compressed codec frame bits are not decoded or semantically validated.
+
+```bash
+python3 -m gta6x --root <pkg> awc --archive audio --limit 48 --max 5 \
+        --ogg-out ./declared-audio --ogg-policy declared
+```
+
+`--ogg-pre-skip N` explicitly overrides the inherited 312-frame assumption for
+this policy; it requires declared mode. JSON `ogg_metadata` records retained
+and dropped packet counts, frame counts, pre-skip and final granule. Unsupported
+profiles retain `ogg_skipped` reasons. A malformed supported stream exits
+nonzero without partial output; legacy behavior and bytes remain unchanged.
+
+All **3,349 discovery / 1,310 validation** supported mono streams pass unchanged
+after freezing this policy. Retained source prefixes match byte-for-byte;
+**7,570** unused whole packets are omitted. All **308,537** page CRC checks and
+**9,318** malformed-input controls pass. The 16 selected outputs decode to exact
+requested lengths; FFmpeg using the same libopus backend agrees with direct
+WAV within one PCM16 unit. This checks wrapper interoperability, not independent
+codec accuracy or original in-game alignment.
 
 Music banks use a separate `0x48` descriptor: block count, chunk size, then one
 16-byte record per channel. `--music-out` walks each block's 24-byte channel
@@ -360,7 +387,8 @@ WAV is PCM16 at 48 kHz. Complete 2 KiB blocks, packet extents and zero padding
 are checked strictly. Every packet is decoded, including discarded tails;
 malformed packets and insufficient samples fail without concealment, padding
 or partial WAV output. Input is capped at 64 MiB and decoded processing/output
-at 128 MiB per stream. Music, stereo AWC, other codecs/rates and unsupported
+at 128 MiB per stream. This standalone path excludes music; use
+`--music-wav-out` for its validated subset. Stereo AWC, other codecs/rates and unsupported
 profiles retain a clear `wav_skipped` reason. Decoder/decode failures exit
 nonzero; raw/Ogg exports requested alongside WAV continue independently.
 
@@ -379,6 +407,61 @@ wrapper/trimming interoperability, not an independent codec. FFmpeg's separate
 native Opus decoder differs substantially on these samples, and original
 in-game sample alignment remains unconfirmed. Earlier archive exposure and
 all comparison limitations are recorded in local provenance.
+
+**Music-channel WAV:** `--music-wav-out DIR` validates complete channel/block
+allocations, channel descriptors, packet records, seek-counter relations and
+zero header/tail padding before decoding eligible channels to separate files:
+
+```bash
+python3 -m gta6x --root <pkg> awc --archive audio --limit 100 --max 1000 \
+        --music-wav-out ./music-wav
+```
+
+The default `--music-skip-policy zero` supports 48 kHz Opus channels with
+**zero block skips**. The opt-in overlap policy below supports a measured
+subset of nonzero skips after exact compressed-packet identity checks. `--opus-library`
+and `--wav-pre-skip` also apply here. Output uses the same explicit assumed
+pre-skip/declared-duration policy as standalone WAV. `music_wav_metadata` records
+channel identity, block skips, frame counts and decoder version;
+`music_wav_skipped` records unsupported profiles or failures. Existing music
+Ogg export remains unchanged. Missing dependencies and malformed/decode errors
+exit nonzero while independent requested exports continue.
+
+A separate music split was frozen before block research: **16 discovery /
+15 validation containers**, covering **35 / 18 channels**, with no overlap with
+the earlier standalone cohort. All **35 eligible zero-skip channels** decode
+successfully in the post-freeze regression, totaling **127,030,977 frames**;
+**18 nonzero-skip channels** are refused by the default policy. All 155 corruption controls
+refuse. Packet-reorder controls discriminate 26/35 eligible channels; nine
+same-duration cases do not, so structural counters are not integrity proof.
+Eight selected same-libopus FFmpeg comparisons agree within one PCM16 unit.
+These are reused archive observations with unconfirmed skip/alignment semantics,
+not an independent original-audio oracle.
+
+**Verified music packet overlaps:** add `--music-skip-policy verified-overlap`
+to `--music-wav-out` to remove a block prefix only when its whole compressed
+packets exactly repeat both the preceding block suffix and the reconstructed
+packet history. The skip must also use a discovery-observed size; all original
+allocation, padding, packet and seek-counter checks still apply. No partial
+packet removal, silence insertion, concealment or re-encoding is used.
+
+```bash
+python3 -m gta6x --root <pkg> awc --archive audio --limit 100 --max 1000 \
+        --music-wav-out ./music-wav --music-skip-policy verified-overlap
+```
+
+On the unchanged split this adds **16/16 discovery** and **1/2 validation**
+nonzero channels: **52/53** music channels supported in total. One held-out
+25,920-frame skip remains refused because its size was absent from discovery;
+its later exact-overlap observation did not extend the frozen profile. The
+30 supported overlap events remove 277 repeated packets / 265,920 frames.
+All 35 earlier zero-skip WAV hashes and metadata remain identical. Thirty
+same-duration wrong-byte controls refuse. Three selected same-libopus FFmpeg
+comparisons have exact output lengths and maximum PCM16 difference one;
+this is wrapper agreement, not an independent audio oracle. Per-block
+`packet_overlap` evidence and removed packet/frame totals are included for
+nonzero channels. The assumed global pre-skip, original alignment and engine
+decoder reset/pre-roll behavior remain unconfirmed. Legacy music Ogg is unchanged.
 
 `music` extracts the separate audio-config record table: **1,589 records**,
 **1,589 distinct config ids**, **272,442.8 s** total, each with duration, hash A,
@@ -453,6 +536,71 @@ seed `0x3FAC7125`) over the entire container with the `CHKS` length and checksum
 fields zeroed, stored big-endian. All **821/821** complete containers in an
 8 MiB `data.rpf` sample verify (and the `psin` command reports 788/788 for its stream-local sample). The platform word in the sample is ASCII
 `zppp`; other archives may use another tag.
+
+**PSIN resource headers:** `psin --resource-header` adds a bounded LRSC view
+without decoding instances. The measured 80-byte payload carries `0DRP`,
+version 122, checked zero/sentinel words, and counts that must match the local
+LSCH structure, LENM enum and PSIN block tables. Its full selector word must
+choose a block containing exactly one uniquely defined local typed record.
+The result is a **record candidate**, with its source span and schema identity;
+its role as a root object is unconfirmed. LRSC is not treated as a fixup list.
+
+```bash
+python3 -m gta6x psin ./metadata.psin --resource-header --out ./header.json
+python3 -m gta6x psin ./metadata.psin --resource-header --instances \
+        --max-nodes 100000 --out ./metadata.json
+```
+
+The flag implies schema mode. `resource_header` retains all header bits, checked
+counts and one candidate association, without expanding its fields or following
+a graph. Imported registry definitions cannot authorize it. Unsupported profiles
+keep a reason and no header/candidate prefix; requested failures exit nonzero
+while verified schemas and independent instance output remain available.
+Header and instance views share `--max-nodes`, with separate node counters.
+A complete header costs six nodes; an unresolved view costs one. Discovery
+matches **821/821** distinct source containers; frozen validation matches all
+**2,390 observations / 2,228 distinct payloads**, with no cross-role source-hash
+overlap. All 19,266 malformed controls and 3,211 under-budget controls refuse;
+opaque-target changes intentionally preserve the view. Prior instance readers
+and value/binding modules are unchanged. These are reused structural cohorts,
+not root-object or pointer-relocation ground truth.
+
+**PSIN record associations:** `psin --record-graph` indexes only existing
+checked local field, structure/reference/enum-array and map-entry record links.
+It implies instance decoding and independently checks LRSC for an optional
+candidate anchor. Nodes refer to `blocks[block_index].records[record_index]`;
+edges retain source field-index paths, kind and optional element index. Scalar
+values, embedded records and target fields are not copied or expanded. References
+inside embedded structures attach to their owning top-level node. Aliases and
+cycles remain finite indexed links; nulls are counted without invented nodes.
+Text/pool associations and unknown raw words do not become record edges.
+
+```bash
+python3 -m gta6x psin ./metadata.psin --record-graph --max-depth 16 \
+        --max-nodes 1000000 --out ./record-associations.json
+```
+
+`record_graph.reachability` reports bounded distances from the **LRSC candidate**,
+not a proven root. `--max-depth` limits both embedded instance decoding and
+candidate reachability. Nodes outside the checked horizon remain present;
+depth-frontier counts are explicit and a missing distance does not prove a
+record is unreachable. Missing header support yields an unanchored partial
+graph. Partial graphs are normal output; adding explicit `--resource-header`
+still requests strict header validation. Graph budget/malformed-view refusals
+exit nonzero while independent verified schema/header/instance views remain.
+All three views share `--max-nodes` with separate node accounting.
+
+Unknown fields, unrepresented blocks and excluded associations remain counted.
+A complete graph view describes only the supplied checked associations, never
+a complete object graph or gameplay meaning. Across the unchanged cohorts,
+3,208 graphs index **590,492 record observations / 264,727 checked edges**, with
+190,204 candidate-reachable record observations. Aliases and reused sources
+are included; these are not independent semantic trials. All 2,142,630 earlier
+values and canonical input views are unchanged. The same three large instance-
+budget refusals remain unavailable; 293 text links are explicitly excluded.
+All 5,660 tampered-link/candidate controls and 3,208 budget controls refuse.
+A real discovery CLI check indexes five records / two edges / three candidate-
+reachable records, explicitly partial because one field remains unknown.
 
 **Native schema browser:** `psin --schema` reads complete checksum-verified
 containers, joining recoverable split pages. It parses the contiguous LSCH
@@ -612,6 +760,48 @@ wrong target order and other bit partitions fail that consistency check.
 ASCII has discovery evidence only; no text-pool examples occur in comparison
 or script. These previously examined samples provide consistency evidence,
 not a fresh blind holdout or independent semantic oracle.
+
+**Nested-map entry links:** `psin --instances` supports two additional
+nonempty local map descriptor trees: hash32 → (opaque `0x15` → (hash32 →
+hash32)), and opaque `0x15` → (hash32 → hash32). Owning and target schemas
+must agree as bounded descriptor trees even when their synthetic descriptor
+indices differ. Exact 32-byte entry rows, named field offsets, whole local
+slots, equal count words and full reference/stride bounds are checked.
+
+The map links already present typed entry rows; it does not recursively expand
+them, decode opaque keys or assign `0x15` a scalar width or meaning. Targets
+can remain partial. Empty, cyclic, imported, mismatched or other trees remain
+unresolved with no prefix links. Existing map counters include these results.
+Discovery adds **13 maps / 60 links from one source**, including 12 opaque-key
+maps and 48 links to partial rows. Frozen comparison/script/supplementary
+validation has no eligible candidates reaching the new resolver, so there is
+**no held-out profile confirmation**. All prior values, complete bindings and 293 text links are
+preserved; the same three existing budget refusals remain. This is bounded
+structural support from discovery, not independently confirmed map semantics.
+
+**Contextual ASCII-pool links:** `psin --instances` also links measured named
+field profiles with exact type word `0x42` or `0x44` and zero auxiliary word
+to existing nonempty `0x10` pool entries. These are contextual storage profiles;
+the schema's `type_name` remains unknown. The full local owning slot must fit
+without another named field start inside it. Targets use the full reference word
+and must start exactly at an existing complete printable-ASCII/NUL entry.
+The 24-byte `0x44` slot additionally requires matching length words, marker
+one and zero reserved bits. Null, empty, imported, ambiguous, interior-string,
+other text and mismatched-header cases remain explicitly unresolved.
+
+The field's `text_reference` links `blocks[block_index].pool.elements[pool_element_index]`
+with source spans and original bits, without copying text or adding scalar
+observations. Pools are decoded and budgeted once even for forward/aliased links.
+Summary keys `text_reference_fields_attempted/resolved/unresolved` and
+`text_reference_pool_entries_linked` aggregate with the `instance_` prefix.
+Discovery adds **53 links** (4 word / 49 header); the frozen supplementary
+cohort adds **240** (231 / 9) and leaves **10,920** attempts unresolved.
+The comparison, script and earlier supplementary groups contain no candidates,
+so they provide regression evidence rather than text-link accuracy estimates.
+All **2,142,630** previous value observations and earlier bindings are preserved.
+These reused frozen cohorts establish byte/shape consistency, not independent
+confirmation of application meanings. Exact `0x07` and `0x054f` profiles did
+not supply discovery text links and were left unchanged.
 
 **Bounded hash32 arrays:** `--instances` resolves one inferred dynamic-array
 profile and attaches its hash values to the owning field's `array` object.
@@ -1356,8 +1546,8 @@ suffix must satisfy every count, range and padding check. Exported
 `binding_index = slot_index // 4` and `sub_index = slot_index % 4` are arithmetic
 associations only. The same index may occur in several groups; group meanings,
 channel IDs, codecs and compressed sample values remain unknown. Bytes before
-the directory remain opaque. The raw header words at `+0x18/+0x1a/+0x1c` are
-still uninterpreted.
+the directory remain opaque. Header words at `+0x18/+0x1a/+0x1c` remain raw in this view; the optional
+storage and bit-row views below test their bounded relationships.
 
 The profile was frozen before validation. All **879 discovery / 908 validation**
 distinct buffers resolve, with zero content-hash overlap; aliased output counts
@@ -1387,7 +1577,8 @@ for compatibility. It does not establish the prefix's sample or codec meaning.
 
 When raw `u16_1a == 0`, stride must equal `4 * ceil(raw_u16_1c / 32)` and every
 high padding bit above that candidate bit width must be zero. Other `u16_1a`
-values retain a separate unresolved bit-grammar reason, while independently
+values retain a separate unresolved bit-grammar reason in this compatibility
+view; the opt-in bit-table view below refines them. Independently
 bounded byte rows remain available. No numeric samples, quantization, channel
 semantics, codec or time units are decoded.
 
@@ -1398,6 +1589,90 @@ grammars. All wrong-origin and applicable high-padding controls refuse; prior
 packed/channel outputs remain unchanged. These are reused structural cohorts,
 with no validation-driven rule changes. Unsupported base layouts return empty
 regions and a reason, preserve parent views and produce a nonzero CLI exit.
+
+**Counted animation bit tables:** `--bit-layout` implies `--storage-layout`
+and adds `bitrow_layout` without changing earlier modes. Directory counts locate
+a fixed table of 12-byte records and a variable table of counted opaque words.
+Fixed widths must sum to the stored `u16_1c`; variable records must exactly
+exhaust the independent `4 * u16_1a` extent. Each stored width is 1..32 bits.
+Their combined width must reproduce the four-byte-rounded row stride, with
+all remaining high bits zero.
+
+```bash
+python3 -m gta6x --root <pkg> anim --bit-layout --limit 8 \
+        --max-nodes 1000000 --out ./bit-layout
+```
+
+JSON retains raw table parameters, opaque payload hashes and complete source-order
+row bits/spans. It does **not** assign per-channel bit offsets, scalar types,
+quantizers, transforms, codecs or timing. Slot/table ordering remains unconfirmed;
+row reordering intentionally passes these structural checks. Empty-stride
+buffers retain their header row count and emit no invented rows. Tables and
+rows share the existing node budget; malformed/unsupported views retain
+reasons and empty deeper lists, and requested failures exit nonzero.
+
+The unchanged frozen discovery/validation split resolves **879/879 and
+908/908 distinct buffers**, including **383/411 nonzero-table cases** that the
+earlier bit grammar left unknown. This describes all **4,956/5,617 aliased
+buffer views**; aliases are not independent trials. The view exposes
+38,733/44,669 fixed records, 2,274/2,327 variable records and 241,126/253,666
+nonempty raw rows. All 7,740 earlier packed/channel/storage view comparisons
+agree; all **10,313 malformed controls** refuse. No rule changed after the
+first validation run. These reused structural cohorts have zero cross-role
+buffer-hash overlap and supply no semantic animation oracle. A native 1 MiB
+discovery CLI check resolves 70 buffer views, including eight nonzero cases.
+
+**Indexed-payload candidates:** `--lookup-candidates` implies `--bit-layout`
+and adds `lookup_layout` for buffers with a variable table. Under a candidate
+source-order partition after the opaque fixed-width prefix, observed indices
+must densely cover zero through their maximum. A separate 1..32-bit entry
+width must explain the exact packed payload word allocation, with zero high
+padding. The view retains candidate bit spans, raw packed-entry bits and an
+index-sequence SHA-256, without duplicating per-row code arrays.
+
+```bash
+python3 -m gta6x --root <pkg> anim --lookup-candidates --limit 8 \
+        --max-nodes 1000000 --out ./lookup-candidates
+```
+
+This is **not a proven channel or sample decode**. Alternative record orders
+and bit origins pass on some discovery buffers; no slot/binding assignment,
+unique bit partition, scalar type, quantizer or codec is claimed. Entry counts
+are observed candidate counts, not independently proven codebook cardinality.
+Whole-row/table ordering remains unconfirmed. Empty variable tables are outside
+this profile and retain an explicit reason; mixed requested results exit
+nonzero while supported candidates and parent views remain available.
+
+The frozen rules check **383 discovery / 411 validation distinct buffers**,
+covering all nonzero-variable cases in these cohorts. The remaining 496/497
+have no variable-table candidate. Results include 2,274/2,327 candidate records,
+78,068/82,036 raw entry observations and 546,544/517,797 index observations.
+All 7,740 prior parent-view comparisons agree. All 2,358 malformed controls
+refuse; 794 row-reorder controls deliberately pass. No validation-driven rule
+change occurred. A real discovery CLI check yields 15 candidate views from
+five clips; aliases and reused source exposure are not independent trials.
+
+**Mixed animation prefix storage:** `--prefix-layout` implies `--bit-layout`
+and adds a separate `prefix_layout` without changing earlier views. Counts and
+the independently checked width-table origin bound leading raw triplet/word
+groupings. The combined group-0/group-1 triplets are not assigned individually
+to either group or to slots. After the width tables, exactly the stored group-10
+count of length-prefixed opaque records must exhaust the pre-row span; each
+record stores its total length in words and must fit the measured minimum.
+Bodies retain bounded spans and hashes. Groups 7/8 remain unassigned counts.
+
+```bash
+python3 -m gta6x --root <pkg> anim --prefix-layout --limit 8 \
+        --max-nodes 1000000 --out ./prefix-layout
+```
+
+The frozen profile supports all **879 discovery / 908 validation buffers**,
+inventorying **215,213 raw words / 72,751 opaque records** across distinct
+buffers. All 7,740 previous full parent views compare exactly. All 5,708
+malformed controls refuse; triplet reordering and opaque-body changes
+intentionally pass. This is storage consistency, not scalar/slot/codec decoding
+or integrity proof. Old `--payload-layout` retains its narrow group-zero-only
+profile. A native 1 MiB discovery scan yields 70 prefix views without failures.
 
 **Narrow raw payload inventory:** `--payload-layout` implies `--storage-layout`
 and adds a separate `payload_layout` per buffer. The supported shape has only
@@ -1469,6 +1744,69 @@ metadata inspection rather than payload integrity or semantic validation.
 Unsupported views retain the envelope, an explicit reason and empty deeper
 lists; requested unresolved object profiles exit nonzero. Frozen source
 assignments remain unchanged.
+
+**MoVE child prefixes:** `move --children` implies `--objects` and inspects one
+additional bounded prefix level. Low/high bytes at header `+18/+19` constrain
+row and extension counts in supported forms. Extension-record lengths agree
+with independently bounded table extents; additional reference headers retain
+hash/ordinal checks. No arbitrary recursive traversal, numeric sample or motion
+decoding is enabled. Child bodies, extension bodies and other tails stay opaque.
+
+Across the unchanged 212/112 resource split, **266/440 candidate prefixes**
+resolve and **174** remain explicitly unknown, including one unfitted short
+held-out prefix. The view adds 138 extension records, 387 next-level references,
+376 descriptors, 685 raw cells and 193 subblocks. All 324 prior parent views and
+raw/archive comparisons are preserved; all 1,362 malformed controls refuse.
+Opaque mutations intentionally remain undetected. Unknown siblings keep their
+own reasons and empty deeper lists while supported siblings remain available;
+requested partial/unresolved child inspection exits nonzero.
+
+**Additional MoVE tail forms:** `move --tail-forms` implies children/objects
+and adds `tail_form_layout` while preserving their earlier views. The kind-3
+form checks an 84-byte header, counted hash/relative rows, redundant selected
+and tail pointers, repeated target hashes/ordinals, and counted opaque records.
+It describes 56 additional profiles, with 146 checked references and 50 records.
+
+The kind-12 form checks a measured 52-byte header and exactly five counted
+groups. Each nonempty group has at most 16 eight-byte opaque cells and a
+selector word whose used two-bit fields are all two and unused bits zero.
+Groups must exhaust a terminal candidate or end at the measured opaque-tail
+prefix. Header variants outside discovery evidence remain refused. Cells
+appear once in `groups[].cells`, with raw bits and spans; their numeric and
+application meanings are unknown. Dedicated counters distinguish groups,
+selector words and cells from kind-3 references/records.
+
+Kind-12 adds **18 discovery / 6 validation forms**, with **120 groups / 18
+selector words / 96 opaque cells**. One header variant in each role remains
+unsupported. The kind-11 extension adds **22 discovery / 8 validation forms**:
+its measured selector word constrains a 44/48/52-byte prefix, checked zero/sparse
+slots and a terminal boundary or opaque remainder header. Ten raw two-bit
+selector fields and all prefix bits are retained. No scalar or selector meaning
+is inferred. Two unobserved held-out selector profiles remain refused.
+
+With kind-3/kind-12/kind-11, immediate coverage is **376/440**, with **64** explicit unknowns,
+including the earlier short held-out case; **260/324** resources have every
+immediate candidate described. All 324 previous parent-mode and raw/archive
+comparisons agree; all 80 prior kind-3/kind-12 form dictionaries are exact.
+Kind-11 adds 300 raw selector fields / 1,412 header bytes. All 104 new malformed
+controls refuse; 54 opaque mutations deliberately pass. Earlier kind-3/kind-12
+audits retain their separately documented 644/104 refused controls.
+
+The kind-28 extension adds **8 discovery / 3 validation forms**, using seven
+complete observed selector words to choose measured 32..64-byte prefixes.
+Zero/repeated-word checks and exact terminal or opaque-header boundaries apply.
+Individual field widths remain ambiguous, so no general selector-width formula
+or pointer interpretation is enabled. Unfitted variants stay refused.
+It adds 176 raw selector fields / 468 prefix bytes, bringing coverage to
+**387/440** immediate candidates, with **53 unknowns**; **271/324** resources
+have all immediate storage candidates described. All 110 earlier complete
+forms and 324 parent/raw-archive comparisons agree. All 26 new malformed and
+11 under-budget controls refuse; 12 opaque mutations deliberately pass.
+
+The reused 212/112 split remains unchanged. Runtime/tests were frozen before
+each new validation run; these checks measure storage consistency, not motion
+semantics. Referenced bodies and tails stay opaque, with no recursive graph
+expansion. Remaining unsupported requested forms retain reasons and exit nonzero.
 
 **Native RBF0 browser:** the `rbf` command reads the observed self-describing
 RBF0 profile from raw files or checked adjacent archive pages:
@@ -1604,7 +1942,18 @@ decode, and external-adapter agreement does not establish confirmed ground truth
 | Enum-record PSIN arrays | 41 additional arrays/260 local record links; no new scalar values; prior bindings unchanged |
 | MoVE root storage | All 212/112 discovery/validation views pass; 179 references, 288 descriptors, opaque child bodies |
 | Opus WAV | 3,349/1,310 mono streams pass strict framing; 16 selected real decodes have exact requested lengths under explicit assumed trim |
-| `selftest` | 180 checks, all passing (AWC, Ogg, strict packet/WAV headers, RDS5, PSIN/LSCH/LENM/instances/registry/pools/hash32 arrays/structure/reference links/fields/map entries, XML, Gfx10, DDS, PNG, shaders, txd full mip chains/arrays/volumes/tail addresses/bounds, name hashes, animation/0DRP metadata, named clip/component/buffer links, packed header/channel candidates, slot directories/storage rows/raw payload inventories, MoVE envelopes/root storage, RBF0 trees/rig-set inventories and bounds, music, BCPack, BC2 layout, signed BC4/BC5/8-bit previews and BC6H/BC7); backend features are not self-tested |
+| Declared-duration Ogg | All 4,659 supported mono streams; retained packets unchanged, 7,570 unused tail packets omitted; original alignment unconfirmed |
+| Music WAV | 35 zero-skip channels unchanged; opt-in packet overlaps add 17/18 nonzero channels; one unseen held-out skip size refused |
+| MoVE child prefixes | 266/440 candidates supported; 174 unknowns retained; all 324 parent views unchanged |
+| PSIN contextual text links | 53 discovery / 240 supplementary links to existing pool entries; 10,920 supplementary attempts unresolved; no extra scalar observations |
+| MoVE tail forms | Kind-3/12/11/28 add 121 profiles; immediate coverage 387/440, with 53 unknowns; motion meanings unknown |
+| PSIN nested maps | 13 maps / 60 existing-row links from one discovery source; zero supported held-out examples; opaque keys remain unknown |
+| Animation bit tables | 879/908 distinct buffers resolve, including 383/411 nonzero profiles; raw tables/rows only, no numeric samples or channel partition |
+| PSIN LRSC headers | 821 discovery / 2,390 validation observations match counts and one bounded local-record candidate; root/fixup semantics unknown |
+| Animation lookup candidates | 383/411 distinct nonzero-variable buffers pass candidate bounds; 160,104 raw entry observations; channel/order/numeric meanings unconfirmed |
+| Mixed animation prefixes | 879/908 distinct buffers; 215,213 raw words / 72,751 opaque records; numeric and slot meanings unconfirmed |
+| PSIN record associations | 3,208 graph views / 264,727 checked edges; bounded LRSC-candidate reachability, unknowns explicit; three existing instance-budget refusals |
+| `selftest` | 225 checks, all passing (AWC, Ogg, strict packet/WAV/music framing, verified overlaps and declared Ogg timing, RDS5, PSIN/LSCH/LENM/instances/registry/pools/hash32 arrays/structure/reference links/fields/map entries/text links/record associations, XML, Gfx10, DDS, PNG, shaders, txd full mip chains/arrays/volumes/tail addresses/bounds, name hashes, animation/0DRP metadata, named clip/component/buffer links, packed header/channel candidates, slot directories/storage rows/raw payload inventories/counted width tables/indexed-payload candidates/mixed prefixes, MoVE envelopes/root/child/tail storage, RBF0 trees/rig-set inventories and bounds, music, BCPack, BC2 layout, signed BC4/BC5/8-bit previews and BC6H/BC7); backend features are not self-tested |
 
 The local SQLite catalogue used during development holds 176,971 checksum-
 verified assets across 20 archives; that file is generated output, not part of
@@ -1691,8 +2040,9 @@ stream-split pages are fragments. See [PSIN metadata](#psin-metadata).
   BC/multi-mip volumes, unknown shape tags, other swizzles and non-BC chains are refused;
   single-level non-BC 2D textures retain their existing export path.
 * **Audio**: optional libopus WAV export covers standalone mono 48 kHz Opus.
-  Stereo AWC, music PCM and XMA2 decoding remain unsupported; trim alignment
-  is explicit and unconfirmed. Existing Ogg duration policy is retained.
+  Zero-skip music channels also export WAV; nonzero skips, stereo AWC and XMA2
+  remain unsupported. Trimming is explicit and unconfirmed. Legacy Ogg remains
+  the default; declared mode corrects granules for the selected interval.
 * **Models** depend on the external SixNG backend; no native model decoder is
   included.
 * **Bink1** validation is experimental.
@@ -1729,6 +2079,9 @@ gta6x/
   media.py      Bink1/Bink2/AWC detection, validation, carving, stream metadata
   audio.py      Opus packet extraction and lossless Ogg remux
   audio_pcm.py  strict AWC packet framing and optional libopus PCM16/WAV export
+  audio_ogg.py  explicit declared-duration Opus Ogg granules and tail trimming
+  audio_music_pcm.py strict zero-skip channel framing and optional music WAV
+  audio_music_skips.py opt-in exact compressed-packet overlap reconstruction
   music.py      audio-config music record metadata
   bc/           BC1-BC7 previews, BCPack reconstruction and runtime tables
   png.py        minimal PNG writer
@@ -1739,7 +2092,11 @@ gta6x/
   psin_arrays.py bounded hash32 spans and local structure/reference-array record links
   psin_references.py bounded local record bindings for fields/reference arrays
   psin_maps.py   bounded local map-entry record links, preserving duplicates
+  psin_nested_maps.py measured nested descriptor trees and bounded entry links
   psin_enum_arrays.py bounded local enum-array links to existing typed rows
+  psin_text_references.py contextual links to existing local ASCII pool entries
+  psin_resource_header.py checked LRSC counts and a bounded local-record candidate
+  psin_record_graph.py finite checked record associations and candidate reachability
   psin_registry.py signature-aware private cross-file definitions/conflicts
   models.py     optional SixNG backend: index, list, glTF/GLB export
   world.py      optional SixNG world/map resource commands
@@ -1751,9 +2108,17 @@ gta6x/
   anim_channels.py bounded optional slot-directory associations; group meanings unknown
   anim_storage.py body-relative opaque row spans and conditional bit-padding checks
   anim_payloads.py narrow source-word inventories; slot associations unconfirmed
+  anim_bitrows.py counted width tables and complete opaque bit-row spans
+  anim_lookups.py checked source-order indexed-payload candidates; assignments unknown
+  anim_prefix.py mixed raw prefix groupings and counted opaque record storage
   move.py       bounded MoVE envelope tables, raw controls and opaque payload spans
   move_cli.py   raw-file/archive MoVE metadata browser command
   move_objects.py nonrecursive relative targets and descriptor-prefix storage
+  move_children.py one additional bounded child-prefix/extension layer
+  move_tail_forms.py optional kind-3 tables and additional bounded tail forms
+  move_more_forms.py kind-12 counted groups, selector bits and opaque cells
+  move_extra_forms.py measured kind-11 selector-header storage
+  move_selector_forms.py measured whole-word kind-28 selector-header profiles
   rbf.py        bounded native RBF0 token trees and checked archive framing
   rbf_cli.py    RBF0 JSON browser command
   rbf_rigs.py   literal rig-set/entry inventories and exact Rig-string reverse index
@@ -1789,7 +2154,7 @@ Required decoder constants under `gta6x/bc/` remain part of the runtime package.
 
 ## Development
 
-`python3 -m gta6x selftest` runs 180 synthetic checks covering the AWC header and
+`python3 -m gta6x selftest` runs 189 synthetic checks covering the AWC header and
 tag table, Opus packet records and Ogg pages, RDS5/TTPF validation, PSIN
 containers/fragments, LSCH/LENM schemas, bounded instance values and cross-file
 registry resolution/conflicts, low-ID pools, bounded hash32 arrays, structure/reference-array links, local reference fields and explicit

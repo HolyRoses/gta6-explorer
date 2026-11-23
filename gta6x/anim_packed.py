@@ -14,7 +14,7 @@ from . import anim_resources as resources
 BASE = resources.VIRTUAL_BASE
 
 
-def inspect_animation(data, animation_start, buffers, *, consume, with_channels=False, with_storage=False, with_payloads=False):
+def inspect_animation(data, animation_start, buffers, *, consume, with_channels=False, with_storage=False, with_payloads=False, with_bitrows=False, with_lookups=False, with_prefix=False):
     """Inspect one bounded animation's header/channel metadata atomically.
 
     Invalid or unsupported layouts return no prefix binding/buffer rows. Parent
@@ -22,7 +22,9 @@ def inspect_animation(data, animation_start, buffers, *, consume, with_channels=
     propagates to discard dictionary output. All offsets refer to the original
     joined dictionary; region offsets are also retained relative to each buffer.
     """
-    if with_payloads:
+    if with_lookups or with_prefix:
+        with_bitrows = True
+    if with_payloads or with_bitrows:
         with_storage = True
     if with_storage:
         with_channels = True
@@ -123,6 +125,18 @@ def inspect_animation(data, animation_start, buffers, *, consume, with_channels=
             if with_payloads:
                 from . import anim_payloads
                 layouts[-1]['payload_layout'] = anim_payloads.inspect_buffer(
+                    data, at, length, len(bindings), consume=consume)
+            if with_bitrows:
+                from . import anim_bitrows
+                layouts[-1]['bitrow_layout'] = anim_bitrows.inspect_buffer(
+                    data, at, length, len(bindings), consume=consume)
+            if with_lookups:
+                from . import anim_lookups
+                layouts[-1]['lookup_layout'] = anim_lookups.inspect_buffer(
+                    data, at, length, len(bindings), consume=consume)
+            if with_prefix:
+                from . import anim_prefix
+                layouts[-1]['prefix_layout'] = anim_prefix.inspect_buffer(
                     data, at, length, len(bindings), consume=consume)
             samples.append(sample)
             auxiliary_count += aux_rows

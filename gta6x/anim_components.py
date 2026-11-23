@@ -16,7 +16,7 @@ BASE = resources.VIRTUAL_BASE
 MAX_NAME = 512
 
 
-def resolve(data, record_start, *, consume, hash_cache=None, with_packed_layout=False, with_channels=False, with_storage=False, with_payloads=False):
+def resolve(data, record_start, *, consume, hash_cache=None, with_packed_layout=False, with_channels=False, with_storage=False, with_payloads=False, with_bitrows=False, with_lookups=False, with_prefix=False):
     """Bind a named clip's component graph, or return one explicit refusal.
 
     A failed graph returns no prefix of groups/segments/buffers. It does not
@@ -24,7 +24,9 @@ def resolve(data, record_start, *, consume, hash_cache=None, with_packed_layout=
     propagates to discard dictionary output. Repeated aliases remain separate
     observations; there is no recursive pointer or packed-data interpretation.
     """
-    if with_payloads:
+    if with_lookups or with_prefix:
+        with_bitrows = True
+    if with_payloads or with_bitrows:
         with_storage = True
     if with_storage:
         with_channels = True
@@ -142,7 +144,7 @@ def resolve(data, record_start, *, consume, hash_cache=None, with_packed_layout=
                         maximum_buffer_bytes=maximum, buffer_reference_header=refs, buffers=buffers)))
                 if with_packed_layout:
                     group['segments'][-1]['animation']['packed_layout'] = anim_packed.inspect_animation(
-                        data, anim_at, buffers, consume=consume, with_channels=with_channels, with_storage=with_storage, with_payloads=with_payloads)
+                        data, anim_at, buffers, consume=consume, with_channels=with_channels, with_storage=with_storage, with_payloads=with_payloads, with_bitrows=with_bitrows, with_lookups=with_lookups, with_prefix=with_prefix)
                 animation_links += 1
                 payload_spans += len(buffers)
             groups.append(group)

@@ -351,7 +351,7 @@ def iter_sources(paths, *, limit):
 
 def inspect_sources(paths: list[str], *, limit: int | None,
                     dictionary: dict | None = None, with_instances: bool = False,
-                    max_nodes: int = 100000, max_depth: int = 16, registry=None) -> dict:
+                    with_resource_header: bool = False, with_record_graph: bool = False, max_nodes: int = 100000, max_depth: int = 16, registry=None) -> dict:
     """Inspect raw PSIN files or complete joined resources inside archives.
 
     Identical LSCH+LENM pairs share one schema; differing definitions of the
@@ -362,14 +362,21 @@ def inspect_sources(paths: list[str], *, limit: int | None,
     """
     from . import structured
 
+    if with_record_graph:
+        with_instances = with_resource_header = True
+        if type(max_depth) is not int:
+            raise ValueError('max_depth must be an integer from 1 to 64')
     resources = []
     schemas = {}
     remaining_nodes = max_nodes
+    instance_nodes_used = resource_header_nodes_used = record_graph_nodes_used = 0
+    if with_resource_header and (type(max_nodes) is not int or max_nodes < 1):
+        raise ValueError('max_nodes must be a positive integer')
     if with_instances and (max_nodes < 1 or not 1 <= max_depth <= 64):
         raise ValueError('max_nodes must be positive and max_depth must be 1..64')
 
     def add(data: bytes, source: dict) -> None:
-        nonlocal remaining_nodes
+        nonlocal remaining_nodes, instance_nodes_used, resource_header_nodes_used, record_graph_nodes_used
         source = dict(source, sha256=hashlib.sha256(data).hexdigest(), bytes=len(data))
         try:
             schema = parse_schema(data)
@@ -380,6 +387,7 @@ def inspect_sources(paths: list[str], *, limit: int | None,
             schemas[schema.schema_id] = schema.as_dict(dictionary, registry=registry)
         result = dict(source, status='ok', checksum_verified=True, schema_id=schema.schema_id)
         if with_instances:
+            before = remaining_nodes
             from . import psin_instances
             try:
                 if remaining_nodes < 1:
@@ -393,6 +401,36 @@ def inspect_sources(paths: list[str], *, limit: int | None,
                 result['instances'] = dict(status='refused', reason=str(exc))
             except ValueError as exc:
                 result['instances'] = dict(status='refused', reason=str(exc))
+            instance_nodes_used += before - remaining_nodes
+        if with_resource_header:
+            from . import psin_resource_header
+            before = remaining_nodes
+            try:
+                result['resource_header'] = psin_resource_header.inspect(data, max_nodes=remaining_nodes)
+                remaining_nodes -= result['resource_header']['summary']['nodes']
+            except psin_resource_header.ResourceHeaderLimitError as exc:
+                remaining_nodes = 0
+                result['resource_header'] = dict(status='refused', reason=str(exc))
+            except ValueError as exc:
+                result['resource_header'] = dict(status='refused', reason=str(exc))
+            resource_header_nodes_used += before - remaining_nodes
+        if with_record_graph:
+            from . import psin_record_graph
+            before = remaining_nodes
+            if result['instances'].get('status') == 'refused':
+                result['record_graph'] = dict(status='refused', reason='record graph requires an available instance view')
+            else:
+                try:
+                    result['record_graph'] = psin_record_graph.inspect(
+                        result['instances'], result.get('resource_header'),
+                        max_nodes=remaining_nodes, max_depth=max_depth)
+                    remaining_nodes -= result['record_graph']['summary']['nodes']
+                except psin_record_graph.RecordGraphLimitError as exc:
+                    remaining_nodes = 0
+                    result['record_graph'] = dict(status='refused', reason=str(exc))
+                except ValueError as exc:
+                    result['record_graph'] = dict(status='refused', reason=str(exc))
+            record_graph_nodes_used += before - remaining_nodes
         resources.append(result)
 
     for source, data, error in iter_sources(paths, limit=limit):
@@ -413,7 +451,7 @@ def inspect_sources(paths: list[str], *, limit: int | None,
         inspections = [r['instances'] for r in resources if 'instances' in r]
         for status in ('complete', 'partial', 'refused'):
             summary[f'instance_resources_{status}'] = sum(i['status'] == status for i in inspections)
-        summary['instance_nodes'] = max_nodes - remaining_nodes
+        summary['instance_nodes'] = instance_nodes_used
         summary['instance_values_decoded'] = sum(i.get('summary', {}).get('decoded_values', 0)
                                                 for i in inspections)
         for key in ('hash32_arrays_resolved', 'hash32_array_values_decoded',
@@ -421,14 +459,42 @@ def inspect_sources(paths: list[str], *, limit: int | None,
                     'structure_arrays_resolved', 'structure_array_records_linked',
                     'reference_arrays_resolved', 'reference_array_records_linked', 'reference_array_null_entries',
                     'reference_fields_resolved', 'reference_fields_linked', 'reference_fields_null', 'reference_fields_unresolved',
+                    'text_reference_fields_attempted', 'text_reference_fields_resolved',
+                    'text_reference_fields_unresolved', 'text_reference_pool_entries_linked',
                     'maps_resolved', 'maps_unresolved', 'map_entries_linked'):
             summary['instance_' + key] = sum(i.get('summary', {}).get(key, 0) for i in inspections)
+    if with_resource_header:
+        headers = [r['resource_header'] for r in resources if 'resource_header' in r]
+        for status in ('complete', 'unresolved', 'refused'):
+            summary['resource_headers_' + status] = sum(h['status'] == status for h in headers)
+        summary['resource_header_nodes'] = resource_header_nodes_used
+        summary['resource_header_record_candidates'] = sum(h.get('summary', {}).get('record_candidates', 0)
+                                                          for h in headers)
+        summary['metadata_nodes'] = max_nodes - remaining_nodes
+    if with_record_graph:
+        graphs = [r['record_graph'] for r in resources if 'record_graph' in r]
+        for status in ('complete', 'partial', 'refused'):
+            summary['record_graph_resources_' + status] = sum(g['status'] == status for g in graphs)
+        summary['record_graph_nodes'] = record_graph_nodes_used
+        for target, source_key in (('records', 'record_nodes'), ('edges', 'record_edges'),
+                                   ('reachable_records', 'reachable_records'),
+                                   ('unresolved_fields', 'unresolved_fields'),
+                                   ('unrepresented_blocks', 'unrepresented_blocks'),
+                                   ('depth_limited', 'depth_limited')):
+            summary['record_graph_' + target] = sum(g.get('summary', {}).get(source_key, 0) for g in graphs)
+        summary['record_graph_unanchored'] = sum(g.get('reachability', {}).get('status') == 'unanchored'
+                                                for g in graphs)
+        summary['metadata_nodes'] = max_nodes - remaining_nodes
     result = dict(format='gta6x-psin-schemas-v2', summary=summary,
                 scope='Complete recovered PSIN containers only; archive fragments are omitted.',
-                interpretation=('LSCH/LENM with bounded inferred values and local field/array/map-entry associations; unresolved references remain explicit and record-link targets are not expanded.'
+                interpretation=('LSCH/LENM with bounded inferred values and local field/array/map-entry and ASCII-pool entry associations; unresolved references remain explicit and record-link targets are not expanded.'
                                 if with_instances else
                                 'LSCH/LENM records with explicitly inferred type meanings; unknown types, fixups and instances remain undecoded.'),
                 resources=resources, schemas=rows)
+    if with_resource_header:
+        result['interpretation'] += ' LRSC header counts and bounded local-record candidates are checked; root-object and fixup meanings remain unknown.'
+    if with_record_graph:
+        result['interpretation'] += ' Record associations traverse only existing checked local links; candidate reachability is bounded and does not establish a root or complete object graph.'
     if registry is not None:
         result['registry'] = registry.summary()
     return result

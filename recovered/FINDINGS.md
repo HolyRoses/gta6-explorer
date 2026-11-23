@@ -6,7 +6,7 @@ payloads are zlib streams, media carriers are stored in the clear, and texture
 pools carry their own indexes.
 
 All numbers below were measured on this package with the parsers in `gta6x/`.
-They are observations, not format guarantees; the tool's `selftest` (180 checks)
+They are observations, not format guarantees; the tool's `selftest` (189 checks)
 covers the structural rules without game data.
 
 ## Package profile
@@ -41,7 +41,9 @@ covers the structural rules without game data.
 | Streamed textures | 357,115 descriptors: **305,954 zlib/raw complete** (+47,695 BC1 BCPack); 127 arrays, 567 cubemaps, 3 volumes; native PNG covers BC1-BC7 (BC6H tone-mapped); backend only for models/world | `textures --png`, `--via sixng` |
 | Embedded txd textures | **1,347 dictionaries / 3,167 descriptors**; 3,020 2D descriptors + 34 BCn arrays supported; arrays retain 155 layers/169 subresources; 113 volumes supported; all 31 mipmapped 2D textures export 253 levels including packed tails | `textures --embedded` |
 | Movies | 515 Bink2 titles in `movies.rpf`: 8.83 GB, 3.94 h total | `movies` |
-| Opus PCM WAV | Optional libopus, standalone mono 48 kHz; 16 selected real decodes with explicit assumed trim; stereo/music/XMA2 remain unsupported | `awc --wav-out` |
+| Declared Ogg | All 4,659 supported mono streams remux; retained packets identical, 7,570 unused tails omitted, explicit timing assumption | `awc --ogg-policy declared` |
+| Music PCM WAV | 35 zero-skip channels unchanged; opt-in exact overlaps add 17/18 nonzero channels, one unobserved skip size refused | `awc --music-wav-out --music-skip-policy verified-overlap` |
+| Opus PCM WAV | Optional libopus, standalone mono 48 kHz; 16 selected real decodes with explicit assumed trim; stereo AWC/XMA2 remain unsupported; zero-skip music has a separate export path | `awc --wav-out` |
 | AWC audio | 238 containers in the first 48 MiB; per-stream Opus metadata, native payloads and Ogg remux | `awc`, `scan` |
 | DXBC shaders | **9,089** validated in the first 64 MiB of `shaders.rpf` | `shaders` |
 | Models | `packs.rpf`: 80,424 entries, **75,135 model resources**, 27,288 named → glTF/GLB | `models` (SixNG backend) |
@@ -51,6 +53,7 @@ covers the structural rules without game data.
 | Animation component/buffer links | 1,277/1,432 discovery/validation clips; 3,794/3,946 animation links and 4,956/5,617 opaque buffer references, all bounded/hashed; contents undecoded | `anim --clip-components` |
 | Animation storage rows | 879/908 discovery/validation distinct buffers partition exactly; conditional bit rows in 496/497, other bit grammars unknown | `anim --storage-layout` |
 | Raw animation word inventory | Narrow source-word profile in 12/879 discovery and 9/908 validation buffers; slot association/numeric meaning unknown | `anim --payload-layout` |
+| MoVE child/tail prefixes | 266 earlier plus 121 kind-3/12/11/28 forms: 387/440 immediate candidates, 53 unknowns; bodies remain opaque | `move --children`, `--tail-forms` |
 | MoVE root storage | All 212/112 discovery/validation views; 179 relative targets and 288 descriptors, opaque child bodies | `move --objects` |
 | MoVE envelopes | 212/112 discovery/validation counted envelopes; all parse unchanged, payload motion meanings unknown | `move` |
 | Animation slot directories | 879/908 discovery/validation distinct buffers; all 4,956/5,617 aliased directories resolve; eleven unknown slot groups, no sample decoding | `anim --channel-layout` |
@@ -178,8 +181,7 @@ with reasons. The CLI exported six real WAVs from the first selected container.
 The trim policy skips an assumed 312 frames then keeps declared mono samples;
 `--wav-pre-skip` makes overrides explicit. Metadata records actual decoded and
 output frames, discarded tail and library version. This is not a recovered
-encoder delay or confirmed in-game alignment. Music/stereo AWC/XMA2 remain
-unsupported. Selftests use authored framing/PCM without requiring libopus.
+encoder delay or confirmed in-game alignment. Stereo AWC/XMA2 remain unsupported; zero-skip music export is described below. Selftests use authored framing/PCM without requiring libopus.
 
 A content-hash 171/67-container split was frozen before packet research, on
 previously indexed audio. All 3,349/1,310 supported mono streams pass framing;
@@ -191,6 +193,66 @@ than independent codec confirmation. The separate native FFmpeg decoder differs
 substantially (held-out maximum 17,282 units), and all 16 legacy Ogg durations differ.
 No runtime alignment tuning followed those comparisons. Legacy timing remains
 unchanged and explicitly unconfirmed; further independent evidence is needed.
+
+### Declared Ogg granules and music WAV
+
+`awc --ogg-policy declared --ogg-out DIR` uses cumulative packet sample counts,
+valid monotonic granules and EOS trimming for an explicitly selected interval.
+Retained compressed packets are unchanged; later whole packets are omitted.
+AWC blocks and RFC 6716 packet framing are validated even for omitted tails,
+without claiming compressed-frame integrity. The inherited 312-frame pre-skip
+remains an assumption. Legacy stays default with unchanged bytes; optional
+`--ogg-pre-skip` only applies to declared mode.
+
+All 3,349/1,310 frozen mono streams remux, retaining 299,219 packets and omitting
+7,570 whole tails. All 308,537 CRC pages and 9,318 malformed controls pass. Sixteen
+selected outputs have the requested 1,561,860 frames; the same-libopus FFmpeg
+wrapper comparison differs by at most one PCM16 unit. This is interoperability,
+not independent codec or source-alignment confirmation.
+
+`awc --music-wav-out` validates exact source/channel descriptors, whole block
+and channel allocations, packet extents, seek-counter relations and zero
+padding before decoding supported channels. The default policy enables only
+zero block skips; the explicit overlap policy below extends that subset. Metadata records source
+identity, channel, block skips, trimming and decoder version. Corrupt data or
+missing dependencies fail explicitly while other requested exports continue.
+
+The music cohort was frozen from full-container metadata before block research:
+16/15 containers, 35/18 channels, no overlap with the standalone cohort. All 35
+zero-skip channels decode in the separately labeled post-freeze full regression,
+totaling 127,030,977 frames. The default policy refuses all 18 nonzero-skip
+channels. All 155
+corruption controls refuse; reorder controls discriminate 26/35, with nine same-duration
+nondiscriminatory cases. Eight selected real same-libopus comparisons differ by
+at most one PCM16 unit. Initial empty prefix-only metadata capture was retained
+and superseded by the documented full-container v2 split before fitting. No
+rule was fitted from validation. Original music alignment remains unconfirmed.
+
+Native CLI checks exported six declared Ogg files and one real discovery music
+WAV. The latter used an exact frozen AWC container with scanner alignment padding
+in an ignored temporary file; no source bytes were modified or published.
+
+### Guarded music packet-overlap reconstruction
+
+`awc --music-wav-out DIR --music-skip-policy verified-overlap` accepts only
+discovery-observed skip sizes that end on whole-packet boundaries and exactly
+repeat both the preceding block suffix and reconstructed compressed history.
+It keeps complete descriptor/allocation/seek/padding validation and performs
+no partial-packet removal, silence insertion, concealment or re-encoding.
+The original zero policy and existing music Ogg behavior remain unchanged.
+
+Frozen discovery has 29 exact-overlap events across 16 nonzero channels; all
+16 decode. Validation supports one of two nonzero channels. Its unseen
+25,920-frame skip stays refused even though a later diagnostic found an exact
+27-packet repeat; no validation-driven whitelist extension was made. Total
+support is 52/53 channels, including all 35 original zero-skip WAVs with exact
+old hashes and metadata. Thirty supported overlap events remove 277 duplicate
+packets / 265,920 frames; all 30 same-duration wrong-byte controls refuse.
+Three selected FFmpeg comparisons force the same libopus backend and differ
+by at most one PCM16 unit with equal lengths. They are wrapper checks, not
+independent ground truth. Global 312-frame pre-skip, original alignment and engine
+reset/pre-roll behavior remain unconfirmed. Real CLI export produced four
+WAVs, including three nonzero-overlap channels, from one frozen discovery bank.
 
 ### PSIN
 
@@ -497,6 +559,88 @@ oracle was consulted. Authored tests and the private provenance preserve the
 profile limits and exact split hashes. Validation cases remain validation;
 broadening profiles requires separate discovery evidence.
 
+### LRSC resource-header counts and record candidates
+
+`psin --resource-header` independently validates a measured 80-byte LRSC
+payload: `0DRP` / version 122, zero/BB sentinels, three counts repeating local
+LSCH/LENM/PSIN table counts and a full-word block selector. The selected block
+must contain exactly one uniquely defined local record. Its span/schema is
+reported as a candidate association, never a proven root or decoded object.
+No relocation/fixup list or recursive pointer traversal is inferred.
+
+The optional view preserves schema and instance results, shares their global
+metadata budget, and requires six nodes for a complete view or one for an
+unsupported profile. Malformed/unsupported requested headers keep explicit
+reasons without prefix metadata and exit nonzero. All 821 distinct discovery sources match, as do 2,390 frozen validation
+observations / 2,228 distinct payloads, with zero cross-role hash overlap. All
+19,266 malformed and 3,211 under-budget controls refuse. Opaque target changes
+intentionally preserve the view, so target integrity/meaning is not proven.
+The prior instance/value/binding modules are byte-identical to their baseline;
+these reused-source checks supply no root-object or fixup semantic oracle.
+
+### Finite PSIN record-association graphs
+
+`psin --record-graph` builds an index over already decoded top-level typed rows
+and existing checked local field/array/map record links. Embedded source fields
+retain bounded field-index paths; neither embedded nodes nor scalar values are
+copied. Cycles, aliases, duplicate links and nulls remain finite. Raw candidate
+words, text links and pool contents do not authorize graph edges.
+
+An independently checked LRSC record candidate can anchor bounded reachability;
+it is not labeled a root. Depth frontiers, missing anchors, unknown fields and
+unrepresented blocks stay explicit. All record nodes remain indexed even when
+not reached within the requested horizon. Partial graphs are normal, while
+malformed/report-budget refusals preserve independent earlier views. Instance,
+header and graph costs share the report budget with separate counters.
+
+Across all frozen groups, 3,208 graphs index 590,492 record observations /
+264,727 checked edges / 190,204 candidate-reachable observations. The same
+three existing instance-budget refusals remain; aliases/reused sources are not
+independent semantic trials. All 2,142,630 prior values and canonical input
+views are unchanged, with 293 text links explicitly excluded. All 5,660
+tampered-link/candidate and 3,208 budget controls refuse. No new pointer
+interpretation or scalar decoding occurs. A native
+frozen-discovery CLI check retains five records / two edges / three candidate-reachable
+records and an explicit unknown field. The same three earlier instance-budget
+refusals remain unavailable, without relaxing their limits.
+
+### Bounded PSIN nested-map links
+
+Two discovery-observed descriptor trees now link existing local entry rows,
+including map-valued fields and raw `0x15` key descriptors. Owning and target
+schemas must have identical bounded descriptor trees after resolving their
+local synthetic indices. Exact 32-byte entries, named fields at 0/8, whole local
+slots, nonempty checked headers and logical record strides are required.
+Raw `0x15` keys are neither read nor given scalar width or semantic labels;
+linked rows may remain partial. Empty/cyclic/other/imported trees refuse.
+
+One discovery source adds 13 maps / 60 links; 12 have opaque keys and 48 select
+partial rows. Frozen validation has no eligible candidates reaching the new resolver,
+so this supplies no held-out profile confirmation. All prior 2,142,630 values, complete bindings
+and 293 text links persist, with the same three existing budget refusals.
+All 91 discovery mutation controls refuse. The same splits/locks are unchanged,
+with new runtime/tests/audit frozen before the validation run.
+
+### Contextual PSIN ASCII-pool links
+
+Named exact `0x42`/zero-auxiliary eight-byte slots and `0x44`/zero-auxiliary
+24-byte slots can link existing nonempty printable-ASCII/NUL pool entries.
+Whole local-owner slots, exact entry boundaries, full reference bits and
+complete pool authority are required. The longer profile also validates two
+entry-length words, marker one and zero reserved bits. Numeric type meanings
+stay unknown. JSON `text_reference` links existing pool rows without copying
+text or increasing scalar counts; forward/aliased pools share one node budget.
+
+Discovery supplies 53 links (4 word / 49 header24); supplementary validation
+adds 240 (231 / 9) from 11,160 attempts, leaving 10,920 explicit unknowns.
+Zero-candidate comparison/script/small-supplement groups provide regression
+coverage only. The frozen cohorts include aliases and earlier exposure; these
+are structural consistency results, not independent semantic ground truth.
+All 2,142,630 prior values, 110,056 non-enum-array associations, 196,274 field
+references and 19,117 map associations are preserved, including the same three
+existing budget refusals. All 1,465 pointer-mutation controls refuse. Earlier
+`0x07`/`0x054f` profiles are unchanged. A real CLI check reports eight links.
+
 ### Native animation resource metadata
 
 0DRP at +0x10 identifies a bounded resource-metadata profile in the animation
@@ -729,6 +873,60 @@ are unchanged. These reused cohorts provide structural regression, not semantic
 confirmation. Native eight-MiB discovery CLI: 857 storage views/451,610 aliased
 sample rows, zero base-profile failures and 241 unknown bit grammars.
 
+### Counted animation width tables and raw bit rows
+
+`anim --bit-layout` adds a separate optional view over checked storage. A
+12-byte fixed-width table is located by directory counts; its widths sum to
+raw u16_1c. Variable records have five-word headers plus a counted opaque word
+payload; their count and total extent must agree with directory group 5 and
+4 * raw u16_1a. Summed fixed/variable widths reproduce the rounded row stride and
+zero high padding. Whole raw rows and table bits/spans are retained, without
+assigning per-channel offsets, numeric types, quantizers, poses or codecs.
+
+The frozen 879/908 distinct buffers all resolve, including 383/411 previously
+unknown nonzero-table cases; aliases remain 4,956/5,617 views. Discovery/validation
+expose 38,733/44,669 fixed records, 2,274/2,327 variable records and 241,126/253,666
+nonempty raw rows. Zero-stride buffers emit no invented rows. All 7,740 previous
+packed/channel/storage comparisons agree. All 10,313 malformed controls refuse;
+1,724 row-reorder controls intentionally pass, so row order/semantic accuracy
+is not proven. No source promotion or validation-driven rule change occurred;
+these are reused structural cohorts, with zero cross-role buffer-hash overlap.
+A native discovery CLI check resolves 70 buffer views, including eight nonzero cases.
+
+### Source-order indexed animation payload candidates
+
+`anim --lookup-candidates` inspects a bounded candidate partition after the
+opaque fixed-width prefix. Candidate indices must densely cover zero through
+their observed maximum; a separate packed-entry width must explain the exact
+word allocation and zero high padding. Raw candidate entry bits/spans and
+index-sequence hashes are retained, without numeric/sample decoding or slot
+assignment. Alternative bit origins/orderings also pass on some discovery
+buffers; observed counts do not prove codebook cardinality or uniqueness.
+
+Discovery/validation accept 383/411 distinct nonzero-variable buffers, with
+2,274/2,327 candidate records, 78,068/82,036 raw entries and 546,544/517,797 index
+observations. The 496/497 zero-variable buffers retain explicit out-of-profile
+reasons. All 7,740 earlier parent-view comparisons agree. All 2,358 malformed
+controls refuse; 794 row swaps intentionally pass. The unchanged profile was
+sealed before validation; no channel/lane/quantizer/codec meaning is inferred.
+A native frozen-discovery CLI check emits 15 candidate views from five clips.
+
+### Mixed animation prefix storage
+
+`anim --prefix-layout` bounds raw leading triplet/word groupings against the
+independently checked width-table origin and parses a stored count of trailing
+length-prefixed opaque records. Record word lengths must exhaust the exact
+pre-row remainder. Combined group-0/group-1 triplets stay unassigned; group-7/8
+counts have no separate byte or semantic interpretation. Bodies remain hashes
+and spans, not decoded samples or codecs. Existing views are unchanged.
+
+All 879/908 discovery/validation buffers pass, yielding 215,213 raw words and
+72,751 opaque records across distinct buffers. Discovery has 629 nonempty / 250 empty
+remainders; validation 678/230. All 7,740 old full parent views match. All 5,708
+malformed controls refuse; 1,141 triplet swaps and 1,307 opaque-body mutations
+intentionally pass. Native frozen-discovery CLI checks 70 views without failures.
+Runtime/tests/audit were frozen before validation, with no fitted role changes.
+
 ### Narrow raw animation payload inventory
 
 `anim --payload-layout` adds source-ordered twelve-byte records with three raw
@@ -783,6 +981,79 @@ All 1,884 structural controls refuse. Opaque mutations 324/324 deliberately rema
 undetected. Recursive interpretation failed 25 discovery resources and was not
 enabled. A reporting-offset fix was recorded with preserved v1/v2 freezes and
 unchanged grammar/counts; it does not adapt rules to held-out motion data.
+
+### One additional MoVE child-prefix level
+
+`move --children` implies objects and splits the two header bytes at +18/+19
+into bounded row/extension counts in observed child forms. Declared extension
+lengths agree with independent table extents. Supported reference prefixes
+also verify immediate target hashes/ordinals. It follows one additional level;
+extension bodies, grandchildren and other tails remain opaque. No arbitrary
+recursive graph, numeric/pose values or timing semantics are inferred.
+
+Frozen discovery supports 175/290 candidates, validation 91/150; 174 unknowns keep
+reasons and empty deeper rows, including an unfitted short held-out prefix.
+The layer adds 138 extensions, 387 references, 376 descriptors, 685 raw cells and
+193 subblocks. All 324 old-parent/raw-scan comparisons agree. All 1,362 structural
+controls refuse; 266 opaque mutations intentionally remain undetected. Supported
+siblings remain available when others are unknown. Partial requested child
+inspection exits nonzero without discarding independent parent metadata.
+
+### Additional MoVE tail storage
+
+`move --tail-forms` preserves existing child/object views and adds bounded
+kind-3 reference/record storage plus a measured kind-12 profile. Kind-3 checks
+selected/tail pointers, counted rows and repeated target hashes/ordinals;
+its 56 forms retain 146 references / 50 counted opaque records.
+
+Kind-12 checks a 52-byte header, exactly five counted groups and at most one
+selector word per group. Every used two-bit selector equals two; unused bits
+are zero. Whole eight-byte cells and the terminal extent or opaque-tail prefix
+must fit. It adds 18 discovery / 6 validation forms, 120 groups, 18 selectors
+and 96 opaque cells. The discovery header variant 0x1155 and held-out 0x115a
+remain refused; no validation observation extended the frozen whitelist.
+
+Combined immediate coverage is 346/440, with 94 explicit unknowns; 230/324
+resources have all immediate storage candidates described. All 324 previous
+parent-mode/raw-archive comparisons and all 56 kind-3 form dictionaries agree.
+All 104 new malformed controls refuse; 11 opaque-cell and 11 opaque-tail controls
+remain undetected intentionally. The earlier kind-3 audit refused 644 controls.
+The same 212/112 source split is unchanged. Before validation, a discovery-only
+audit correction distinguished kind-12 attempts from successes when comparing
+old tail views; both historical and corrected seals are retained. Runtime/tests
+were unchanged. Raw cells, target bodies and tail meanings remain opaque;
+no motion, timing or recursive graph interpretation is claimed.
+
+### Measured MoVE kind-11 selector headers
+
+The existing `--tail-forms` view also supports a discovery-observed whitelist
+of nine kind-11 selector words. Their raw bit fields determine bounded
+44/48/52-byte prefixes, with checked zero/sparse slots and an exact terminal
+extent or next opaque-header ordinal. Original header bits and ten two-bit
+fields are retained; no scalar/channel/motion semantics are assigned.
+
+Discovery adds 22 forms, validation 8; two unseen held-out selector profiles
+stay refused. New metadata totals 300 raw selector fields/1,412 prefix bytes.
+Combined immediate coverage is 376/440 with 64 unknowns; 260/324 resources have
+all immediate storage candidates described. All 324 old parent/raw-archive
+comparisons and 80 prior kind-3/kind-12 form dictionaries agree. All 104 new
+malformed controls refuse; 54 opaque mutations intentionally pass. Runtime,
+tests and audit were frozen before validation, with no whitelist extension.
+
+### Measured MoVE kind-28 selector headers
+
+Seven complete discovery-observed selector words select measured 32..64-byte
+prefixes under `--tail-forms`. Exact terminal extents or an opaque next-header
+ordinal, plus zero/repeated-word constraints, validate storage only. Individual
+field widths are not independently determined in some combined cases; no
+per-field width formula, pointer traversal or numeric meaning is implemented.
+
+Discovery adds eight forms, validation three, leaving other kind-28 variants refused.
+New metadata totals 176 raw selector fields / 468 prefix bytes. Immediate coverage
+becomes 387/440 with 53 unknowns; 271/324 resources have all immediate candidates
+supported. All 110 earlier complete forms and 324 parent/raw-archive comparisons
+agree. All 26 malformed and 11 budget controls refuse; 12 opaque mutations remain
+accepted intentionally. No frozen whitelist was extended from validation.
 
 ### Native RBF0 structural browser
 
@@ -939,9 +1210,9 @@ exists; missing preview support preserves the complete DDS.
   spans are browsable with `anim --resources`; named record-prefix links are
   available with `--clip-records`, and bounded animation/buffer associations with
   `--clip-components`; `anim-clips.txt`
-  lists `.clip` paths. Upstream followed two clips to page-0 records (duration
-  and 0x48-byte track arrays), but the page→packed-stream join and keyframes
-  are not decoded.
+  lists `.clip` paths. Native component links now reach checked packed buffers,
+  width tables, prefix storage and source-order lookup candidates. Channel/slot
+  assignments, numeric samples, quantizers and keyframe curves remain undecoded.
 * **Native model decoding.** Geometry is exported through the optional SixNG
   backend; no native mesh/meshlet decoder is included.
 * **Embedded shapes.** Full BCn 2D/array chains and single-mip uncompressed
@@ -959,10 +1230,11 @@ exists; missing preview support preserves the complete DDS.
 * **Music record table.** The audio config holds **1,589** 46-byte music
   records, **1,589** distinct config ids and **272,442.8 s** total; `music`
   extracts duration/hash A/hash B/stream id. Names and play order are absent.
-* **Audio decode.** Streams and music channels are catalogued; native
-  payloads are written and Opus (including per-channel music) is remuxed
-  losslessly to Ogg. PCM/WAV decoding and XMA2 transcoding are not implemented
-  in `gta6x`.
+* **Audio decode.** Optional libopus supports standalone mono and bounded
+  music-channel PCM/WAV. Exact repeated music packets can be removed with an
+  opt-in policy; unobserved skip sizes, stereo AWC and XMA2 remain unsupported.
+  Legacy Ogg stays the default; declared mode corrects granules for an explicit
+  interval without confirming original alignment.
 * **Shader semantics.** Extraction stops at valid DXBC containers; there is no
   disassembly or translation.
 * **World data.** Placements, collision, navmesh, paths, lights, interiors,
