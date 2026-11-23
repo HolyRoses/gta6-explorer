@@ -343,8 +343,11 @@ def iter_sources(paths, *, limit):
                 scan_limit = os.path.getsize(path) if limit is None else limit
                 for hit in structured.recover(path, limit=scan_limit):
                     if hit.kind == 'psin':
-                        yield dict(file=label, offset=hit.offset, blocks=hit.blocks,
-                                   segments=hit.segments), hit.data, None
+                        source = dict(file=label, offset=hit.offset, blocks=hit.blocks,
+                                      segments=hit.segments)
+                        if hit.segment_storage:
+                            source['segment_storage'] = hit.segment_storage
+                        yield source, hit.data, None
         except (OSError, ValueError) as exc:
             yield dict(file=label), None, str(exc)
 

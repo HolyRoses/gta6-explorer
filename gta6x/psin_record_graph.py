@@ -13,11 +13,13 @@ MAX_BYTES = 16 * 1024 * 1024
 MAX_SCAN_FIELDS = 2_000_000
 ARRAY_PROFILES = {
     ('record_links', 'structure_equal_u16_v1'): 'structure_array',
+    ('record_links', 'structure_null_empty_missing_schema_v1'): 'structure_array',
     ('reference_record_links', 'reference_equal_u16_v1'): 'reference_array',
     ('enum_record_links', 'local_enum32_record_array_v1'): 'enum_array',
 }
 MAP_PROFILES = frozenset(('local_hash32_map_entries_v1',
-    'local_enum32_structure_map_entries_v1', 'local_nested_map_entry_links_v1'))
+    'local_enum32_structure_map_entries_v1', 'local_nested_map_entry_links_v1',
+    'local_opaque_key_map_entry_links_v1'))
 
 
 class RecordGraphLimitError(ValueError):
@@ -178,6 +180,18 @@ def inspect(instances, resource_header=None, *, max_nodes=100000, max_depth=16):
                 if isinstance(array, dict) and array.get('status') == 'complete':
                     kind = ARRAY_PROFILES.get((array.get('mode'), array.get('profile')))
                     if kind:
+                        if array.get('profile') == 'structure_null_empty_missing_schema_v1':
+                            if (array.get('header_bits') != '0x' + '00'*16
+                                    or array.get('reference_bits') != '0x0000000000000000'
+                                    or any(type(array.get(key)) is not int or array[key] != 0
+                                           for key in ('u16_08', 'u16_0a'))
+                                    or array.get('unknown_0c') != '0x00000000'
+                                    or type(array.get('count')) is not int or array['count'] != 0
+                                    or array.get('elements') != [] or array.get('element_type') != 'structure'
+                                    or array.get('element_schema_status') != 'missing'
+                                    or any(key not in array or array[key] is not None
+                                           for key in ('target', 'stride', 'structure_definition_offset'))):
+                                raise ValueError('invalid record-graph null-empty missing-schema array')
                         if (not isinstance(array.get('header_bits'), str) or len(array['header_bits']) != 34
                                 or field_offset+16 > owner['byte_length']):
                             raise ValueError('record-graph array header exceeds its owning field')

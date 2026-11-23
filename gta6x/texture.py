@@ -27,6 +27,7 @@ from . import gfx10, rds5
 #: DXGI format -> (name, element bytes, block pixels, block compressed)
 FORMATS: dict[int, tuple[str, int, int, bool]] = {
     10: ("R16G16B16A16_FLOAT", 8, 1, False),
+    11: ("R16G16B16A16_UNORM", 8, 1, False),
     24: ("R10G10B10A2_UNORM", 4, 1, False),
     28: ("R8G8B8A8_UNORM", 4, 1, False),
     29: ("R8G8B8A8_UNORM_SRGB", 4, 1, False),
@@ -65,16 +66,16 @@ FORMATS.update({
     26: ("R11G11B10_FLOAT", 4, 1, False),
     27: ("R8G8B8A8_TYPELESS", 4, 1, False),
     30: ("R8G8B8A8_UINT", 4, 1, False),
-    31: ("R8G8B8A8_SINT", 4, 1, False),
-    32: ("R8G8B8A8_SNORM", 4, 1, False),
+    31: ("R8G8B8A8_SNORM", 4, 1, False),
+    32: ("R8G8B8A8_SINT", 4, 1, False),
     48: ("R8G8_TYPELESS", 2, 1, False),
     50: ("R8G8_UINT", 2, 1, False),
-    51: ("R8G8_SINT", 2, 1, False),
-    52: ("R8G8_SNORM", 2, 1, False),
+    51: ("R8G8_SNORM", 2, 1, False),
+    52: ("R8G8_SINT", 2, 1, False),
     60: ("R8_TYPELESS", 1, 1, False),
     62: ("R8_UINT", 1, 1, False),
-    63: ("R8_SINT", 1, 1, False),
-    64: ("R8_SNORM", 1, 1, False),
+    63: ("R8_SNORM", 1, 1, False),
+    64: ("R8_SINT", 1, 1, False),
     70: ("BC1_TYPELESS", 8, 4, True),
     73: ("BC2_TYPELESS", 16, 4, True),
     76: ("BC3_TYPELESS", 16, 4, True),
@@ -91,7 +92,7 @@ DDS_HEADER_BYTES = 148
 __all__ = [
     "FORMATS", "MAX_TEXTURE_BYTES", "format_name", "format_info",
     "chunk_starts", "bcpack_bytes", "coverage", "layout_for", "read_virtual",
-    "dds_header", "dds_bytes", "export_texture",
+    "dds_header", "dds_bytes", "preview_subresource", "export_texture",
 ]
 
 
@@ -265,13 +266,17 @@ def dds_header(width: int, height: int, mips: int, slices: int,
     _name, element_bytes, _block_pixels, is_bc = format_info(dxgi_format)
     if element_bytes == 0:
         raise ValueError(f"unsupported DXGI format {dxgi_format}")
+    if cube and (type(slices) is not int or slices <= 0 or slices % 6):
+        raise ValueError('DDS cubemap requires complete groups of six faces')
+    if any(type(value) is not int or value <= 0 for value in (width, height, mips, slices)):
+        raise ValueError('DDS dimensions and subresource counts must be positive integers')
     if is_bc:
-        pitch = -(-width // 4) * element_bytes
+        pitch = -(-width // 4) * -(-height // 4) * element_bytes
         flags = 0xA1007
     else:
         pitch = width * element_bytes
         flags = 0x2100F
-    caps = 0x1000 | (0x8 if slices > 1 else 0) | (0x400000 if mips > 1 else 0)
+    caps = 0x1000 | (0x8 if slices > 1 or mips > 1 else 0) | (0x400000 if mips > 1 else 0)
     caps2 = 0x200 | 0xFC00 if cube else 0
     misc = 4 if cube else 0
     out = bytearray()
@@ -290,7 +295,7 @@ def dds_header(width: int, height: int, mips: int, slices: int,
     out += struct.pack("<I", dxgi_format)
     out += struct.pack("<I", 3)              # D3D10_RESOURCE_DIMENSION_TEXTURE2D
     out += struct.pack("<I", misc)           # D3D10_RESOURCE_MISC_TEXTURECUBE
-    out += struct.pack("<I", slices)
+    out += struct.pack("<I", slices // 6 if cube else slices)
     out += struct.pack("<I", 0)              # miscFlags2
     return bytes(out)
 
@@ -325,6 +330,8 @@ def dds_header_volume(texture: rds5.TtpTexture) -> bytes:
 
 
 def dds_bytes_volume(texture: rds5.TtpTexture, layout, data: bytes) -> bytes:
+    if len(data) < layout.total:
+        raise ValueError('truncated volume graphics allocation')
     return dds_header_volume(texture) + layout.untile(data)
 
 
@@ -335,16 +342,120 @@ def dds_bytes(texture: rds5.TtpTexture, layout: gfx10.Layout,
                                    texture.mips, texture.slices)
     out = bytearray(dds_header(width, height, mips, slices, texture.dxgi_format,
                                cube=texture.is_cube))
-    for mip in range(mips):
-        for slice_index in range(slices):
-            out += layout.untile_slice(data, mip, slice_index)
+    # DDS serializes a complete mip chain per array element/cube face.
+    # Source placement remains the existing pool-specific layout.
+    for slice_index in range(slices):
+        for mip in range(mips):
+            linear, _width, _height, _metadata = preview_subresource(
+                texture, layout, data, mip=mip, slice_index=slice_index)
+            out += linear
     return bytes(out)
+
+
+def _preview_selection(width, height, mips, slices, *, is_volume,
+                       mip, slice_index, z_index):
+    """Validate explicit selection before allocating its pixel/element buffer."""
+    if any(type(value) is not int for value in (mip, slice_index, z_index)):
+        raise ValueError('texture subresource indices must be integers')
+    if any(type(value) is not int or value <= 0 for value in (width, height, mips, slices)):
+        raise ValueError('invalid texture dimensions or subresource counts')
+    if not 0 <= mip < mips:
+        raise ValueError('texture mip index out of range')
+    if is_volume:
+        if mips != 1 or mip != 0:
+            raise ValueError('volume subresource mip layout is not validated')
+        if slice_index != 0:
+            raise ValueError('volume subresource uses a Z index, not an array slice')
+        if not 0 <= z_index < slices:
+            raise ValueError('texture volume Z index out of range')
+    else:
+        if z_index != 0:
+            raise ValueError('2D/array/cube subresource has no volume Z index')
+        if not 0 <= slice_index < slices:
+            raise ValueError('texture slice index out of range')
+    w, h = max(1, width >> mip), max(1, height >> mip)
+    metadata = {'png_z_index': z_index} if is_volume else {}
+    if mip or slice_index or z_index:
+        metadata.update(png_mip_index=mip, png_width=w, png_height=h)
+        metadata['png_z_index' if is_volume else 'png_slice_index'] = z_index if is_volume else slice_index
+    return w, h, metadata
+
+
+def preview_subresource(texture: rds5.TtpTexture, layout, data: bytes, *,
+                        mip: int = 0, slice_index: int = 0,
+                        z_index: int = 0) -> tuple[bytes, int, int, dict]:
+    """Return one bounded raw subresource and its logical preview dimensions.
+
+    This shares the existing pool source placement with DDS serialization;
+    it does not infer additional element extents. Cube slices remain numeric
+    indices. A volume has only its validated mip0; its Z plane is separate
+    from a 2D array slice. The entire tiled allocation must be present even
+    when a small subresource is requested.
+    """
+    is_volume = getattr(texture, 'dimension', 1) == 3
+    width, height, metadata = _preview_selection(
+        texture.width, texture.height, texture.mips, texture.slices,
+        is_volume=is_volume, mip=mip, slice_index=slice_index, z_index=z_index)
+    if (type(layout.total) is not int or not 0 < layout.total <= MAX_TEXTURE_BYTES
+            or len(data) < layout.total):
+        raise ValueError('subresource requires the complete bounded texture allocation')
+    _, element, block, _ = format_info(texture.dxgi_format)
+    if element not in (1, 2, 4, 8, 16):
+        raise ValueError('unsupported texture subresource element size')
+    if layout.bpe != element:
+        raise ValueError('subresource element size differs from its supplied layout')
+    ew, eh = -(-width // block), -(-height // block)
+    if not is_volume:
+        if mip >= len(layout.mips) or slice_index >= layout.slices:
+            raise ValueError('subresource selection exceeds its supplied layout')
+        place = layout.mips[mip]
+        if place.w < ew or place.h < eh:
+            raise ValueError('texture logical mip grid exceeds its validated layout')
+    size = ew * eh * element
+    if size > layout.total:
+        raise ValueError('texture subresource exceeds its allocation')
+    out = bytearray(size)
+    for y in range(eh):
+        for x in range(ew):
+            at = layout.addr(x, y, z_index) if is_volume else layout.addr(mip, slice_index, x, y)
+            if not 0 <= at <= layout.total - element:
+                raise ValueError('texture subresource address exceeds allocation')
+            dst = (y * ew + x) * element
+            out[dst:dst+element] = data[at:at+element]
+    return bytes(out), width, height, metadata
+
+
+def _export_preview(result, texture, layout, data, out_dir, mip, slice_index, z_index):
+    from .bc import decode_rgba
+    from .bc.bcn import preview_policy
+    from . import png as png_mod
+    try:
+        linear, width, height, metadata = preview_subresource(
+            texture, layout, data, mip=mip, slice_index=slice_index, z_index=z_index)
+        rgba = decode_rgba(texture.dxgi_format, linear, width, height)
+        if rgba is None:
+            raise ValueError('no PNG decoder for this format')
+    except ValueError as exc:
+        result['png_skipped'] = str(exc)
+        return
+    suffix = f'_m{mip}_s{slice_index}_z{z_index}' if mip or slice_index or z_index else ''
+    png_dest = os.path.join(out_dir, f'{texture.hash:016x}{suffix}.png')
+    png_mod.write_png(png_dest, width, height, rgba)
+    result.update(metadata)
+    result['png'] = png_dest
+    policy = preview_policy(texture.dxgi_format)
+    if policy is not None:
+        result['png_conversion'] = policy
+    result['bytes'] += os.path.getsize(png_dest)
 
 
 def export_texture(path, index: rds5.TtpIndex, texture: rds5.TtpTexture,
                    out_dir: str, fh=None, starts: list[int] | None = None,
-                   png: bool = False, decode_bcpack: bool = False) -> dict:
+                   png: bool = False, decode_bcpack: bool = False,
+                   png_mip: int = 0, png_slice: int = 0, png_z: int = 0) -> dict:
     """Export one texture as ``<hash>.dds``; returns a manifest record."""
+    if not png and any(type(value) is not int or value != 0 for value in (png_mip, png_slice, png_z)):
+        raise ValueError('PNG subresource selectors require png=True')
     result = {"file": None, "hash": f"{texture.hash:016x}",
               "width": texture.width, "height": texture.height,
               "format": format_name(texture.dxgi_format),
@@ -356,6 +467,9 @@ def export_texture(path, index: rds5.TtpIndex, texture: rds5.TtpTexture,
         vol = volume.layout_for(texture)
         if vol is None:
             result["skipped"] = "unsupported 3D volume layout"
+            return result
+        if vol.total > MAX_TEXTURE_BYTES:
+            result['skipped'] = 'volume exceeds the 64 MiB export limit'
             return result
         data, bcpack, uncovered = read_virtual(
             path, index, texture.virtual_offset, vol.total, fh=fh, starts=starts,
@@ -373,6 +487,8 @@ def export_texture(path, index: rds5.TtpIndex, texture: rds5.TtpTexture,
             out.write(blob)
         result.update({"file": dest, "bytes": len(blob), "volume": True,
                        "depth": texture.slices})
+        if png:
+            _export_preview(result, texture, vol, data, out_dir, png_mip, png_slice, png_z)
         return result
     layout = layout_for(texture)
     if layout is None:
@@ -393,23 +509,16 @@ def export_texture(path, index: rds5.TtpIndex, texture: rds5.TtpTexture,
     if uncovered:
         result["skipped"] = f"{uncovered} bytes not covered by any chunk"
         return result
-    blob = dds_bytes(texture, layout, data)
+    try:
+        blob = dds_bytes(texture, layout, data)
+    except ValueError as exc:
+        result['skipped'] = str(exc)
+        return result
     dest = os.path.join(out_dir, f"{texture.hash:016x}.dds")
     with open(dest, "wb") as out:
         out.write(blob)
     result["file"] = dest
     result["bytes"] = len(blob)
     if png:
-        from .bc import decode_rgba
-        from . import png as png_mod
-        rgba = decode_rgba(texture.dxgi_format,
-                               layout.untile_slice(data, 0, 0),
-                               texture.width, texture.height)
-        if rgba is None:
-            result["png_skipped"] = "no PNG decoder for this format"
-        else:
-            png_dest = os.path.join(out_dir, f"{texture.hash:016x}.png")
-            png_mod.write_png(png_dest, texture.width, texture.height, rgba)
-            result["png"] = png_dest
-            result["bytes"] += os.path.getsize(png_dest)
+        _export_preview(result, texture, layout, data, out_dir, png_mip, png_slice, png_z)
     return result

@@ -54,7 +54,7 @@ DEFAULT_PATTERN = ((True, 0), (False, 0), (True, 1), (False, 1), (True, 2),
 
 __all__ = ["EmbeddedTexture", "EmbeddedResource", "parse_system", "iter_resources",
            "mip0", "mip_linear", "exportable_mips", "dds_bytes", "dds_mips", "dds_mip0",
-           "format_name", "volume_linear", "volume_slice"]
+           "format_name", "volume_linear", "volume_slice", "preview_subresource"]
 
 
 @dataclass
@@ -418,9 +418,9 @@ def mip_linear(tex: EmbeddedTexture, gfx: bytes, mip: int, *, slice_index: int =
     layout = _layout(tex)
     if tex.shape == "3d":
         raise ValueError("embedded volume plane requires volume_slice with an explicit z index")
-    if not isinstance(mip, int) or mip < 0 or mip >= tex.mips:
+    if type(mip) is not int or mip < 0 or mip >= tex.mips:
         raise ValueError("embedded mip index out of range")
-    if not isinstance(slice_index, int) or not 0 <= slice_index < tex.slices:
+    if type(slice_index) is not int or not 0 <= slice_index < tex.slices:
         raise ValueError("embedded slice index out of range")
     element = tex.element_size
     end = tex.data_off + tex.size_field * element
@@ -527,3 +527,16 @@ def volume_linear(tex: EmbeddedTexture, gfx: bytes) -> bytes:
 def volume_slice(tex: EmbeddedTexture, gfx: bytes, z_index: int) -> bytes:
     """One explicit XY plane; the complete volume allocation must be present."""
     return _volume_planes(tex, gfx, z_index, 1)
+
+
+def preview_subresource(tex: EmbeddedTexture, gfx: bytes, *, mip: int = 0,
+                        slice_index: int = 0, z_index: int = 0) -> tuple[bytes, int, int, dict]:
+    """One explicit preview subresource; DDS still retains its whole allocation."""
+    width, height, metadata = texture._preview_selection(
+        tex.width, tex.height, tex.mips, tex.depth if tex.shape == '3d' else tex.slices,
+        is_volume=tex.shape == '3d', mip=mip, slice_index=slice_index, z_index=z_index)
+    if tex.shape == '3d':
+        linear = volume_slice(tex, gfx, z_index)
+    else:
+        linear = mip_linear(tex, gfx, mip, slice_index=slice_index)
+    return linear, width, height, metadata

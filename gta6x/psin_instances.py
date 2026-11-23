@@ -20,6 +20,58 @@ from .psin_blocks import InstanceBlock, InstanceLimitError, parse_blocks
 __all__ = ['InstanceBlock', 'InstanceLimitError', 'parse_blocks', 'decode_instances']
 
 
+def _bitset_value(data, start, field, owner, info, local_structures, local_enums,
+                  *, local_owner, consume, dictionary):
+    """Read the narrow exact-extent profile; enum positions remain inferred."""
+    if (not local_owner or len(local_structures.get(owner.name_hash, [])) != 1
+            or local_structures[owner.name_hash][0] is not owner):
+        raise ValueError('bitset requires one local owner definition')
+    targets = local_enums.get(field.auxiliary, [])
+    if len(targets) != 1:
+        raise ValueError('bitset requires one local LENM definition')
+    width, bits = info['storage_bytes'], info['bit_count']
+    real_fields = [f for f in owner.fields if f.name_hash != 0x100]
+    if sum(f.data_offset == field.data_offset for f in real_fields) != 1:
+        raise ValueError('bitset field shares an ambiguous storage origin')
+    for other in real_fields:
+        if other.data_offset < field.data_offset:
+            preceding = psin_schema._type_info(other, owner, local_structures, local_enums)
+            other_width = preceding['storage_bytes']
+            if other_width is None or other.data_offset + other_width > field.data_offset:
+                raise ValueError('bitset preceding field has unknown or overlapping extent')
+    end = min([f.data_offset for f in real_fields if f.data_offset > field.data_offset]
+              + [owner.byte_size])
+    if end - field.data_offset != width:
+        raise ValueError('bitset width lacks an exact independent field or owner boundary')
+    lane_bytes = 4 if info['name'] == 'enum_bitset32' else 8
+    if field.data_offset % lane_bytes:
+        raise ValueError('bitset origin is not aligned to its inferred lane')
+    members = {}
+    for member in targets[0].members:
+        members.setdefault(member.value_bits, []).append(member)
+    if len(members) != bits or any(index not in members for index in range(bits)):
+        raise ValueError('bitset LENM values are not the complete bounded index domain')
+    raw = data[start:start + width]
+    if len(raw) != width:
+        raise ValueError('truncated bitset storage')
+    number = int.from_bytes(raw, 'little')
+    if number >> bits:
+        raise ValueError('bitset has nonzero bits above the declared bit count')
+    indices = [index for index in range(bits) if number & (1 << index)]
+    matches = []
+    for index in indices:
+        consume()
+        aliases = []
+        for member in members[index]:
+            consume()
+            aliases.append(member.as_dict(dictionary))
+        matches.append(dict(bit_index=index, enum_matches=aliases))
+    return dict(value=indices, value_unsigned=str(number), value_bits='0x' + raw[::-1].hex(),
+                byte_length=width, bit_count=bits, enum_hash=f'0x{field.auxiliary:08x}',
+                set_bit_members=matches,
+                bitset_interpretation='inferred little-endian bit indices; LENM values used as positions')
+
+
 
 def decode_instances(data: bytes, dictionary: dict | None = None, *,
                      max_nodes: int = 100000, max_depth: int = 16, registry=None) -> dict:
@@ -173,7 +225,7 @@ def decode_instances(data: bytes, dictionary: dict | None = None, *,
                 if descriptor.type_word & 0xffff == 5:
                     array = psin_arrays.resolve_structure_links(
                         data, start, owner, descriptor_index, blocks, local_owner=local_owner,
-                        local_structures=structures, consume=consume)
+                        local_structures=structures, consume=consume, field=f, block_end=block_end)
                 elif descriptor.type_word & 0xffff == 7:
                     array = psin_arrays.resolve_reference_links(
                         data, start, owner, descriptor_index, blocks, local_owner=local_owner,
@@ -223,6 +275,20 @@ def decode_instances(data: bytes, dictionary: dict | None = None, *,
                     value['status'] = 'complete'
                     counts['maps_resolved'] += 1
                     counts['map_entries_linked'] += mapping['count']
+                continue
+            if kind in ('enum_bitset32', 'enum_bitset64'):
+                try:
+                    decoded = _bitset_value(
+                        data, start, f, owner, info, structures, enums,
+                        local_owner=context is None or context.schema is not None,
+                        consume=consume, dictionary=dictionary)
+                except InstanceLimitError:
+                    raise
+                except ValueError as exc:
+                    unresolved(value, str(exc))
+                else:
+                    value.update(decoded, status='decoded')
+                    counts['decoded_values'] += 1
                 continue
             if kind not in ('bool8', 'float32', 'hash32', 'enum32'):
                 reason = info.get('reason') or (

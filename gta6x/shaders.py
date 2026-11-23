@@ -37,7 +37,17 @@ LOOKAHEAD = MAX_STORED + 4096
 PREFIX = 1024
 MAX_CHUNKS = 64
 
-__all__ = ["MAGIC", "ShaderHit", "scan", "validate_dxbc", "safe_name"]
+__all__ = ["MAGIC", "ShaderHit", "scan", "validate_dxbc", "safe_name", "metadata"]
+
+
+def metadata(data: bytes, *, max_records: int = 4096) -> dict:
+    """Inspect public program/signature headers without decoding instructions.
+
+    Extraction remains independent of this optional, bounded metadata view.
+    Unsupported parts retain their tag, extent and hash.
+    """
+    from .shader_metadata import inspect
+    return inspect(data, max_records=max_records)
 
 
 @dataclass(frozen=True)

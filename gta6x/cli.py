@@ -936,12 +936,15 @@ def cmd_browse(args) -> int:
 
 
 def cmd_structured(args) -> int:
-    """Recover complete XML/PSIN resources from stream-split zlib pages."""
+    """Recover complete XML/PSIN resources from supported page chains."""
     from . import structured as structured_mod
 
     targets = _scan_targets(args)
     if not targets:
         eprint("no archive matched")
+        return 1
+    if args.limit < 0:
+        eprint("--limit must be nonnegative")
         return 1
     limit = args.limit * 1024 * 1024
     if args.out:
@@ -990,7 +993,7 @@ def cmd_structured(args) -> int:
         return 0
     print(table(rows, ["archive", "kind", "root", "offset", "pages",
                        "packed", "unpacked"], align="lllrrrr"))
-    print(f"\n{total:,} complete resource(s); {joined:,} joined from multiple zlib pages")
+    print(f"\n{total:,} complete resource(s); {joined:,} joined from multiple pages")
     print("pass --out DIR to write .xml/.psin files")
     return 0
 
@@ -1392,6 +1395,13 @@ def cmd_shaders(args) -> int:
     """Recover DXBC shaders from RPF9 archives."""
     from . import shaders as shaders_mod
 
+    include_metadata = getattr(args, "metadata", False)
+    max_records = getattr(args, "max_records", 4096)
+    if include_metadata:
+        from .shader_metadata import MAX_RECORDS
+        if not 1 <= max_records <= MAX_RECORDS:
+            eprint(f"--max-records must be from 1 to {MAX_RECORDS}")
+            return 1
     targets = _scan_targets(args)
     if not targets:
         eprint("no archive matched")
@@ -1403,44 +1413,72 @@ def cmd_shaders(args) -> int:
     written = 0
     rows: list[list[str]] = []
     manifest: list[dict] = []
+    shown_metadata: list[dict] = []
+    metadata_incomplete = 0
     for path in targets:
         for hit in shaders_mod.scan(path, limit=limit):
             total += 1
             name = shaders_mod.safe_name(hit.name)
+            record = hit.as_dict() if include_metadata or args.out else None
+            if include_metadata:
+                record["metadata"] = shaders_mod.metadata(hit.data, max_records=max_records)
+                if record["metadata"]["status"] != "complete":
+                    metadata_incomplete += 1
             if args.out:
                 dest = os.path.join(args.out, f"{name}_{hit.offset:09x}.cso")
                 with open(dest, "wb") as out:
                     out.write(hit.data)
                 written += 1
-                record = hit.as_dict()
                 record["file"] = dest
                 manifest.append(record)
             if len(rows) < args.max:
-                rows.append([os.path.basename(path)[:22], hit.name[:46],
-                             f"0x{hit.offset:09x}", f"{hit.stored:,}",
-                             f"{hit.decoded:,}"])
+                row = [os.path.basename(path)[:22], hit.name[:46],
+                       f"0x{hit.offset:09x}", f"{hit.stored:,}", f"{hit.decoded:,}"]
+                if include_metadata:
+                    programs = record["metadata"]["programs"]
+                    if len(programs) == 1:
+                        program = programs[0]
+                        stage = program["stage"] or f"stage-{program['stage_code']}"
+                        profile = f"{stage} {program['shader_model_major']}.{program['shader_model_minor']}"
+                    else:
+                        profile = "multiple" if programs else "unavailable"
+                    row.append(profile)
+                    row.append(record["metadata"]["status"])
+                    if not args.out:
+                        shown_metadata.append(record)
+                rows.append(row)
         eprint(f"{os.path.basename(path):24s} shaders so far: {total:,}")
     if args.out:
         manifest_path = os.path.join(args.out, "shaders.json")
         with open(manifest_path, "w", encoding="utf-8") as out:
             json.dump(manifest, out, indent=1)
         if args.json:
-            print(json.dumps({"shaders": total, "written": written,
-                              "manifest": manifest_path}, indent=2))
-            return 0
+            summary = {"shaders": total, "written": written, "manifest": manifest_path}
+            if include_metadata:
+                summary["metadata_incomplete"] = metadata_incomplete
+            print(json.dumps(summary, indent=2))
+            return int(metadata_incomplete > 0)
         print(f"recovered {total:,} shader(s); wrote {written:,} .cso files to {args.out}")
         print(f"manifest: {manifest_path}")
-        return 0
+        if metadata_incomplete:
+            print(f"metadata incomplete for {metadata_incomplete:,} shader(s); see manifest reasons")
+        return int(metadata_incomplete > 0)
     if args.json:
-        print(json.dumps(rows, indent=2))
-        return 0
+        result = {"shaders": total, "shown": len(shown_metadata),
+                  "records": shown_metadata, "metadata_incomplete": metadata_incomplete} if include_metadata else rows
+        print(json.dumps(result, indent=2))
+        return int(metadata_incomplete > 0)
     if not rows:
         print("no validated shaders found")
         return 0
-    print(table(rows, ["archive", "name", "payload@", "deflate", "dxbc"],
-                align="llrrr"))
+    headings = ["archive", "name", "payload@", "deflate", "dxbc"]
+    if include_metadata:
+        headings.extend(["profile", "metadata"])
+    print(table(rows, headings, align="llrrrll" if include_metadata else "llrrr"))
     print(f"\n{total:,} shader(s); pass --out DIR to write .cso files")
-    return 0
+    if metadata_incomplete:
+        print(f"metadata incomplete for {metadata_incomplete:,} shader(s); use --json for reasons")
+    return int(metadata_incomplete > 0)
 
 
 def cmd_models(args) -> int:
@@ -1620,9 +1658,16 @@ def cmd_awc(args) -> int:
     if args.opus_library and not (args.wav_out or args.music_wav_out):
         eprint("--opus-library requires --wav-out or --music-wav-out")
         return 1
-    if not 0 <= args.wav_pre_skip <= 5760:
+    if args.wav_pre_skip is not None and not 0 <= args.wav_pre_skip <= 5760:
         eprint("--wav-pre-skip must be between 0 and 5760 frames")
         return 1
+    if args.wav_policy != "declared" and not args.wav_out:
+        eprint("--wav-policy packet-sequence requires --wav-out")
+        return 1
+    wav_pre_skip = args.wav_pre_skip
+    if wav_pre_skip is None:
+        wav_pre_skip = 0 if args.wav_policy == "packet-sequence" else 312
+    music_pre_skip = 312 if args.wav_pre_skip is None else args.wav_pre_skip
     if args.music_skip_policy != "zero" and not args.music_wav_out:
         eprint("--music-skip-policy verified-overlap requires --music-wav-out")
         return 1
@@ -1727,7 +1772,7 @@ def cmd_awc(args) -> int:
                                     raise audio_music_pcm.MusicUnsupportedError(channel['reason'])
                                 blob, music_pcm_info = music_pcm_backend.extract_wav(
                                     buf, stream, index, library_path=args.opus_library,
-                                    pre_skip=args.wav_pre_skip, **music_pcm_options)
+                                    pre_skip=music_pre_skip, **music_pcm_options)
                             except (ValueError, audio_pcm.OpusUnavailableError) as exc:
                                 reason = str(exc)
                                 unsupported = isinstance(exc, audio_music_pcm.MusicUnsupportedError)
@@ -1784,11 +1829,13 @@ def cmd_awc(args) -> int:
                     stem = os.path.splitext(os.path.basename(path))[0]
                     for stream in streams:
                         candidate = (stream.get("codec") == 0x0b and stream.get("codec_name") == "opus"
-                                     and not stream.get("music") and stream.get("channels") == 1
+                                     and not stream.get("music")
+                                     and stream.get("channels") in ((1, 2) if args.wav_policy == "packet-sequence" else (1,))
                                      and stream.get("sample_rate") == 48000)
                         try:
                             blob, pcm_info = audio_pcm.extract_wav(
-                                buf, stream, library_path=args.opus_library, pre_skip=args.wav_pre_skip)
+                                buf, stream, library_path=args.opus_library, pre_skip=wav_pre_skip,
+                                interval_policy=args.wav_policy)
                         except (ValueError, audio_pcm.OpusUnavailableError) as exc:
                             reason = str(exc)
                             unavailable = isinstance(exc, audio_pcm.OpusUnavailableError)
@@ -1826,14 +1873,15 @@ def cmd_awc(args) -> int:
     if args.wav_out:
         for reason, count in sorted(wav_skipped.items(), key=lambda item: -item[1]):
             print(f"  WAV skipped {count:,}: {reason}")
-        print(f"WAV uses {args.wav_pre_skip} pre-skip frames and declared duration; original sample alignment is unconfirmed")
+        interval = "the complete packet sequence" if args.wav_policy == "packet-sequence" else "declared duration"
+        print(f"WAV uses {wav_pre_skip} pre-skip frames and {interval}; original sample alignment is unconfirmed")
     if args.music_wav_out:
         for reason, count in sorted(music_wav_skipped.items(), key=lambda item: -item[1]):
             print(f"  music WAV skipped {count:,}: {reason}")
         if args.music_skip_policy == "zero":
-            print(f"Music WAV requires zero block skips; {args.wav_pre_skip} pre-skip frames and original alignment remain unconfirmed")
+            print(f"Music WAV requires zero block skips; {music_pre_skip} pre-skip frames and original alignment remain unconfirmed")
         else:
-            print(f"Music WAV verifies whole-packet overlaps; {args.wav_pre_skip} pre-skip frames and original alignment remain unconfirmed")
+            print(f"Music WAV verifies whole-packet overlaps; {music_pre_skip} pre-skip frames and original alignment remain unconfirmed")
     if args.ogg_policy == "declared":
         for reason, count in sorted(ogg_skipped.items(), key=lambda item: -item[1]):
             print(f"  declared-length Ogg skipped {count:,}: {reason}")
@@ -1962,6 +2010,7 @@ def _cmd_embedded_textures(args) -> int:
     resources = textures = exported = 0
     skipped: dict[str, int] = {}
     done = False
+    png_failed = False
     for path in targets:
         for resource in embedded_mod.iter_resources(path, limit=limit):
             resources += 1
@@ -1981,6 +2030,7 @@ def _cmd_embedded_textures(args) -> int:
                     except ValueError as exc:
                         reason = str(exc)
                         skipped[reason] = skipped.get(reason, 0) + 1
+                        png_failed = png_failed or args._png_selection_requested
                         continue
                     safe = "".join(c if c.isalnum() or c in "_-." else "_"
                                    for c in f"{resource.name}_{tex.name or 'tex'}")
@@ -1997,24 +2047,34 @@ def _cmd_embedded_textures(args) -> int:
                                    "exported_mips": mip_count})
                     if args.png:
                         from .bc import decode_rgba
+                        from .bc.bcn import preview_policy
                         from . import png as png_mod
                         # DDS retains the complete shape even when a preview
                         # selects one array layer or one volume Z plane.
                         try:
-                            if tex.shape == "3d":
-                                linear = embedded_mod.volume_slice(tex, resource.gfx, 0)
-                            else:
-                                linear = embedded_mod.mip0(tex, resource.gfx, slice_index=0)
-                            rgba = decode_rgba(tex.dxgi_format, linear, tex.width, tex.height)
+                            linear, png_width, png_height, selection = embedded_mod.preview_subresource(
+                                tex, resource.gfx, mip=args.png_mip,
+                                slice_index=args.png_slice, z_index=args.png_z)
+                            rgba = decode_rgba(tex.dxgi_format, linear, png_width, png_height)
                             if rgba is None:
                                 record["png_skip_reason"] = "unsupported PNG preview format"
                             else:
-                                png_dest = os.path.splitext(dest)[0] + ".png"
-                                png_mod.write_png(png_dest, tex.width, tex.height, rgba)
+                                suffix = (f"_m{args.png_mip}_s{args.png_slice}_z{args.png_z}"
+                                          if any((args.png_mip, args.png_slice, args.png_z)) else "")
+                                png_dest = os.path.splitext(dest)[0] + suffix + ".png"
+                                png_mod.write_png(png_dest, png_width, png_height, rgba)
                                 record["png"] = png_dest
                                 record["png_z_index" if tex.shape == "3d" else "png_slice_index"] = 0
+                                record.update(selection)
+                                policy = preview_policy(tex.dxgi_format)
+                                if policy is not None:
+                                    record["png_conversion"] = policy
                         except ValueError as exc:
                             record["png_skip_reason"] = str(exc)
+                        if args._png_selection_requested and record.get("png_skip_reason"):
+                            png_failed = True
+                            reason = "PNG: " + record["png_skip_reason"]
+                            skipped[reason] = skipped.get(reason, 0) + 1
                     records.append(record)
                 else:
                     try:
@@ -2040,13 +2100,13 @@ def _cmd_embedded_textures(args) -> int:
             print(json.dumps({"resources": resources, "textures": textures,
                               "exported": exported, "skipped": skipped,
                               "manifest": manifest}, indent=2))
-            return 0
+            return int(png_failed)
         print(f"resources {resources:,}   textures {textures:,}   exported {exported:,}"
               f" DDS files to {args.out}")
         for reason, count in sorted(skipped.items(), key=lambda kv: -kv[1]):
             print(f"  skipped {count:>6,}  {reason}")
         print(f"manifest: {manifest}")
-        return 0
+        return int(png_failed)
 
     if args.json:
         print(json.dumps(rows, indent=2))
@@ -2133,6 +2193,22 @@ def cmd_textures(args) -> int:
     """List TTPF textures, or export them as DDS files."""
     from . import texture as texture_mod
 
+    selections = (args.png_mip, args.png_slice, args.png_z)
+    args._png_selection_requested = any(value is not None for value in selections)
+    if any(value is not None and value < 0 for value in selections):
+        eprint("PNG mip, slice and Z indices must be nonnegative")
+        return 1
+    if args._png_selection_requested and (not args.png or not args.out):
+        eprint("PNG subresource selectors require --png and --out")
+        return 1
+    if args.png_slice is not None and args.png_z is not None:
+        eprint("--png-slice and --png-z select different texture shapes; choose one")
+        return 1
+    if args._png_selection_requested and args.via != "native":
+        eprint("PNG subresource selectors require --via native")
+        return 1
+    args.png_mip, args.png_slice, args.png_z = (value or 0 for value in selections)
+
     if getattr(args, "embedded", False):
         if args.via == "sixng":
             return _cmd_embedded_via_backend(args)
@@ -2155,6 +2231,7 @@ def cmd_textures(args) -> int:
         os.makedirs(args.out, exist_ok=True)
     limit = None if args.all else args.max
     seen = exported = 0
+    png_failed = False
     skipped: dict[str, int] = {}
     records: list[dict] = []
     rows: list[list[str]] = []
@@ -2177,7 +2254,11 @@ def cmd_textures(args) -> int:
                 if names_index is not None:
                     found = names_mod.lookup64(names_index, tex.hash)
                     label = found[0][0] if found else ""
-                layout = texture_mod.layout_for(tex)
+                if getattr(tex, "dimension", 1) == 3:
+                    from . import volume as volume_mod
+                    layout = volume_mod.layout_for(tex)
+                else:
+                    layout = texture_mod.layout_for(tex)
                 missing = uncovered = 0
                 if layout is not None:
                     __covered, missing, uncovered = texture_mod.coverage(
@@ -2195,7 +2276,8 @@ def cmd_textures(args) -> int:
                     if reason is None or (args.bcpack and "BCPack" in (reason or "")):
                         record = texture_mod.export_texture(
                             pool, index, tex, args.out, fh=fh, starts=starts,
-                            png=args.png, decode_bcpack=args.bcpack)
+                            png=args.png, decode_bcpack=args.bcpack,
+                            png_mip=args.png_mip, png_slice=args.png_slice, png_z=args.png_z)
                     else:
                         record = {"file": None, "hash": f"{tex.hash:016x}",
                                   "skipped": reason}
@@ -2223,6 +2305,13 @@ def cmd_textures(args) -> int:
                                            "bcpack": True, "native_skipped": native_reason})
                     if label:
                         record["name"] = label
+                    if args._png_selection_requested and not record.get("png"):
+                        png_failed = True
+                        if record.get("file") and not record.get("png_skipped"):
+                            record["png_skipped"] = "native PNG selection unavailable after external DDS fallback"
+                        if record.get("png_skipped"):
+                            reason = "PNG: " + record["png_skipped"]
+                            skipped[reason] = skipped.get(reason, 0) + 1
                     exported += 1 if record.get("file") else 0
                     if record.get("skipped"):
                         key = _skip_category(record["skipped"])
@@ -2253,12 +2342,12 @@ def cmd_textures(args) -> int:
         if args.json:
             print(json.dumps({"scanned": seen, "exported": exported,
                               "skipped": skipped, "manifest": manifest}, indent=2))
-            return 0
+            return int(png_failed)
         pngs = sum(1 for record in records if record.get("png"))
         print(f"scanned {seen:,} textures; exported {exported:,} DDS files"
               + (f" and {pngs:,} PNG previews" if args.png else "")
               + f" to {args.out}")
-        if args.png:
+        if args.png and not args._png_selection_requested:
             for record in records:
                 if record.get("png_skipped"):
                     key = _skip_category(record["png_skipped"])
@@ -2266,7 +2355,7 @@ def cmd_textures(args) -> int:
         for reason, count in sorted(skipped.items(), key=lambda kv: -kv[1]):
             print(f"  skipped {count:>7,}  {reason}")
         print(f"manifest: {manifest}")
-        return 0
+        return int(png_failed)
 
     if args.json:
         print(json.dumps(rows, indent=2))
@@ -2583,8 +2672,20 @@ def cmd_selftest(args) -> int:
     check("BC5 signed channels", _bcn.decode_rgba(84, bc5, 4, 4)
           == bytes((255, 0, 0, 255)) * 16)
     check("signed 8-bit preview mapping",
-          _bcn.decode_rgba(32, bytes((128, 129, 0, 127)), 1, 1) == bytes((0, 0, 128, 255))
-          and _bcn.decode_rgba(31, bytes((128, 129, 0, 127)), 1, 1) == bytes((0, 1, 128, 255)))
+          _bcn.decode_rgba(31, bytes((128, 129, 0, 127)), 1, 1) == bytes((0, 0, 128, 255))
+          and _bcn.decode_rgba(32, bytes((128, 129, 0, 127)), 1, 1) == bytes((0, 1, 128, 255)))
+    check("16-bit and packed UNORM previews preserve normalized component order",
+          _bcn.decode_rgba(11, _s.pack('<4H', 0, 32768, 65535, 65535), 1, 1)
+          == bytes((0, 128, 255, 255))
+          and _bcn.decode_rgba(24, _s.pack('<I', 1023 | (512 << 20) | (2 << 30)), 1, 1)
+          == bytes((255, 0, 128, 170)))
+    check("half-float previews apply explicit clipping and nonfinite display rules",
+          _bcn.decode_rgba(10, _s.pack('<4H', 0x7e00, 0xfc00, 0x7c00, 0x3800), 1, 1)
+          == bytes((0, 0, 255, 128)))
+    check("BGRX previews force opaque alpha and BGRA short reads refuse",
+          all(_bcn.decode_rgba(fmt, bytes((1, 2, 3, 0)), 1, 1) == bytes((3, 2, 1, 255))
+              for fmt in (88, 93))
+          and _bcn.decode_rgba(87, bytes(3), 1, 1) is None)
 
     # Shader wrapper: name prefix, sizes, magic, raw deflate DXBC payload.
     dxbc = bytearray(64)
@@ -2614,6 +2715,45 @@ def cmd_selftest(args) -> int:
     finally:
         os.unlink(shader_path)
     check("dxbc rejects noise", not _shaders.validate_dxbc(b"DXBC" + b"\x00" * 60))
+
+    def shader_container(*parts):
+        data = bytearray(32 + 4*len(parts))
+        data[:4] = b'DXBC'
+        _s.pack_into('<I', data, 20, 1)
+        _s.pack_into('<I', data, 28, len(parts))
+        for index, (tag, body) in enumerate(parts):
+            data.extend(bytes((-len(data)) % 4))
+            _s.pack_into('<I', data, 32+4*index, len(data))
+            data.extend(tag + _s.pack('<I', len(body)) + body)
+        _s.pack_into('<I', data, 24, len(data))
+        return bytes(data)
+
+    public_program = shader_container((b'SHDR', _s.pack('<II', 0x10050, 2)),
+                                      (b'TEST', b'raw!'))
+    metadata = _shaders.metadata(public_program)
+    check("shader metadata reads public stage/model without decoding instructions",
+          metadata['status'] == 'complete'
+          and metadata['programs'][0]['stage'] == 'vertex'
+          and metadata['programs'][0]['shader_model_major'] == 5
+          and metadata['chunks'][1]['status'] == 'opaque')
+    signature = (_s.pack('<II', 1, 8)
+                 + _s.pack('<6IBBHI', 0, 40, 0, 0, 3, 0, 15, 15, 0, 0)
+                 + b'POSITION\0' + bytes(23))
+    metadata = _shaders.metadata(shader_container((b'ISG1', signature)))
+    check("shader metadata retains signature names, registers and masks",
+          metadata['status'] == 'complete'
+          and metadata['signatures'][0]['parameters'][0]['semantic_name'] == 'POSITION'
+          and metadata['signatures'][0]['parameters'][0]['mask'] == 15)
+    invalid_signature = bytearray(signature)
+    _s.pack_into('<I', invalid_signature, 12, 8)
+    metadata = _shaders.metadata(shader_container((b'ISG1', invalid_signature)))
+    check("shader metadata refuses a name pointer into parameter storage",
+          metadata['status'] == 'partial' and not metadata['signatures']
+          and bool(metadata['reasons']))
+    metadata = _shaders.metadata(public_program, max_records=1)
+    check("shader metadata budgets refuse atomically",
+          metadata['status'] == 'unresolved'
+          and not metadata['chunks'] and not metadata['programs'] and not metadata['signatures'])
 
     # Structured recovery: an XML document split over a 64 KiB page and a tail.
     import zlib as _zl
@@ -2901,6 +3041,34 @@ def cmd_selftest(args) -> int:
     check('PSIN native scalar instance values',
           values[0]['value'] is True and values[1]['value'] == 1.25
           and decoded_instance['status'] == 'complete')
+
+    bitset_payload = (_s.pack('<4I8sIHH', 0x11223344, 0, 0, 0, b'\xaa'*8, 8, 0, 1)
+                      + _s.pack('<4I', 0x12345678, 0, (35 << 16) | 0x65, 7))
+    bitset_schema = b'LSCH' + _s.pack('>I', len(bitset_payload)+8) + bitset_payload
+    bitset_enums = (_s.pack('<II8sII', 7, 0, b'\xee'*8, 35, 0)
+                    + b''.join(_s.pack('<QII', i, 0x1000+i, 0) for i in range(35)))
+    bitset_lenm = b'LENM' + _s.pack('>I', len(bitset_enums)+8) + bitset_enums
+    bitset_body = bytearray(instance_body)
+    _s.pack_into('<Q', bitset_body, 32, (1 << 34) | 1)
+    bitset_data = instance_fixture(bitset_schema, body=bytes(bitset_body), enm=bitset_lenm)
+    bitset_report = _instances.decode_instances(bitset_data)
+    bitset_value = bitset_report['blocks'][0]['records'][0]['fields'][0]
+    check('PSIN exact-extent bitsets retain high set indices and original bits',
+          bitset_value['status'] == 'decoded' and bitset_value['value'] == [0, 34]
+          and bitset_value['value_bits'] == '0x0000000400000001'
+          and bitset_value['type_confidence'] == 'inferred')
+    _s.pack_into('<Q', bitset_body, 32, 1 << 35)
+    bitset_invalid = _instances.decode_instances(instance_fixture(
+        bitset_schema, body=bytes(bitset_body), enm=bitset_lenm))
+    bitset_invalid = bitset_invalid['blocks'][0]['records'][0]['fields'][0]
+    check('PSIN bitset padding is refused without masking source bits',
+          bitset_invalid['status'] == 'unresolved' and 'value' not in bitset_invalid)
+    try:
+        _instances.decode_instances(bitset_data, max_nodes=bitset_report['summary']['nodes']-1)
+        bitset_budget_refused = False
+    except _instances.InstanceLimitError:
+        bitset_budget_refused = True
+    check('PSIN set-bit aliases consume the existing instance budget', bitset_budget_refused)
     try:
         _instances.parse_blocks(instance_body[:-1] + b'\x01')
         padding_refused = False
@@ -4043,6 +4211,187 @@ def cmd_selftest(args) -> int:
         kind28_budget_refused = True
     check('MoVE kind-28 raw selector fields share the node budget', kind28_budget_refused)
 
+    # Authored opaque-key map: descriptor equality links rows without reading keys.
+    opaque_lsch = (b'LSCH' + _s.pack('>I', 152)
+                   + _s.pack('<4I8sIHH', 0x11223344, 0, 0, 0, b'\xaa'*8, 24, 0, 3)
+                   + _s.pack('<4I8sIHH', 0x22334455, 0, 0, 0, b'\xaa'*8, 16, 0, 2)
+                   + _s.pack('<4I', 0x100, 0, 0x054f, 0)
+                   + _s.pack('<4I', 0x100, 0, 0x21, 0)
+                   + _s.pack('<4I', 0x87654321, 0, 0x71, 1 << 16)
+                   + _s.pack('<4I', 0x12345678, 0, 0x054f, 0)
+                   + _s.pack('<4I', 0x23456789, 8, 0x21, 0))
+    opaque_body = (b'PSIN' + _s.pack('>I', 112)
+                   + _s.pack('<II', 0x11223344, 24) + b'\xaa'*8
+                   + _s.pack('<II', 0x22334455, 32) + b'\xaa'*8 + b'p'*8
+                   + _s.pack('<QQHHI', 1, 2, 2, 2, 0) + bytes(8)
+                   + _s.pack('<QfI', 2, 0.5, 0) + _s.pack('<QfI', 1 << 63, 1.5, 0))
+    opaque_report = _instances.decode_instances(instance_fixture(opaque_lsch, body=opaque_body))
+    opaque_keys = [r['fields'][0] for r in opaque_report['blocks'][1]['records']]
+    check('PSIN opaque-key maps link bounded typed rows while keys remain unknown',
+          opaque_report['summary']['maps_resolved'] == 1
+          and opaque_report['summary']['map_entries_linked'] == 2
+          and opaque_report['summary']['decoded_values'] == 2
+          and all(k['status'] == 'unresolved' and k['type_name'] is None
+                  and 'reference' not in k and 'value' not in k for k in opaque_keys))
+    opaque_graph = _record_graph.inspect(opaque_report)
+    check('PSIN opaque-key map links enter the record graph without duplicating values',
+          opaque_graph['summary']['record_edges'] == 2
+          and opaque_graph['summary']['record_nodes'] == 3
+          and opaque_graph['summary']['unsupported_associations'] == 0)
+    bad_opaque_lsch = bytearray(opaque_lsch)
+    _s.pack_into('<I', bad_opaque_lsch, 144, 0x4a)
+    bad_opaque = _instances.decode_instances(instance_fixture(bad_opaque_lsch, body=opaque_body))
+    bad_opaque_map = bad_opaque['blocks'][0]['records'][0]['fields'][2]['map']
+    check('PSIN mismatched opaque-map descriptors refuse without partial links',
+          bad_opaque_map['status'] == 'unresolved' and bad_opaque_map['entries'] == []
+          and _record_graph.inspect(bad_opaque)['summary']['record_edges'] == 0)
+
+    kind4_header = bytearray(36)
+    _s.pack_into('<HHIII', kind4_header, 0, 4, 0, 0x12345678, 0x00880000, 1)
+    _s.pack_into('<II', kind4_header, 16, 0xffffffff, 0x80000000)
+    kind4_payload = bytes(tail_parent) + bytes(kind4_header) + _s.pack('<HHI', 31337, 1, 0x87654321)
+    kind4_view = _move_tail_forms.inspect_payload(kind4_payload, 0, len(kind4_payload))
+    check('MoVE kind-4 retains measured whole-word prefixes without pointer guesses',
+          kind4_view['status'] == 'complete' and kind4_view['summary']['header_prefixes'] == 1
+          and kind4_view['summary']['header_selector_fields'] == 0
+          and kind4_view['forms'][0]['header']['byte_length'] == 36
+          and kind4_view['forms'][0]['references'] == [])
+    bad_kind4 = bytearray(kind4_payload)
+    _s.pack_into('<I', bad_kind4, 48 + 12, 2)
+    bad_kind4_view = _move_tail_forms.inspect_payload(bytes(bad_kind4), 0, len(bad_kind4))
+    check('MoVE kind-4 refuses unfitted markers without partial header metadata',
+          bad_kind4_view['summary']['unresolved'] == 1
+          and 'header' not in bad_kind4_view['forms'][0]
+          and bad_kind4_view['forms'][0]['regions'] == [])
+    try:
+        _move_tail_forms.inspect_payload(kind4_payload, 0, len(kind4_payload),
+                                        max_nodes=kind4_view['summary']['nodes']-1)
+        kind4_budget_refused = False
+    except _move.MoveLimitError:
+        kind4_budget_refused = True
+    check('MoVE kind-4 prefixes share the node budget', kind4_budget_refused)
+
+    # Authored complete PSIN with a compressed full page and stored terminal tail.
+    stored_lsch = (b'LSCH' + _s.pack('>I', 40)
+                   + _s.pack('<4I8sIHH', 0x11223344, 0, 0, 0, b'\xaa'*8, 16, 0, 0))
+    stored_body = (b'PSIN' + _s.pack('>I', 65568)
+                   + _s.pack('<II', 0x11223344, 65536) + b'\xaa'*8 + b'p'*8 + bytes(65536))
+    stored_data = instance_fixture(stored_lsch, body=stored_body)
+    stored_first = _zl.compress(stored_data[:65536])
+    stored_blob = stored_first + bytes(-len(stored_first) % 16) + stored_data[65536:]
+    with tempfile.TemporaryDirectory() as stored_tmp:
+        stored_path = os.path.join(stored_tmp, 'authored.rpf')
+        with open(stored_path, 'wb') as fh:
+            fh.write(stored_blob)
+        stored_hits = list(_structured.recover(stored_path, start=0, limit=len(stored_blob)))
+        check('PSIN recovery checks exact sections and checksum across a stored terminal tail',
+              len(stored_hits) == 1 and stored_hits[0].data == stored_data
+              and stored_hits[0].segment_storage == ['zlib', 'stored']
+              and stored_hits[0].packed == len(stored_first) + len(stored_data) - 65536)
+        check('PSIN stored-tail recovery stays inside the requested scan window',
+              not list(_structured.recover(stored_path, start=0, limit=len(stored_blob)-1)))
+        stored_bad = bytearray(stored_blob)
+        stored_bad[-8] ^= 1
+        with open(stored_path, 'wb') as fh:
+            fh.write(stored_bad)
+        check('PSIN recovery refuses stored-tail checksum corruption without partial output',
+              not list(_structured.recover(stored_path, start=0, limit=len(stored_blob))))
+
+    empty_lsch = (b'LSCH' + _s.pack('>I', 72)
+                  + _s.pack('<4I8sIHH', 0x11223344, 0, 0, 0, b'\xaa'*8, 16, 0, 2)
+                  + _s.pack('<4I', 0x100, 0, 5, 0x22334455)
+                  + _s.pack('<4I', 101, 0, 0x52, 0))
+    empty_body = (b'PSIN' + _s.pack('>I', 48)
+                  + _s.pack('<II', 0x11223344, 16) + b'\xaa'*8 + b'p'*8 + bytes(16))
+    empty_report = _instances.decode_instances(instance_fixture(empty_lsch, body=empty_body))
+    empty_array = empty_report['blocks'][0]['records'][0]['fields'][1]['array']
+    check('PSIN null-empty array headers retain missing element schemas without guessed strides',
+          empty_array['status'] == 'complete' and empty_array['count'] == 0
+          and empty_array['element_schema_status'] == 'missing'
+          and empty_array['stride'] is None and empty_array['target'] is None
+          and empty_report['summary']['decoded_values'] == 0)
+    empty_graph = _record_graph.inspect(empty_report)
+    check('PSIN null-empty array headers add no graph edges or unsupported associations',
+          empty_graph['summary']['record_edges'] == 0
+          and empty_graph['summary']['unsupported_associations'] == 0)
+    empty_array['reference_bits'] = '0x0000000000000001'
+    try:
+        _record_graph.inspect(empty_report)
+        empty_graph_refused = False
+    except ValueError:
+        empty_graph_refused = True
+    check('PSIN null-empty graph profiles reject contradictory reference metadata', empty_graph_refused)
+
+    extended_header = bytearray(60)
+    _s.pack_into('<HHI', extended_header, 0, 12, 0, 0x12345678)
+    _s.pack_into('<I', extended_header, 12, 0x1155)
+    _s.pack_into('<I', extended_header, 44, 0x7fc00000)
+    extended_cells = bytearray(extended_header)
+    for count in (1, 0, 0, 0, 1):
+        extended_cells.extend(_s.pack('<I', count))
+        if count:
+            extended_cells.extend(_s.pack('<IQ', 2, 0x800000007fc00000))
+    extended_payload = bytes(tail_parent) + bytes(extended_cells) + _s.pack('<HHI', 31337, 1, 0x87654321)
+    extended_view = _move_tail_forms.inspect_payload(extended_payload, 0, len(extended_payload))
+    check('MoVE extended kind-12 headers retain five counted groups and opaque cells',
+          extended_view['status'] == 'complete' and extended_view['summary']['counted_groups'] == 5
+          and extended_view['summary']['opaque_cells'] == 2
+          and extended_view['forms'][0]['regions'][0]['byte_length'] == 60
+          and extended_view['forms'][0]['references'] == [])
+    terminal_extended = _move_tail_forms.inspect_payload(extended_payload[:-8], 0, len(extended_payload)-8)
+    check('MoVE extended kind-12 refuses an unvalidated terminal form without partial groups',
+          terminal_extended['summary']['unresolved'] == 1
+          and 'groups' not in terminal_extended['forms'][0])
+    bad_extended = bytearray(extended_payload)
+    _s.pack_into('<I', bad_extended, 48 + 12, 0x115a)
+    bad_extended_view = _move_tail_forms.inspect_payload(bytes(bad_extended), 0, len(bad_extended))
+    check('MoVE extended kind-12 keeps unfitted whole-word variants explicit',
+          bad_extended_view['summary']['unresolved'] == 1
+          and bad_extended_view['forms'][0]['regions'] == [])
+
+    packed_float = (15 << 6) | ((14 << 6) << 11) | ((13 << 5) << 22)
+    check('R11G11B10 unsigned-float previews preserve packed channel order',
+          _bcn.decode_rgba(26, _s.pack('<I', packed_float), 1, 1) == bytes((255,128,64,255)))
+    check('R32 float previews use the explicit numeric grayscale policy',
+          _bcn.decode_rgba(41, _s.pack('<f', 0.5), 1, 1) == bytes((128,128,128,255)))
+    check('RGBA32 float previews clip specials without replacing original DDS data',
+          _bcn.decode_rgba(2, _s.pack('<4f', -1.0, 0.5, 2.0, float('nan')), 1, 1)
+          == bytes((0,128,255,0)) and _bcn.decode_rgba(2, bytes(15), 1, 1) is None)
+
+    selection_tex = _rds5.TtpTexture(0, 0x123, 0, 0, 0, 8, 8, 2, 71, 1, 2)
+    selection_layout = _texture.layout_for(selection_tex)
+    selection_data = bytearray(selection_layout.total)
+    selection_expected = bytearray()
+    for layer in range(2):
+        for mip in range(2):
+            color = (0xf800, 0x07e0, 0x001f, 0xffff)[layer*2+mip]
+            encoded = _s.pack('<HHI', color, 0, 0)
+            edge = (max(1, 8 >> mip)+3)//4
+            for y in range(edge):
+                for x in range(edge):
+                    at = selection_layout.addr(mip, layer, x, y)
+                    selection_data[at:at+8] = encoded
+                    selection_expected.extend(encoded)
+    selection_dds = _texture.dds_bytes(selection_tex, selection_layout, bytes(selection_data))
+    cube_header = _texture.dds_header(8, 8, 2, 6, 71, cube=True)
+    check('DDS arrays retain complete chains and cube headers count cubes',
+          selection_dds[148:] == bytes(selection_expected)
+          and _s.unpack_from('<I', cube_header, 140)[0] == 1
+          and _s.unpack_from('<I', cube_header, 20)[0] == 32
+          and _s.unpack_from('<I', selection_dds, 108)[0] & 8)
+    selected, selected_w, selected_h, selected_meta = _texture.preview_subresource(
+        selection_tex, selection_layout, bytes(selection_data), mip=1, slice_index=1)
+    check('Texture preview selection retains the requested mip and array layer',
+          (selected_w, selected_h) == (4,4) and selected_meta['png_mip_index'] == 1
+          and selected_meta['png_slice_index'] == 1
+          and _bcn.decode_rgba(71, selected, selected_w, selected_h) == bytes((255,255,255,255))*16)
+    try:
+        _texture.preview_subresource(selection_tex, selection_layout, bytes(selection_data), mip=2)
+        selection_refused = False
+    except ValueError:
+        selection_refused = True
+    check('Texture preview selection refuses an out-of-range mip without substitution', selection_refused)
+
     print(f"\n{len(failures)} failure(s)")
     return 0 if not failures else 1
 
@@ -4338,10 +4687,12 @@ def build_parser() -> argparse.ArgumentParser:
                    help="standalone Ogg timing policy (default: preserve legacy output)")
     p.add_argument("--ogg-pre-skip", type=int,
                    help="explicit pre-skip for --ogg-policy declared (default 312; original alignment unconfirmed)")
-    p.add_argument("--wav-out", help="decode supported mono 48 kHz Opus streams to PCM16 WAV using optional libopus")
+    p.add_argument("--wav-out", help="decode supported standalone 48 kHz Opus streams to PCM16 WAV using optional libopus")
+    p.add_argument("--wav-policy", choices=("declared", "packet-sequence"), default="declared",
+                   help="standalone WAV interval: declared mono duration (default) or full mono/stereo packet sequence")
     p.add_argument("--opus-library", help="path to a compatible libopus library for standalone or music WAV export")
-    p.add_argument("--wav-pre-skip", type=int, default=312,
-                   help="explicit WAV pre-skip frames; default 312 is inherited, not confirmed original alignment")
+    p.add_argument("--wav-pre-skip", type=int,
+                   help="WAV pre-skip frames: default 312 for declared/music, 0 for packet-sequence; original alignment unconfirmed")
     p.set_defaults(func=cmd_awc, spread=0, quiet=False, no_padding=False,
                    no_align=False, align=0x1000)
 
@@ -4351,10 +4702,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--limit", type=int, default=64, help="MiB to scan per archive")
     p.add_argument("--full", action="store_true", help="scan whole archives")
     p.add_argument("--out", help="write .cso files into this directory")
+    p.add_argument("--metadata", action="store_true",
+                   help="include bounded native DXBC stage/model and signature metadata")
+    p.add_argument("--max-records", type=int, default=4096,
+                   help="metadata output record limit per shader (default 4096)")
     p.add_argument("--max", type=int, default=20, help="rows to display (default 20)")
     p.set_defaults(func=cmd_shaders)
 
-    p = sub.add_parser("structured", help="recover complete XML/PSIN resources from split pages")
+    p = sub.add_parser("structured", help="recover complete XML/PSIN resources, including supported stored PSIN tails")
     p.add_argument("files", nargs="*", help="specific .rpf files")
     p.add_argument("--archive", action="append", default=[], help="archive name fragment")
     p.add_argument("--limit", type=int, default=16, help="MiB of payload to scan")
@@ -4386,7 +4741,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max", type=int, default=100, help="maximum textures (default 100)")
     p.add_argument("--all", action="store_true", help="no limit")
     p.add_argument("--png", action="store_true",
-                   help="also write PNG previews (BC1-BC7 and 8-bit R/RG/RGBA/BGRA)")
+                   help="also write PNG previews (BC1-BC7 and supported raw component formats)")
+    p.add_argument("--png-mip", type=int, help="preview this mip level (default 0; requires --png and --out)")
+    p.add_argument("--png-slice", type=int, help="preview this array layer or cube-face index (default 0)")
+    p.add_argument("--png-z", type=int, help="preview this volume Z plane (default 0)")
     p.add_argument("--bcpack", action="store_true",
                    help="decode BC1/BC3/BC4/BC5 BCPack natively (slow, pure Python)")
     p.add_argument("--bcpack-helper", default=os.environ.get("GTA6X_BCPACK"),

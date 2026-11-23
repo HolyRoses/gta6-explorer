@@ -13,6 +13,8 @@ import struct
 
 from . import psin_schema, psin_references
 
+NULL_EMPTY_MISSING_STRUCTURE_PROFILE = 'structure_null_empty_missing_schema_v1'
+
 
 def _header(data, start, descriptor_index, profile):
     if start < 0 or start + 16 > len(data):
@@ -87,7 +89,8 @@ def resolve_hash32(data, start, owner, descriptor_index, blocks, *, local_owner,
 
 
 def resolve_structure_links(data, start, owner, descriptor_index, blocks, *,
-                            local_owner, local_structures, consume):
+                            local_owner, local_structures, consume,
+                            field=None, block_end=None):
     """Link an exact local structure-array span to already typed record rows.
 
     The caller bounds the header within its record/block. Targets must have
@@ -110,6 +113,24 @@ def resolve_structure_links(data, start, owner, descriptor_index, blocks, *,
     result['structure_hash'] = f'0x{descriptor.auxiliary:08x}'
     definitions = local_structures.get(descriptor.auxiliary, [])
     if len(definitions) != 1:
+        # An exact null-empty header needs no element width or target record.
+        # Missing definitions remain missing; ambiguity never authorizes this.
+        if (not definitions and descriptor.auxiliary != 0 and field is not None
+                and field.name_hash != 0x100
+                and any(field is candidate for candidate in owner.fields)
+                and field.type_word == ((descriptor_index << 16) | 0x52)
+                and field.auxiliary == 0 and field.data_offset >= 0
+                and field.data_offset + 16 <= owner.byte_size
+                and type(block_end) is int and start + 16 <= block_end <= len(data)
+                and psin_references.field_slot_clear(owner, field, 16)
+                and word == a == b == tail == 0):
+            result.update(status='complete', interpretation='inferred',
+                profile=NULL_EMPTY_MISSING_STRUCTURE_PROFILE,
+                count=0, target=None, stride=None, structure_definition_offset=None,
+                element_schema_status='missing',
+                element_schema_reason='null-empty header only; local element definition is missing and stride remains unknown')
+            result.pop('candidate_profile')
+            return result
         return refuse('missing or ambiguous local structure-array target schema')
     definition = definitions[0]
     stride = definition.byte_size

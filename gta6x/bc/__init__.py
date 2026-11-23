@@ -1,7 +1,8 @@
 """Block-compressed texture decoding, with bundled runtime constants.
 
-``decode_rgba`` converts standard BC1-BC7 blocks or 8-bit component data to
-preview pixels, including signed BC4/BC5 and R/RG/RGBA formats.
+``decode_rgba`` converts standard BC1-BC7 blocks, 8-bit components and selected
+16-bit/32-bit/packed normalized or floating-point data to preview pixels. Raw float
+numeric previews clip to [0,1]; DDS retains the original precision.
 ``decode_bcpack`` reconstructs BC1/BC3/BC4/BC5 blocks from BCPack streams in
 stored Gfx10 order. BC3/BC4/BC5 provisional histories warn and unfitted entries
 raise; BC1 retains the existing vendored decoder behavior.

@@ -1,9 +1,10 @@
 """Strict AWC Opus framing and optional libopus PCM/WAV conversion.
 
 The optional system library is used through its public C API. No decoder is
-bundled. AWC extraction supports the observed mono/48 kHz profile only. The
-312-frame pre-skip is an explicit inherited assumption, not a recovered AWC
-field or confirmation of original sample alignment. No silence is substituted.
+bundled. Default AWC export preserves the observed mono/48 kHz declared-frame
+policy. An opt-in packet-sequence policy exports mono/stereo decoder output
+without interpreting the AWC sample count. Original sample alignment remains
+unknown; neither policy substitutes silence for missing packets.
 """
 from __future__ import annotations
 
@@ -124,13 +125,34 @@ def decode_packets(packets, *, channels: int, frames: int, pre_skip: int = audio
     serially, including trimmed tails; malformed input refuses the entire result.
     No PLC/FEC or implicit missing samples are used. ``frames`` is per channel.
     """
+    return _decode_packets(packets, channels=channels, frames=frames, pre_skip=pre_skip,
+        library_path=library_path, max_pcm_bytes=max_pcm_bytes, packet_sequence=False)
+
+
+def decode_packet_sequence(packets, *, channels: int, pre_skip: int = 0,
+                           library_path=None, max_pcm_bytes: int = MAX_PCM_BYTES):
+    """Decode every packet into the requested output layout, without end trim.
+
+    Mono/stereo packet switching is legal (RFC 6716 section 2.1.2); libopus
+    produces the caller's fixed output channel count. ``pre_skip`` is an
+    explicit caller selection, not an AWC encoder-delay measurement. The
+    resulting interval is a packet sequence, not a recovered game interval.
+    """
+    return _decode_packets(packets, channels=channels, frames=None, pre_skip=pre_skip,
+        library_path=library_path, max_pcm_bytes=max_pcm_bytes, packet_sequence=True)
+
+
+def _decode_packets(packets, *, channels, frames, pre_skip, library_path,
+                    max_pcm_bytes, packet_sequence):
     if type(channels) is not int or channels not in (1, 2):
         raise ValueError('Opus PCM supports one or two channels')
-    _limit(frames, 'frames'); _limit(pre_skip, 'pre_skip', zero=True)
+    if not packet_sequence:
+        _limit(frames, 'frames')
+    _limit(pre_skip, 'pre_skip', zero=True)
     _limit(max_pcm_bytes, 'max_pcm_bytes')
     if max_pcm_bytes > MAX_PCM_BYTES:
         raise ValueError('Opus PCM processing limit exceeds the supported maximum')
-    if pre_skip > MAX_PACKET_FRAMES or frames > max_pcm_bytes // (2 * channels):
+    if pre_skip > MAX_PACKET_FRAMES or (frames is not None and frames > max_pcm_bytes // (2 * channels)):
         raise ValueError('Opus PCM requested duration exceeds output limit')
     if not isinstance(packets, (list, tuple)) or not 1 <= len(packets) <= MAX_PACKETS:
         raise ValueError('Opus packets must be a nonempty bounded sequence')
@@ -138,7 +160,7 @@ def decode_packets(packets, *, channels: int, frames: int, pre_skip: int = audio
         raise ValueError('invalid or oversized Opus packet')
     if sum(map(len, packets)) > MAX_INPUT_BYTES:
         raise ValueError('Opus packet bytes exceed input limit')
-    if audio.packet_channels(packets) != channels:
+    if not packet_sequence and audio.packet_channels(packets) != channels:
         raise ValueError('Opus packet channel profile differs from requested channels')
     decoded_frames = 0
     output = bytearray()
@@ -154,19 +176,30 @@ def decode_packets(packets, *, channels: int, frames: int, pre_skip: int = audio
             end = decoded_frames + count
             if end * channels * 2 > max_pcm_bytes:
                 raise ValueError('decoded Opus duration exceeds PCM processing limit')
-            first, last = max(decoded_frames, pre_skip), min(end, pre_skip + frames)
+            first = max(decoded_frames, pre_skip)
+            last = end if packet_sequence else min(end, pre_skip + frames)
             if first < last:
                 output.extend(pcm[(first - decoded_frames) * channels * 2:(last - decoded_frames) * channels * 2])
             decoded_frames = end
+        if packet_sequence:
+            frames = decoded_frames - pre_skip
+            if frames <= 0:
+                raise ValueError('decoded Opus packet sequence ends before selected pre-skip')
         if decoded_frames < pre_skip + frames:
             raise ValueError('decoded Opus has fewer frames than pre-skip plus declared duration')
         if len(output) != frames * channels * 2:
             raise ValueError('Opus trim did not produce the exact requested PCM frame count')
-        return bytes(output), dict(sample_rate=RATE, channels=channels, sample_width=2,
+        info = dict(sample_rate=RATE, channels=channels, sample_width=2,
             output_frames=frames, decoded_frames=decoded_frames, pre_skip=pre_skip,
             tail_discarded_frames=decoded_frames - pre_skip - frames,
             packet_count=len(packets), decoder=decoder.version,
             timing_policy='explicit pre-skip then exact requested per-channel frames; original alignment unconfirmed')
+        if packet_sequence:
+            mono = sum(not (packet[0] & 4) for packet in packets)
+            info.update(packet_mono_count=mono, packet_stereo_count=len(packets)-mono,
+                timing_policy='complete decoded packet sequence after selected pre-skip; original game interval unconfirmed',
+                output_channel_policy='caller-declared fixed decoder output; packet mono/stereo switching allowed')
+        return bytes(output), info
     finally:
         decoder.close()
 
@@ -185,25 +218,47 @@ def wav_bytes(pcm: bytes, *, channels: int, sample_rate: int = RATE) -> bytes:
 
 
 def extract_wav(bank: bytes, stream: dict, *, library_path=None,
-                pre_skip: int = audio.PRE_SKIP, max_pcm_bytes: int = MAX_PCM_BYTES):
-    """Return (WAV, metadata) for the observed standalone mono AWC Opus profile.
+                pre_skip: int | None = None, max_pcm_bytes: int = MAX_PCM_BYTES,
+                interval_policy: str = 'declared'):
+    """Return standalone AWC Opus WAV under an explicit sample-interval policy.
 
-    Music and stereo AWC metadata semantics are not established here. The
-    default 312 pre-skip is inherited from this project's Ogg policy and must
-    not be described as a confirmed encoder-delay field.
+    Default ``declared`` preserves the mono declared-frame policy and inherited
+    312 pre-skip. Opt-in ``packet-sequence`` accepts declared mono/stereo output
+    channels, defaults to zero pre-skip and keeps every decoded trailing frame.
+    It never treats the AWC sample word as a stereo per-channel duration.
     """
+    if interval_policy not in ('declared', 'packet-sequence'):
+        raise ValueError('unsupported AWC WAV interval policy')
+    if pre_skip is None:
+        pre_skip = audio.PRE_SKIP if interval_policy == 'declared' else 0
     if stream.get('music') or stream.get('codec') != 0x0b or stream.get('codec_name') != 'opus':
         raise ValueError('WAV export supports standalone AWC Opus streams only')
-    if stream.get('sample_rate') != RATE or type(stream.get('channels')) is not int or stream.get('channels') != 1:
-        raise ValueError('WAV export requires the observed mono 48 kHz AWC profile')
-    frames = _limit(stream.get('samples'), 'AWC declared samples')
+    channels = stream.get('channels')
+    if (stream.get('sample_rate') != RATE or type(channels) is not int
+            or channels not in ((1,) if interval_policy == 'declared' else (1, 2))):
+        if interval_policy == 'declared':
+            raise ValueError('WAV export requires the observed mono 48 kHz AWC profile')
+        raise ValueError('WAV export requires supported declared channels at 48 kHz for its interval policy')
+    if interval_policy == 'packet-sequence' and (type(stream.get('samples')) is not int
+            or not 0 <= stream['samples'] <= 0xffffffff):
+        raise ValueError('packet-sequence export requires a bounded raw AWC sample word')
+    frames = (_limit(stream.get('samples'), 'AWC declared samples')
+              if interval_policy == 'declared' else None)
     at, length = stream.get('data_offset'), stream.get('data_bytes')
     if (type(at) is not int or type(length) is not int or at < 0 or length <= 0
             or length > MAX_INPUT_BYTES or at > len(bank) - length):
         raise ValueError('AWC Opus data span exceeds complete container bounds')
     packets = strict_packets(bank[at:at + length])
-    pcm, info = decode_packets(packets, channels=1, frames=frames, pre_skip=pre_skip,
-                              library_path=library_path, max_pcm_bytes=max_pcm_bytes)
+    if interval_policy == 'packet-sequence':
+        pcm, info = decode_packet_sequence(packets, channels=channels, pre_skip=pre_skip,
+            library_path=library_path, max_pcm_bytes=max_pcm_bytes)
+        info.update(profile='awc_opus_packet_sequence_pcm_v1', interval_policy=interval_policy,
+            declared_samples=stream.get('samples'), declared_samples_applied=False,
+            pre_skip_assumption='explicit output selection; original encoder delay unknown',
+            source_data_bytes=length)
+        return wav_bytes(pcm, channels=channels), info
+    pcm, info = decode_packets(packets, channels=channels, frames=frames, pre_skip=pre_skip,
+        library_path=library_path, max_pcm_bytes=max_pcm_bytes)
     info.update(profile='observed_awc_mono_opus_pcm_v1', declared_samples=frames,
                 pre_skip_assumption='312 inherited from existing Ogg policy' if pre_skip == 312 else 'explicit caller value',
                 source_data_bytes=length)

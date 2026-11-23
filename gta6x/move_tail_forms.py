@@ -51,6 +51,9 @@ def inspect_payload(data, offset, length, *, max_nodes=100000):
             elif child['reason'] == 'unsupported MoVE child kind 11; body remains opaque':
                 from . import move_extra_forms
                 item.update(move_extra_forms.inspect_kind11(data, at, size, consume))
+            elif child['reason'] == 'unsupported MoVE child kind 4; body remains opaque':
+                from . import move_kind4_forms
+                item.update(move_kind4_forms.inspect_kind4(data, at, size, consume))
             elif child['reason'] == 'unsupported MoVE child kind 28; body remains opaque':
                 from . import move_selector_forms
                 item.update(move_selector_forms.inspect_kind28(data, at, size, consume))
@@ -73,7 +76,8 @@ def inspect_payload(data, offset, length, *, max_nodes=100000):
         for key in ('counted_groups', 'selector_words', 'opaque_cells'):
             result['summary'][key] = sum(f['summary'][key] for f in counted)
     headers = [f for f in forms if f.get('form') in ('kind11_measured_selector_header',
-                                                        'kind28_measured_selector_header')]
+                                                        'kind28_measured_selector_header',
+                                                        'kind4_measured_header_prefix')]
     if headers:
         for key in ('header_prefixes', 'header_selector_fields', 'header_prefix_bytes'):
             result['summary'][key] = sum(f['summary'][key] for f in headers)

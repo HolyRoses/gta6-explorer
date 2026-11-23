@@ -57,6 +57,12 @@ def resolve_entries(data, start, field, owner, block_end, blocks, *, local_owner
         return psin_nested_maps.resolve_entries(
             data, start, field, owner, block_end, blocks, local_owner=local_owner,
             local_structures=local_structures, consume=consume, slot_cache=slot_cache)
+    if key.type_word == 0x054f:
+        from . import psin_opaque_maps
+        return psin_opaque_maps.resolve_entries(
+            data, start, field, owner, block_end, blocks, local_owner=local_owner,
+            local_structures=local_structures, consume=consume, slot_cache=slot_cache,
+            local_enums=local_enums)
     enum_keys = None
     if key.type_word == 0x4a and key.auxiliary == 0:
         key_type = 'hash32'

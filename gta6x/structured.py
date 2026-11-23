@@ -13,17 +13,22 @@ splits them), and validates the *joined* bytes before reporting them:
 
 * XML is parsed by ElementTree, DTDs are rejected, and the document must have a
   closed root element.
-* PSIN must be a complete seven-section container (see :mod:`gta6x.psin`).
+* PSIN must be a complete seven-section container with matching CHKS checksum
+  (see :mod:`gta6x.psin`). A short stored terminal tail can follow full zlib
+  pages only when exact section lengths and CHKS authorize all its bytes.
 
-The rules and limits mirror the structured-recovery pass in rpf9-explorer.
-Measured on 1.0.2.1, this recovers complete XML manifests from ``common.rpf``
-and complete PSIN containers from ``data.rpf`` that a per-stream carve leaves
-truncated.
+The earlier zlib framing was cross-checked with rpf9-explorer during prior
+research. The stored-terminal extension was derived independently from this
+project's PSIN section/checksum rules and discovery-only package observations;
+no additional upstream implementation was consulted. Whole/interior stored
+pages and alternate PSIN section orders remain unsupported.
 """
 
 from __future__ import annotations
 
+from bisect import bisect_left
 import os
+import struct
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from typing import Iterator
@@ -49,9 +54,10 @@ class StructuredHit:
     blocks: int
     segments: list[tuple[int, int, int]] = field(default_factory=list)
     data: bytes = b""
+    segment_storage: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict:
-        return {
+        result = {
             "archive": self.archive,
             "offset": self.offset,
             "offset_hex": f"0x{self.offset:x}",
@@ -62,6 +68,9 @@ class StructuredHit:
             "unpacked": self.unpacked,
             "segments": self.segments,
         }
+        if self.segment_storage:
+            result["segment_storage"] = self.segment_storage
+        return result
 
 
 def _text_prefix(data: bytes) -> str:
@@ -94,7 +103,7 @@ def _validate(data: bytes) -> tuple[str, str] | None:
     """Return (kind, root) when the joined bytes are a complete resource."""
     if data[:4] == b"PSIN":
         container = psin.parse_container(data)
-        return ("psin", "PSIN") if container is not None else None
+        return ("psin", "PSIN") if container is not None and container.checksum_verified else None
     head = data[:4096].upper()
     if b"<!DOCTYPE" in head:
         return None
@@ -113,19 +122,77 @@ def _padding_zero(fh, start: int, end: int) -> bool:
     return set(fh.read(end - start)) <= {0}
 
 
+def _psin_extent(data: bytes) -> int | None:
+    """Measure a complete known section chain; never search inside payloads."""
+    at = 0
+    for tag in psin.CONTAINER_TAGS:
+        if at + 8 > len(data) or data[at:at + 4] != tag:
+            return None
+        length = struct.unpack_from('>I', data, at + 4)[0]
+        if length < 8 or length > MAX_OUTPUT - at:
+            return None
+        at += length
+        if tag == b'CHKS':
+            return at if length == psin.CHKS_LENGTH and at <= len(data) else None
+    return None
+
+
+def _stored_psin_tail(fh, blocks, scan_end):
+    """Authorize one short stored terminal tail by exact sections and CHKS.
+
+    Only full compressed pages precede it. A missing compressed stream alone
+    is not evidence for a raw page. Full/interior raw pages are unsupported.
+    Try each measured compressed boundary so a valid zlib signature inside an
+    opaque raw tail cannot redirect or mask the checksum-authorized resource.
+    """
+    prefix = bytearray()
+    for index, block in enumerate(blocks):
+        if len(block.data) != PAGE:
+            break
+        prefix.extend(block.data)
+        if len(prefix) >= MAX_OUTPUT:
+            break
+        end = block.offset + block.compressed
+        start = (end + 15) & ~15
+        if start >= scan_end or not _padding_zero(fh, end, start):
+            continue
+        fh.seek(start)
+        tail = fh.read(min(PAGE, MAX_OUTPUT - len(prefix), scan_end - start))
+        joined = bytes(prefix) + tail
+        extent = _psin_extent(joined)
+        if extent is None or not 0 < extent - len(prefix) < PAGE:
+            continue
+        value = joined[:extent]
+        container = psin.parse_container(value)
+        if container is None or not container.checksum_verified:
+            continue
+        raw_size = extent - len(prefix)
+        stored = zlibcarve.Blob(block.archive, start, raw_size, raw_size, tail[:raw_size])
+        return blocks[:index + 1] + [stored], value
+    return None
+
+
 def recover(path: str | os.PathLike, limit: int = MAX_OUTPUT * 1024,
             start: int | None = None) -> Iterator[StructuredHit]:
     """Yield complete XML/PSIN resources found in the first *limit* payload bytes."""
     path = os.fspath(path)
+    if type(limit) is not int or limit < 0:
+        raise ValueError('structured scan limit must be a nonnegative integer')
     archive = os.path.basename(path)
     if start is None:
         try:
             start = rpf.read_header(path).index_size
         except (OSError, ValueError):
             start = 0
+    if type(start) is not int or start < 0:
+        raise ValueError('structured scan start must be a nonnegative integer')
+    scan_end = min(os.path.getsize(path), start + limit)
+    if scan_end <= start:
+        return
     blobs = [blob for blob in zlibcarve.carve_streams(
-        path, length=start + limit, min_out=8) if blob.offset >= start]
+        path, length=scan_end, min_out=8, max_out=MAX_OUTPUT) if blob.offset >= start]
     by_offset = {blob.offset: blob for blob in blobs}
+    offsets = sorted(by_offset)
     consumed: set[int] = set()
     with open(path, "rb") as fh:
         for first in blobs:
@@ -140,6 +207,7 @@ def recover(path: str | os.PathLike, limit: int = MAX_OUTPUT * 1024,
             blocks = [first]
             total = len(first.data)
             validated = _validate(first.data)
+            storage = []
             if validated is None and len(first.data) == PAGE and (
                     is_psin or _declares_xml(first.data)):
                 while len(blocks) <= MAX_OUTPUT // PAGE:
@@ -160,6 +228,19 @@ def recover(path: str | os.PathLike, limit: int = MAX_OUTPUT * 1024,
                         break
                 if len(blocks) > 1:
                     validated = _validate(b"".join(block.data for block in blocks))
+            if validated is None and is_psin and len(first.data) == PAGE:
+                stored_tail = _stored_psin_tail(fh, blocks, scan_end)
+                if stored_tail is not None:
+                    blocks, value = stored_tail
+                    total = len(value)
+                    validated = ('psin', 'PSIN')
+                    storage = ['zlib'] * (len(blocks) - 1) + ['stored']
+                    # Opaque stored bytes can contain independently valid zlib
+                    # streams. They are not additional archive resources.
+                    tail = blocks[-1]
+                    lo = bisect_left(offsets, tail.offset)
+                    hi = bisect_left(offsets, tail.offset + tail.compressed)
+                    consumed.update(offsets[lo:hi])
             if validated is None:
                 continue
             consumed.update(block.offset for block in blocks)
@@ -176,4 +257,5 @@ def recover(path: str | os.PathLike, limit: int = MAX_OUTPUT * 1024,
                 blocks=len(blocks),
                 segments=segments,
                 data=b"".join(block.data for block in blocks),
+                segment_storage=storage,
             )
