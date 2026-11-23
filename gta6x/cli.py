@@ -1077,7 +1077,7 @@ def cmd_psin(args) -> int:
     if not targets:
         eprint("no archive matched")
         return 1
-    if args.schema or args.out or args.instances or args.resource_header or args.record_graph or args.context_records or args.context_fields or args.context_maps or args.field_trees or args.type5c_spans or args.type5c_graph or args.typed_hash_candidates or args.hash_uses or args.hash_words or args.bucket_graph or args.bucket_maps or args.bucket_values or args.bucket_pool_spans or args.registry or args.registry_out or args.graph_dot is not None or _psin_search_options(args):
+    if args.schema or args.out or args.instances or args.resource_header or args.record_graph or args.context_records or args.pool_incoming or args.context_fields or args.context_maps or args.context_pools or args.context_enums or args.field_trees or args.type5c_spans or args.type5c_graph or args.type5c_diagnostics or args.type5c_pool_context or args.typed_hash_candidates or args.hash_uses or args.hash_words or args.bucket_graph or args.bucket_maps or args.bucket_values or args.bucket_pool_spans or args.registry or args.registry_out or args.graph_dot is not None or _psin_search_options(args):
         return _cmd_psin_schema(args, targets)
     if args.names:
         eprint("--names requires --schema, --instances or --out")
@@ -1145,8 +1145,8 @@ def _cmd_psin_registry_search(args) -> int:
 
     selectors = _psin_search_options(args)
     unsupported = (args.files or args.archive or args.names or args.registry_out or args.full or
-        args.instances or args.resource_header or args.record_graph or args.context_records or
-        args.context_fields or args.context_maps or args.field_trees or args.type5c_spans or args.type5c_graph or args.typed_hash_candidates or
+        args.instances or args.resource_header or args.record_graph or args.context_records or args.pool_incoming or
+        args.context_fields or args.context_maps or args.context_pools or args.context_enums or args.field_trees or args.type5c_spans or args.type5c_graph or args.type5c_diagnostics or args.type5c_pool_context or args.typed_hash_candidates or
         args.hash_uses or args.hash_words or args.bucket_graph or args.bucket_maps or
         args.bucket_values or args.bucket_pool_spans or args.graph_dot is not None or args.max_depth != 16 or args.limit != 48)
     if not args.registry or not selectors:
@@ -1203,12 +1203,21 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
     if (search_options or args.manifest) and args.max_nodes < 1:
         eprint('--max-nodes must be positive')
         return 1
+    if len(args.pool_incoming) > 32:
+        eprint('at most 32 --pool-incoming queries are supported')
+        return 1
+    if len(args.context_enums) > 32:
+        eprint('at most 32 --context-enum queries are supported')
+        return 1
+    if len(args.context_pools) > 32:
+        eprint('at most 32 --context-pool queries are supported')
+        return 1
     if len(args.context_maps) > 32:
         eprint('at most 32 --context-map queries are supported')
         return 1
     if args.type5c_graph:
         args.type5c_spans = args.record_graph = True
-    if args.context_maps or args.type5c_spans:
+    if args.context_maps or args.context_pools or args.context_enums or args.pool_incoming or args.type5c_spans or args.type5c_diagnostics or args.type5c_pool_context:
         args.instances = True
     if len(args.field_trees) > 32 or len(args.hash_words) > 32:
         eprint('at most 32 --field-tree queries and 32 --hash-use words are supported')
@@ -1305,7 +1314,9 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
         with_typed_hash_candidates=args.typed_hash_candidates, field_trees=args.field_trees,
         with_hash_uses=args.hash_uses, hash_words=args.hash_words, schema_search=search_options or None,
         context_maps=args.context_maps, with_graph_dot=bool(args.graph_dot),
-        with_type5c_spans=args.type5c_spans, with_type5c_graph=args.type5c_graph)
+        with_type5c_spans=args.type5c_spans, with_type5c_graph=args.type5c_graph,
+        with_type5c_diagnostics=args.type5c_diagnostics,
+        with_type5c_pool_context=args.type5c_pool_context, context_pools=args.context_pools, pool_incoming=args.pool_incoming, context_enums=args.context_enums)
     try:
         if args.manifest:
             from . import psin_manifest
@@ -1427,7 +1438,9 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
                     print(f"{resource['file']}:{resource.get('offset', 0):#x}: "
                           f"record {query['block_index']}:{query['record_index']}: {query['status']}; "
                           f"{len(query.get('path', []))} path links / {len(query.get('incoming', []))} incoming links")
-            for key in ('field_context', 'field_trees', 'map_context', 'type5c_spans', 'typed_hash_candidates'):
+            for key in ('field_context', 'field_trees', 'map_context', 'type5c_spans',
+                        'type5c_headers', 'type5c_coverage', 'type5c_targets',
+                        'type5c_scalar_spans', 'type5c_pool_users', 'pool_context', 'pool_incoming', 'enum_context', 'typed_hash_candidates'):
                 view = resource.get(key)
                 if view is None:
                     continue
@@ -1435,6 +1448,9 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
                 prefix = f"{resource['file']}:{resource.get('offset', 0):#x}: {label}"
                 if view['status'] == 'refused':
                     eprint(f"{prefix}: {view['reason']}")
+                elif key in ('type5c_headers', 'type5c_coverage', 'type5c_targets',
+                             'type5c_scalar_spans', 'type5c_pool_users'):
+                    print(f"{prefix}: {view['status']}; field and element meanings unknown")
                 elif key == 'type5c_spans':
                     counts = view['summary']
                     print(f"{prefix}: {counts['fields_complete']} header spans / {counts['record_links']} existing record links; "
@@ -1447,7 +1463,11 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
                     counts = view['summary']
                     print(f"{prefix}: {counts['requested_trees']} trees / {counts['fields']} fields; "
                           f"{counts['trees_partial']} partial trees; application semantics unknown")
-                elif key == 'field_context':
+                elif key == 'pool_incoming':
+                    for query in view['queries']:
+                        print(f"{prefix} {query['block_index']}:{query['record_index']}: "
+                              f"{query['status']}" + (f"; {query['reason']}" if 'reason' in query else ''))
+                elif key in ('field_context', 'pool_context', 'enum_context'):
                     for query in view['queries']:
                         path = '.'.join(str(i) for i in query['field_path'])
                         print(f"{prefix} {query['block_index']}:{query['record_index']}:{path}: "
@@ -1523,6 +1543,14 @@ def _cmd_psin_schema(args, targets: list[str]) -> int:
                  or report['summary'].get('field_context_resources_refused', 0)
                  or report['summary'].get('map_context_resources_refused', 0)
                  or report['summary'].get('type5c_spans_resources_refused', 0)
+                 or report['summary'].get('type5c_headers_resources_refused', 0)
+                 or report['summary'].get('type5c_coverage_resources_refused', 0)
+                 or report['summary'].get('type5c_targets_resources_refused', 0)
+                 or report['summary'].get('type5c_scalar_spans_resources_refused', 0)
+                 or report['summary'].get('type5c_pool_users_resources_refused', 0)
+                 or report['summary'].get('pool_context_resources_refused', 0)
+                 or report['summary'].get('pool_incoming_resources_refused', 0)
+                 or report['summary'].get('enum_context_resources_refused', 0)
                  or report['summary'].get('field_trees_resources_refused', 0)
                  or report['summary'].get('hash_uses_refused', 0)
                  or report['summary'].get('schema_search_refused', 0)
@@ -5495,10 +5523,20 @@ def build_parser() -> argparse.ArgumentParser:
                    help='trace zero-based BLOCK:RECORD context in the checked graph; repeat up to 32 times; implies --record-graph')
     p.add_argument('--context-field', dest='context_fields', type=_psin_context_field, action='append', default=[],
                    help='inspect a source-checked BLOCK:RECORD:FIELD[.FIELD...] declaration path; repeat up to 32 times; implies --instances')
+    p.add_argument('--type5c-pool-context', action='store_true',
+                   help='inspect candidate four-byte pool spans and existing reference-pool users; implies --instances')
+    p.add_argument('--type5c-diagnostics', action='store_true',
+                   help='explain supported type5c header layouts, coverage gaps and missing local targets; implies --instances')
     p.add_argument('--type5c-graph', action='store_true',
                    help='add checked type5c record-span candidate edges to the graph; implies --type5c-spans and --record-graph')
     p.add_argument('--type5c-spans', action='store_true',
                    help='check supported local type5c descriptor/typed-record span coverage; no element decoding; implies --instances')
+    p.add_argument('--pool-incoming', type=_world_context_record, action='append', default=[],
+                   help='inspect conditional pool-word evidence pointing at BLOCK:RECORD; repeat up to 32 times; implies --instances')
+    p.add_argument('--context-enum', dest='context_enums', type=_psin_context_field, action='append', default=[],
+                   help='inspect source-local enum evidence for BLOCK:RECORD:FIELD[.FIELD...]; repeat up to 32 times; implies --instances')
+    p.add_argument('--context-pool', dest='context_pools', type=_psin_context_field, action='append', default=[],
+                   help='trace pool evidence for BLOCK:RECORD:FIELD[.FIELD...]; repeat up to 32 times; implies --instances')
     p.add_argument('--context-map', dest='context_maps', type=_psin_context_field, action='append', default=[],
                    help='check a selected local map header and entry spans at BLOCK:RECORD:FIELD[.FIELD...]; up to 32 queries')
     p.add_argument('--field-tree', dest='field_trees', type=_psin_context_field, action='append', default=[],

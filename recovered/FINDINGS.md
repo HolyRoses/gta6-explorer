@@ -3092,3 +3092,475 @@ BCPack labels, unrelated runtime files, HEAD and index remain unchanged. No
 reserved payload is reread, no source role is promoted and no external code or
 game fixture is added. Details are in `docs/type5c_lineage_provenance.md`,
 `docs/type5c_graph_provenance.md` and `docs/type5c_scope_provenance.md`.
+
+## Unresolved type5c header diagnostics (2026-11-23)
+
+Three non-overlapping investigations explain alternate descriptors, failed typed
+coverage and missing local definitions. Only the same five explicitly reviewed
+outer-discovery source windows are read; there is no new source selection,
+validation/comparison payload read, role promotion or external implementation.
+The new baseline preserves 710 prior artifacts, including the legacy type5c span
+and graph readers, all old role exclusions, four supplemental LSCH validation
+reports, dictionary and BCPack labels. Existing admission and refusal rules stay
+byte-identical; the new modules are diagnostic views only.
+
+`psin --type5c-diagnostics` adds three independent source-checked views:
+`type5c_headers` inventories bounded raw header windows and local descriptors;
+`type5c_coverage` explains declared typed-row gaps, overlaps and exact aliases;
+`type5c_targets` explains missing, ambiguous or nonpositive local target schemas.
+The option implies instances and accepts existing JSON/manifest workflows. It
+adds no graph associations, target values, primitive meanings or application
+ownership. Existing schemas, instances, span decisions and graph output remain
+unchanged, including when the option is combined with spans, graph and DOT.
+
+Each view shares the report's node/depth budget and independently checks its
+source. A local diagnostic refusal preserves the other available views and
+causes a failing CLI exit status; an unresolved supported diagnostic is reported
+as partial. Limits reject an exhausted view without returning its prefix. Exact
+and one-short budgets, source/metadata tampering, offline-option conflicts,
+output aliases and immutable manifest forwarding have authored controls.
+
+The alternate-header investigation replays the two sources responsible for
+incomplete scans: 155,988 inflated bytes, 53 bounded 16-byte observations and
+17 alternate descriptors. Seven select descriptor type 0x07 and are nonzero;
+seven select 0x4a (three nonzero, four entirely zero); three select 0x33 and are
+nonzero. All nonzero raw packed-location hypotheses select matching block-type
+labels and bounded offsets. Such arithmetic does not prove a reference, element
+or count/capacity meaning in this field context.
+
+Independent existing repository contexts provide eight-byte reference storage
+and four-byte inferred hash32 storage; type 0x33 has only an opaque 16-byte
+inspection grouping, not an established primitive. All 13 nonzero observations
+fit these other-context groupings. Separately labeled post-observation width
+hypotheses find whole-pool width 4 for the three nonzero 0x4a headers and width 16
+for the three 0x33 headers; the seven 0x07 headers do not exhaust their pool at any
+candidate width. These are discovery calculations, not profile fitting,
+activation, independent semantic confirmation or new link authority. All raw
+and derived reports remain private, and the runtime emits no fitted width.
+
+The failed 160-byte-stride target has exactly two declared records in a
+320-byte block. The type5c header selects only record 1, leaving record 0 as the
+160-byte prefix gap; there is no overlap. An already supported reference-array
+association independently reaches that uncovered first record. This is a
+separate physical association, not proof of shared application ownership,
+sentinels, padding or empty objects. The frozen whole-target refusal remains.
+The companion 24-byte target retains its one existing authorized link.
+
+The missing local definition is dependency 0xd897fc7a. It has no local structure
+or matching body-block type and no declaration in the qualified 425-schema/
+813-label discovery metadata. Its three bounded header slots are entirely zero,
+including both stored words and the reference word. Current observations
+therefore supply no nonzero target from which to recover a definition. Zero bits
+do not establish a supported empty-state grammar, and no cross-file declaration,
+record stride or value interpretation is imported or guessed.
+
+Together these observations account for all 37 previously unresolved structured
+headers. Thirty-three have whole geometric coverage but cannot authorize links
+because their complete eligible-header scans are blocked (the seven in one
+source also share the missing-definition obstacle). Three lack the local target
+and have zero-filled slots; one leaves the explicit prefix gap. All 37 remain
+unresolved. No successful subset is activated to bypass complete-scan rules.
+
+Integrated replay over all five sources (179,792 bytes) preserves original
+schemas, instances, source roles, span reports and record graphs. Native API and
+CLI JSON agree; the combined spans/graph/diagnostics replay charges 109,308 work
+units and succeeds at its exact shared budget. Known positive sources serve as
+controls without becoming held-out evidence. Schema parser/type-meaning ASTs
+and the protected legacy readers remain unchanged. Results are exposed discovery
+consistency only; no new held-out accuracy is claimed.
+
+Validation passes 1,715 unit tests (two optional-data skips) and 267 selftests.
+The 45 new authored tests comprise 11 header, 12 coverage, 13 missing-target and
+nine API/CLI integration tests. No private payload, decoded game fixture,
+personal path, GPL/unlicensed source, staging change, commit or push is added.
+Methods and limits: `docs/type5c_headers_provenance.md`,
+`docs/type5c_coverage_provenance.md`, `docs/type5c_targets_provenance.md`.
+
+## Candidate scalar spans and reference-pool users (2026-11-23)
+
+Three separate investigations cover four-byte 0x4a storage candidates, remaining
+0x07 pool users and independent authority for 0x33 element boundaries. All prior
+758 protected artifacts, profiles, role exclusions, names and BCPack labels are
+preserved. The existing type5c span/graph/diagnostic implementations and all 37
+unresolved structured-header outcomes remain unchanged. No external code,
+wrapper, decoder or SixNG is consulted; new fixtures are independently authored.
+
+`psin --type5c-pool-context` optionally adds `type5c_scalar_spans` and
+`type5c_pool_users` to JSON and immutable-manifest inspection. It implies
+instances only; old diagnostics, graph and span flags keep their existing
+behavior. Both views regenerate source evidence, retain exact field paths and
+share node/depth budgets. Local view refusals preserve available sibling views
+and cause a failing CLI exit. No candidate creates a record/graph association,
+asset name, count/capacity meaning, empty-state grammar or application owner.
+
+The separate scalar profile uses the already independently inferred four-byte
+storage of other 0x4a contexts. It requires source-checked clear header windows,
+exact local synthetic descriptors, equal positive raw words, matching untyped
+pool labels, alignment, bounds, complete eligible inventory and exact distinct
+whole-pool coverage. Competing descriptors, local-type collisions, gaps, partial
+overlaps or malformed candidate descriptors refuse framing. Exact aliases stay
+explicit. It emits raw four-byte word observations under an exploratory candidate
+label, with no decoded logical elements or binding to names. Valid raw-zero
+headers remain unresolved and keep the overall report partial.
+
+The known discovery source supplies three positive candidate headers covering
+the complete 20-byte pool at offsets 0/4/12 with stored words 1/2/2. Five raw
+four-byte observations are framed; four entirely zero headers remain unresolved.
+The qualified 425-schema/813-label metadata inventory contains ten matching
+synthetic descriptor declarations across seven source identities. Selection from
+that already exposed metadata cannot establish blind or held-out accuracy.
+
+The 440-byte0x07 pool is now completely accounted for at the storage level. Twelve
+already supported ordinary reference arrays independently cover 35 word positions
+and retain their 35 existing typed-record links. Seven type5c count-times-eight
+hypotheses cover 20 other positions. These sets are disjoint, with a union of
+55/55 positions and no gaps or overlaps. Ordinary extents are recomputed through
+the existing native array resolver, rather than trusted from saved JSON. The
+hypothetical 20 positions remain distinct from supported array storage; their
+contents are not decoded or promoted to references by this view. Complete union
+coverage does not authorize a type5c array interpretation. Invalid/unavailable
+ordinary-array descriptors are explicit scope exclusions, not silently omitted.
+
+The 0x33 audit finds one raw block and three matching descriptor headers in the
+known 141,060-byte source, with no local structure definition or other supported
+typed field association to that block. Qualified metadata contains 216 named
+raw 0x33 uses across 90 schemas, zero structure definitions and zero independently
+typed structure/reference dependencies. Only the already known source contains
+a matching type5c descriptor. All 216 uses have clear 16-byte declared-start
+observation windows, which corroborates a safe inspection boundary but does not
+distinguish a primitive value from padding/alignment or prove element meaning.
+No redundant runtime module or vector/primitive decoder is added.
+
+Validation review caught two candidate guard issues before the new recurrence
+payload selection was opened. Malformed zero-descriptor attributes must mark the
+inventory incomplete, while valid zero headers remain unresolved. Separately,
+source validation must use the same charged private schema snapshot for header
+inspection and subsequent local-definition indexing: a caller callback could
+otherwise mutate the original schema between those steps and bypass a local-type
+collision guard. Authored controls cover both cases. Original native results,
+seals and snapshots are preserved; corrections are source/scope guards, not
+post-observation tuning of successful framing rules.
+
+The scalar metadata selection supplied six additional source identities below
+the old 8-MiB validation boundary. Before any new payload read, a 758-artifact/
+475,978-check audit excluded protected content, exact locations and overlapping
+windows, including the four legacy validation range encodings; it found zero
+conflicts. The exact selected windows, hashes, local schema IDs, bounded reader
+and corrected private-snapshot runtime were reviewed and sealed before reads.
+The original unused pre-correction selection/approval and all earlier snapshots
+remain preserved. No held-out source changes role.
+
+The six new sources reconstruct 352,372 bytes using 164,379 units. They contain
+seven 0x4a candidate headers: six entirely zero and one nonzero. None supplies a
+new complete candidate pool. The nonzero header has equal stored words 2/2 and
+selects a candidate eight-byte span at byte offset 12 of a 60-byte pool, leaving
+12-byte prefix and 40-byte suffix gaps. The whole-pool guard refuses framing;
+all seven headers remain unresolved and no raw words are emitted. This is an
+important negative recurrence result, not support for relaxing coverage. There
+is still only one positive discovery pool for this exploratory candidate rule
+and no independent positive or held-out semantic confirmation.
+
+Integrated native API/CLI replay across the five original approved sources
+(179,792 bytes) preserves all previous schemas, instances, span/graph outputs
+and the three earlier diagnostics. Exact shared budgets pass, and the new views
+emit zero associations. The source-snapshot correction is replayed under a new
+dependency seal; framing decisions are unchanged and the additional copy work
+is charged. No caller-owned mutable schema is reused after source validation.
+
+Final validation passes 1,762 unit tests (two optional-data skips) and 267
+selftests. Forty-seven new authored tests cover scalar framing, pool membership,
+opaque authority, source/callback mutation, malformed descriptors, limits and
+CLI/API/manifest/graph preservation. All 758 protected artifacts, names, BCPack
+labels, unrelated runtime, frozen source roles, HEAD and staged contents remain
+unchanged. No source from a reserved/comparison/validation role is read, no game
+fixture or personal path is published, and no staging, commit or push occurs.
+Details: `docs/type5c_scalars_provenance.md`,
+`docs/type5c_pool_users_provenance.md`, `docs/type5c_opaque_provenance.md`.
+
+## Hash-pool co-users, conditional words and selected context (2026-11-23)
+
+Three non-overlapping targets account for the partial hash pool, corroborate
+bounded reference-word grammar and expose selected-field navigation. The new
+baseline preserves 838 prior artifacts, every existing type5c runtime/profile,
+old diagnostics and all frozen split/source roles. Only three already approved
+discovery windows are reused, with frozen plans/dependencies before reads;
+checksums, source/schema identities and protected hashes are checked before/after.
+No external implementation, oracle, wrapper, SixNG or held-out payload is used.
+
+The previously incomplete 60-byte intrinsic 0x4a pool is fully accounted for.
+Six independently supported ordinary hash32 arrays occupy offsets/lengths 0/8,
+8/4, 20/12, 32/4, 36/4 and 40/20: thirteen word positions, 52 bytes. The type5c
+count-times-four hypothesis occupies the other two positions at offset 12, length 8.
+The union is fifteen positions with no gaps or overlaps. The ordinary extents
+are regenerated through the existing source-local hash32-array resolver, not
+trusted from saved instance JSON. Locally typed maps require declared entry
+blocks and provide no additional authority for this intrinsic untyped pool;
+the supported-user inventory explicitly covers ordinary array storage only.
+
+This explains the 12-byte prefix and 40-byte suffix of the candidate's isolated
+coverage failure. It does not relax the frozen whole-pool scalar profile: the
+candidate still authorizes zero framed words there, its zero companion remains
+unresolved and no partial-span decoder or new association is activated. The
+source reconstructs 84,424 bytes; its diagnostic costs 19,803 units and the complete
+guarded audit 72,888. Repeated audit output matches byte for byte.
+
+For the 440-byte 0x07 pool, only the twenty independently bounded candidate word
+positions and thirty-five already supported ordinary-array control positions
+are inspected. Every candidate raw word is conditionally compatible with the
+existing packed-reference grammar and exactly selects a declared local typed
+record boundary, across seven local types. All 35 controls also match. There are
+no null, invalid, untyped, misaligned or unexplained words in this source. A
+separate post-observation contrast finds 20 distinct candidate target identities
+and 35 distinct control identities, with no raw-word or identity overlap.
+
+These are conditional parser matches, not independent proof of type5c element,
+count, reference, empty-state or application ownership meanings. Target identities
+are regenerated from actual local schema/block boundaries, never imported from
+saved instance values. Reports carry conditional targets and explicit
+record_span_authorized=false/zero-association labels; no graph link is admitted.
+Invalid/null/untyped/misaligned and ambiguous-schema cases have authored controls.
+Diagnostic work is 4,941 units, the guarded audit 18,550, on the same 14,928-byte
+discovery source. Native replay is byte-identical. No arbitrary unexplained pool
+bytes are scanned as putative references.
+
+`psin --context-pool BLOCK:RECORD:FIELD[.FIELD...]` traces one selected source
+path to its pool evidence; repeat it for up to 32 queries. The option implies
+instances only and composes fresh bounded header, candidate-scalar, hash-user and
+conditional-reference reports lazily. Ordinary array storage retains its prior
+authority, while candidate type5c ranges and word grammar retain separate labels.
+Repeated queries share relevant evidence tables rather than copying full-source
+reports into each query. Nested paths, unsupported/opaque fields, unconfirmed
+zero headers, supported empty arrays with no allocation and absent paths retain
+explicit outcomes. 0x33 never becomes a primitive merely because a clear window
+can be inspected.
+
+A resolved query establishes navigation to an exact source field and bounded
+storage evidence. It does not resolve the field's type5c value semantics. In the
+60-byte case, the query can show the exact candidate range plus all six ordinary
+co-users while retaining the old scalar candidate's unresolved coverage reason.
+Caller schema and instance metadata are privately snapshotted under work/depth/
+item limits before callbacks and source checks. All child reports must match the
+same source hash/schema; saved JSON cannot supply evidence. Work/output failure
+returns no prefix and preserves earlier schema/instance views in orchestration.
+
+Fifteen authored query tests cover supported ordinary/candidate hash/reference
+fields, nested paths, shared tables, aliases, opaque/zero/unsupported cases,
+source/callback tampering, sibling source mismatch, bounds and exact budgets.
+Parent integration adds nine public API/CLI/manifest tests. The hash-user and
+reference-word readers add thirteen and twelve tests respectively. All fixtures
+are synthetic; no game payload, decoded value fixture or personal path is added.
+
+The integrated three-source replay totals 240,412 bytes and eight queries:
+five resolve navigation and three retain zero/opaque/absent-path outcomes.
+Native API/CLI JSON and exact shared budgets agree. Previous schemas, instances,
+all batch diagnostics, scalar/typed-span refusals, record graphs and DOT output
+stay exact. The separate query audit also replays byte-identically. Results are
+exposed discovery consistency, without an independent held-out accuracy claim.
+
+Final validation passes 1,811 unit tests (two optional-data skips) and 267 selftests,
+including 49 new authored tests. All 838 protected artifacts, names, BCPack labels,
+unrelated runtime, HEAD and staged contents remain unchanged. No source role,
+legacy rule, primitive meaning or graph association is promoted. Nothing is
+staged, committed or pushed. Methods: `docs/psin_hash_pool_users_provenance.md`,
+`docs/type5c_reference_words_provenance.md`,
+`docs/psin_pool_context_provenance.md`.
+
+## Reference recurrence, reverse pool lookup and enum 0x63 (2026-11-23)
+
+Three non-overlapping targets extend corpus checks, reverse navigation and an
+unresolved enum-associated layout. A new baseline preserves 886 prior artifacts,
+all earlier type5c modules/labels/refusals and frozen source roles. New work uses
+only independently authored repository code, synthetic fixtures and exactly
+qualified native observations; no external decoder, source, wrapper or SixNG.
+
+The existing conditional reference-word algorithm was frozen before replaying
+all eleven already approved discovery sources (532,164 bytes). All eleven
+produce explicit reports without refusal. The known source supplies 20 candidate
+words from seven headers; a second source supplies 18 from three headers. All 38
+conditionally match exact local typed-record boundaries. The other nine sources
+have no descriptor 7 candidate headers, rather than being semantic negative or
+empty-state validation cases. There are no null, invalid, untyped, misaligned,
+ambiguous, non-tiling or unexplained candidate words in this selected corpus.
+
+The 2,234 ordinary-array control words also match, but these were already accepted
+by the existing resolver using the same underlying grammar. They are consistency
+controls, not independent ground truth or an accuracy oracle. The recurrence is
+18 additional candidate observations in one different discovery source; no
+logical element, count/capacity, reference or ownership meaning is promoted and
+no record/graph links are admitted. All outcomes and source-level accounting are
+retained; no successful subset or new fitted rule is used. Audit work is 407,331
+units and a separate replay matches byte for byte.
+
+`psin --pool-incoming BLOCK:RECORD` reverses the navigation direction: it finds
+bounded pool-word evidence for a source-local existing typed row. Repeat up to 32
+queries. The option implies instances only, and its `pool_incoming` report keeps
+conditional type5c occurrences and already supported ordinary-array controls in
+separate lists. Shared word/source/occurrence tables preserve aliases and
+parallel source witnesses without copying target values or adding graph nodes.
+An existing typed row with no incoming pool evidence is a resolved target lookup;
+untyped/ambiguous/non-tiling targets, absent blocks and invalid rows remain
+explicit unresolved queries. Source-local row numbers never bind across files.
+
+The reader privately snapshots source metadata under item/depth/work limits,
+regenerates the frozen conditional report, rebinds actual source words, checks
+block/row identities, replays matching field paths and recomputes header/storage
+extents through existing native resolvers. Saved JSON cannot authorize a target
+or field. Query/source/child-report/path/membership tampering and callbacks are
+covered by authored controls. Word, occurrence and output limits fail without a
+prefix. Lookup success means evidence navigation only; it cannot decode a
+previously unknown field or activate a conditional reference as a graph edge.
+
+Fifteen reader tests and nine public integration tests cover candidate versus
+ordinary authority, empty incoming sets, duplicate queries/shared evidence,
+aliases, malformed source/target metadata, budgets, query bounds, source-output
+aliases, offline-registry conflicts and immutable manifests. Native reader replay
+on the original source covers thirteen queries: eleven typed-target resolutions
+and two untyped/invalid refusals, with five distinct conditional and five
+ordinary occurrences in ten shared word records. Exact budget and one-short
+refusal pass. Parent API/CLI replay also covers both positive discovery sources:
+99,352 bytes, twelve requests, eight target resolutions and four explicit
+invalid-target outcomes. Previous schemas, instances, all diagnostics/pool views,
+scalar/typed-span refusals, graphs and DOT remain identical. Native JSON and
+exact shared budgets agree; no new association or field meaning is created.
+
+The enum 0x63 audit qualifies 425 schema pairs/813 labels before decoding sections.
+It finds four named declarations, all raw 0x000a0063, each with a unique local
+three-member enum. Three declarations allow only one- or two-byte clear
+observation windows; the fourth also permits four bytes. These bounds do not
+support a simple unconditional 32/64-bit scalar interpretation, and the upper
+word 10 remains unknown. No existing parser/type annotation is changed.
+
+Four new discovery source windows were fixed and root-reviewed before payload
+reads. A full 886-artifact audit checks protected content, exact locations and
+intervals against 475,978 normalized exclusions, including the legacy validation
+range encodings. All windows lie below the old 8-MiB boundary and have zero
+content/location/window conflicts. Reconstruction is exact and bounded, with
+source hash, checksum and local schema identity checks; no stream search,
+continuation-window extension or role promotion is allowed.
+
+These sources reconstruct 293,440 bytes and contain seven nonzero observations
+under fifteen preregistered literal-width/member tests. Six observations fit
+multiple clear widths (one/two bytes, or one/two/four). One raw 4 matches none of
+its local enum's 0/1/2 members at any tested clear width. Thus the hypothesis that
+all observations literally name declared members is contradicted; this does not
+rule out unknown enum values or prove any alternate type. Width, signedness,
+upper-word, flags and empty-state meanings remain unconfirmed. Audit work is
+57,718 units. Original metadata/native replays are byte-identical.
+
+A separately labeled post-observation contrast on those existing reports finds
+that all seven raw 1/2/4 observations fit bits indexed by the enum's 0/1/2 members.
+This is a data-fitted suggestion, not a preregistered or independent confirmation.
+It supplies neither a proven storage width nor the meaning of upper 10 and cannot
+justify an enum/bitset/one-hot decoder. The literal-member counterexample and all
+width ambiguity remain prominent. No redundant runtime enum decoder is added;
+`0x63` stays unknown.
+
+Validation passes 1,860 unit tests (two optional-data skips) and 267 selftests,
+including 49 new authored tests: thirteen recurrence, fifteen incoming, twelve
+enum-audit and nine public integration cases. All 886 protected artifacts,
+names/BCPack labels, unrelated runtime, old profiles and staged contents remain
+unchanged. There are no new links, semantic promotions, held-out accuracy claims,
+reserved payload reads, staging actions, commits or pushes. Methods:
+`docs/type5c_reference_recurrence_provenance.md`,
+`docs/psin_pool_incoming_provenance.md`, `docs/psin_enum63_provenance.md`.
+
+## Enum lane constraints, value contrasts and selected enum context (2026-11-23)
+
+Three non-overlapping investigations separate storage geometry, value hypotheses
+and user navigation. A new baseline preserves 943 prior artifacts, every earlier
+type/refusal profile, names, BCPack labels and frozen source roles. Only qualified
+425-schema/813-label metadata, fifteen already approved data-package windows and
+28 historical discovery copies are used. No external implementation, wrapper,
+oracle, SixNG, new archive window or reserved/validation/comparison payload is
+consulted. All new fixtures are authored synthetic data.
+
+The lane audit freezes lane 8/16/32/64 rounded-width hypotheses while keeping the
+interpretation of upper words conditional. Metadata has 3,580 detailed family
+rows: four 0x63 declarations (upper 10), 3,555 code0x65 declarations (upper 1..1116)
+and 21 code0x68 declarations (upper 137/191). Another 7,311 upper-zero 0x62 controls
+are fully counted in a streamed aggregate; they are not discarded as failed
+examples. The initial fixed row/output caps refused before producing a report.
+Those failures and original plans/tools are retained; subsequent revisions alter
+only bounded reporting representation/private output capacity, not hypotheses,
+source selection or interpretation rules. Metadata replay is byte-identical.
+
+For every 0x63 declaration, both hypothetical 8- and 16-bit lanes imply a two-byte
+rounded extent if upper 10 were a bit count. Both fit all four declarations and
+exactly match three windows; the 32-bit model fits only one, 64-bit none. Neither
+8 nor 16 gains independent authority. All four have three local enum positions,
+not the complete 0..9 domain required by the existing strict bitset value gate.
+That gate cannot be transferred by analogy. A metadata gate condition alone is
+not a native value/semantic validation.
+
+Calibration against existing inferred contexts also shows why slot-size fitting
+is insufficient: among 3,555 code0x65 declarations, 489 windows exactly fit the
+current 32-lane model but 3,356 fit a hypothetical 64-lane model (some fit both).
+Padding and alignment therefore make the largest/exact slot an unsafe selector
+of lane semantics. The 21 code0x68 rows exactly fit 64, while nine also exactly fit
+the smaller models. Nothing changes the existing narrow value guards. Historical
+28-copy schema-only reparse (1,111,808 bytes, six schema identities) adds no 0x63
+and only three 0x65 declarations (upper 32/163); no body values are inspected there.
+The metadata audit costs 671,593 units; cached schema reparse 11,414. Full role
+checks precede those cached reads, and both reports replay byte-identically.
+
+The separate mask audit fixes all 43 source identities before new observations:
+fifteen approved data sources plus the 28 historical copies, totaling 1,937,412
+bytes. It compares every allowed width under literal signed/unsigned membership,
+strict one-hot, zero-or-one-hot, member-position masks and undefined-bit
+hypotheses. It observes only the same seven unknown 0x63 fields in fifteen bounded
+width windows: all remain nonzero and one-hot, with no new zero or multi-bit
+example that distinguishes selector from flag-mask semantics. The known raw 4
+still fails literal member matching at both of its allowed widths; no successful
+width subset is selected to hide it. These are reused/exposed discovery samples,
+not freshly created validation evidence.
+
+Existing guarded controls demonstrate that the classifiers can distinguish the
+hypotheses without assigning that authority to 0x63. The 6,513 already accepted
+enum32 controls match unsigned-or-sign-extended membership. Seventeen admitted
+bitset controls include three zero, nine one-hot and five multi-bit values.
+Fifty-four other bitset fields retain their original value-guard refusals;
+31 decoded wide controls exceed the preregistered eight-byte comparison cap
+and are explicitly comparison-excluded, not decoder failures or truncated
+successes. No same-local-enum known-code control supplies missing authority for
+0x63. Historical source scans retain inline-bucket scope exclusions; fifteen
+data-source scans complete. The guarded audit costs 764,015 units and its replay
+is byte-identical. It adds no runtime decoder.
+
+`psin --context-enum BLOCK:RECORD:FIELD[.FIELD...]` now exposes exact source-local
+enum evidence for up to 32 selected paths. It implies instances only and supports
+the ordinary JSON/immutable-manifest workflow. Local LENM definitions preserve
+all 64 member bits, aliases and declaration offsets in shared tables. Fields and
+enums are emitted once per selected identity for repeated queries. Missing or
+ambiguous enums, unsupported fields/paths, synthetic descriptors and unclear
+origins remain explicit. No registry definition can authorize a value.
+
+Known 0x62/65/68 values are regenerated from source under existing guards. Unknown
+0x63 keeps every clear 1/2/4/8-byte literal hypothesis and a separately labeled
+member-position hypothesis. No preferred width, empty-state grammar, upper-word
+meaning or new type is chosen. A raw 4 can visibly have no literal member match
+while fitting a candidate mask, without changing its old unresolved instance.
+Private source/schema/instance snapshots, callback propagation and bounded
+member/item/depth/work/output tables prevent saved values or mutable caller
+state from supplying authority. Exhaustion refuses without a report prefix.
+
+The reader has sixteen authored tests, plus nine public API/CLI tests covering
+old-value/default preservation, unknown 0x63 retention, aliases/shared tables,
+query/depth/budget limits, source/callback/definition tampering, output conflicts,
+offline-registry rejection and immutable manifests. The research audits add
+thirteen lane and fifteen mask tests. No native game value becomes a fixture.
+
+Native query replay over the four original sources (293,440 bytes) covers
+eighteen planned field/control queries: seventeen navigate and one retains an
+existing bitset exact-boundary refusal. Parent integration adds repeated unknown
+fields and invalid-path controls, totaling 26 requests with 21 navigation
+resolutions and five explicit unresolved outcomes. Native API/CLI output and
+exact shared budgets agree; old schemas, instances, batch diagnostics, all pool
+and typed-span refusals, graphs and DOT remain unchanged. Lookup success is
+navigation to evidence, not decoding of an unknown type.
+
+Final validation passes 1,913 unit tests (two optional-data skips) and 267 selftests,
+with 53 new authored tests. All 943 protected artifacts, dictionary, BCPack labels,
+unrelated runtime, frozen source roles, HEAD and staged contents are preserved.
+There is no new type, association, semantic/held-out accuracy claim, staging,
+commit or push. Methods: `docs/psin_enum_lanes_provenance.md`,
+`docs/psin_enum_masks_provenance.md`, `docs/psin_enum_context_provenance.md`.

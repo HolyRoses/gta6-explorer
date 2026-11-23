@@ -93,10 +93,13 @@ PSIN supports local name dictionaries and cross-file schema registries.
 Use `--find-field`, `--find-type` or `--same-layout`; add `--registry-only --registry FILE`
 for offline queries. `--context-record BLOCK:RECORD` traces checked record links.
 Inspect paths with `--context-field BLOCK:RECORD:FIELD[.FIELD...]` or `--field-tree`;
-`--context-map` checks selected map headers and entry spans.
+`--context-map` and `--context-enum` inspect selected map and enum evidence.
+`--context-pool` and `--pool-incoming BLOCK:RECORD` trace storage and incoming evidence.
 `--hash-use WORD` finds opaque-word usages; `--typed-hash-candidates --names names.json`
 adds candidate names without asset bindings. `--graph-dot FILE` exports checked graphs;
-`--type5c-spans` traces descriptor-backed spans; `--type5c-graph` adds candidate links.
+`--type5c-spans` checks spans; `--type5c-graph` adds candidate links.
+`--type5c-diagnostics` explains unresolved headers, coverage gaps and missing targets.
+`--type5c-pool-context` compares candidate spans with existing reference-pool users.
 `psin --manifest FILE` queries verified exports; `--manifest-limit` selects a prefix.
 
 Native world inspection supports `--links`, `--primitive-layouts`,

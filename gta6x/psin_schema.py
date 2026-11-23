@@ -362,7 +362,9 @@ def inspect_sources(paths: list[str], *, limit: int | None,
                     with_typed_hash_candidates: bool = False, field_trees=(),
                     with_hash_uses: bool = False, hash_words=(), schema_search=None,
                     context_maps=(), with_graph_dot=False, _source_items=None,
-                    with_type5c_spans=False, with_type5c_graph=False) -> dict:
+                    with_type5c_spans=False, with_type5c_graph=False,
+                    with_type5c_diagnostics=False, with_type5c_pool_context=False,
+                    context_pools=(), pool_incoming=(), context_enums=()) -> dict:
     """Inspect raw PSIN files or complete joined resources inside archives.
 
     Identical LSCH+LENM pairs share one schema; differing definitions of the
@@ -394,8 +396,14 @@ def inspect_sources(paths: list[str], *, limit: int | None,
                 any(type(v) is not int or not 0 <= v <= 0xffffffff for v in pair)
                 for pair in context_records)):
         raise ValueError('PSIN context queries require at most 32 unsigned block/record pairs')
+    if (not isinstance(pool_incoming, (list, tuple)) or len(pool_incoming) > 32 or
+            any(not isinstance(pair, (list, tuple)) or len(pair) != 2 or
+                any(type(v) is not int or not 0 <= v <= 0xffffffff for v in pair)
+                for pair in pool_incoming)):
+        raise ValueError('PSIN pool-incoming queries require at most 32 unsigned block/record pairs')
     for label, queries in (('field context', context_fields), ('field trees', field_trees),
-                           ('map context', context_maps)):
+                           ('map context', context_maps), ('pool context', context_pools),
+                           ('enum context', context_enums)):
         if (not isinstance(queries, (list, tuple)) or len(queries) > 32 or
                 any(not isinstance(q, (list, tuple)) or len(q) != 3 or
                     any(type(v) is not int or not 0 <= v <= 0xffffffff for v in q[:2]) or
@@ -411,7 +419,7 @@ def inspect_sources(paths: list[str], *, limit: int | None,
     with_hash_uses = with_hash_uses or bool(hash_words)
     if with_hash_uses:
         with_typed_hash_candidates = True
-    if context_fields or field_trees or context_maps or with_typed_hash_candidates or with_type5c_spans:
+    if context_fields or field_trees or context_maps or with_typed_hash_candidates or with_type5c_spans or with_type5c_diagnostics or with_type5c_pool_context or context_pools or pool_incoming or context_enums:
         with_instances = True
         if type(max_nodes) is not int or max_nodes < 1:
             raise ValueError('max_nodes must be a positive integer')
@@ -440,7 +448,10 @@ def inspect_sources(paths: list[str], *, limit: int | None,
     instance_nodes_used = resource_header_nodes_used = record_graph_nodes_used = 0
     bucket_map_nodes_used = 0
     record_context_nodes_used = 0
-    field_view_nodes = dict(field_context=0, field_trees=0, map_context=0, typed_hash_candidates=0, type5c_spans=0)
+    field_view_nodes = dict(field_context=0, field_trees=0, map_context=0, typed_hash_candidates=0, type5c_spans=0,
+                            type5c_headers=0, type5c_coverage=0, type5c_targets=0,
+                            type5c_scalar_spans=0, type5c_pool_users=0, pool_context=0, pool_incoming=0,
+                            enum_context=0)
     if with_resource_header and (type(max_nodes) is not int or max_nodes < 1):
         raise ValueError('max_nodes must be a positive integer')
     if with_instances and (max_nodes < 1 or not 1 <= max_depth <= 64):
@@ -612,6 +623,31 @@ def inspect_sources(paths: list[str], *, limit: int | None,
             from . import psin_type5c
             add_field_view('type5c_spans', lambda consume: psin_type5c.inspect(
                 data, schema, result['instances'], consume=consume, max_depth=max_depth))
+        if with_type5c_diagnostics:
+            from . import psin_type5c_headers, psin_type5c_coverage, psin_type5c_targets
+            for key, inspect in (('type5c_headers', psin_type5c_headers.inspect),
+                                 ('type5c_coverage', psin_type5c_coverage.inspect),
+                                 ('type5c_targets', psin_type5c_targets.inspect)):
+                add_field_view(key, lambda consume, inspect=inspect: inspect(
+                    data, schema, result['instances'], consume=consume, max_depth=max_depth))
+        if with_type5c_pool_context:
+            from . import psin_type5c_scalars, psin_type5c_pool_users
+            for key, inspect in (('type5c_scalar_spans', psin_type5c_scalars.inspect),
+                                 ('type5c_pool_users', psin_type5c_pool_users.inspect)):
+                add_field_view(key, lambda consume, inspect=inspect: inspect(
+                    data, schema, result['instances'], consume=consume, max_depth=max_depth))
+        if context_pools:
+            from . import psin_pool_context
+            add_field_view('pool_context', lambda consume: psin_pool_context.inspect(
+                data, schema, result['instances'], context_pools, consume=consume, max_depth=max_depth))
+        if pool_incoming:
+            from . import psin_pool_incoming
+            add_field_view('pool_incoming', lambda consume: psin_pool_incoming.inspect(
+                data, schema, result['instances'], pool_incoming, consume=consume, max_depth=max_depth))
+        if context_enums:
+            from . import psin_enum_context
+            add_field_view('enum_context', lambda consume: psin_enum_context.inspect(
+                data, schema, result['instances'], context_enums, consume=consume, max_depth=max_depth))
         if with_typed_hash_candidates:
             from . import world_asset_types
             add_field_view('typed_hash_candidates', lambda consume: world_asset_types.inspect(
@@ -719,6 +755,14 @@ def inspect_sources(paths: list[str], *, limit: int | None,
             (bool(field_trees), 'field_trees', ('requested_trees', 'trees_complete', 'trees_partial', 'fields', 'resolved', 'unresolved', 'opaque_prefix_bytes')),
             (bool(context_maps), 'map_context', ('requested', 'resolved', 'unresolved', 'map_entries')),
             (with_type5c_spans, 'type5c_spans', ('headers', 'fields_complete', 'fields_unresolved', 'targets_complete', 'record_links')),
+            (with_type5c_diagnostics, 'type5c_headers', ()),
+            (with_type5c_diagnostics, 'type5c_coverage', ()),
+            (with_type5c_diagnostics, 'type5c_targets', ()),
+            (with_type5c_pool_context, 'type5c_scalar_spans', ()),
+            (with_type5c_pool_context, 'type5c_pool_users', ()),
+            (bool(context_pools), 'pool_context', ('requested', 'resolved', 'unresolved')),
+            (bool(pool_incoming), 'pool_incoming', ('requested', 'resolved', 'unresolved')),
+            (bool(context_enums), 'enum_context', ('requested', 'resolved', 'unresolved')),
             (with_typed_hash_candidates, 'typed_hash_candidates',
              ('selected_slots', 'matched_slots', 'unmatched_slots', 'unsupported_slots', 'asset_bindings'))):
         if enabled:
