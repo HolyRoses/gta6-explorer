@@ -242,6 +242,9 @@ def read_virtual(path, index: rds5.TtpIndex, virtual: int, length: int,
                 continue
             fh.seek(chunk.source_offset)
             raw = fh.read(chunk.packed_size)
+            if len(raw) != chunk.packed_size:
+                raise ValueError(
+                    f"chunk at 0x{chunk.source_offset:x} has a truncated packed range")
             if chunk.codec == rds5.CODEC_ZLIB:
                 try:
                     raw = zlib.decompress(raw)

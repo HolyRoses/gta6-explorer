@@ -257,7 +257,7 @@ def render_site(store, out_dir: str, chunk_rows: int = 4000) -> dict:
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>gta6x asset catalog</title><style>{_STYLE}</style></head><body>
 <header><h1>gta6x asset catalog</h1>
-<div class="sub">Rockstar Games Explorer &middot; GTA VI Xbox 1.0.2.1 &middot; chunked browser</div>
+<div class="sub">Rockstar Games Explorer &middot; GTA VI &middot; chunked browser</div>
 <div class="stats">
  <div class="stat"><b>{total:,}</b><span>assets</span></div>
  <div class="stat"><b>{counts['total']['verified'] or 0:,}</b><span>verified</span></div>

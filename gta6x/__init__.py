@@ -1,4 +1,4 @@
-"""gta6x — read-only explorer for the GTA VI Xbox 1.0.2.1 package.
+"""gta6x — read-only explorer for GTA VI packages.
 
 Parses the RPF9 container headers, describes the `RDS5` streaming resources,
 and carves the plaintext media carriers (Bink2 video, AWC audio) that the

@@ -43,7 +43,8 @@ format.  The remaining 39/300 sampled assets are exactly this case.
 
 The ``CHKS`` checksum is now verified: RAGE JOOAT (signed bytes) with seed
 ``0x3FAC7125`` over the whole container, with the ``CHKS`` length and checksum
-fields zeroed.  It matches every complete container sampled from 1.0.2.1.
+fields zeroed.  It matches every complete container sampled from the local
+GTA VI package.
 """
 
 from __future__ import annotations

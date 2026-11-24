@@ -1,4 +1,4 @@
-"""AMD Gfx10 (RDNA2, Xbox Series) 2D texture layout, as used by TTPF pools.
+"""AMD Gfx10 (RDNA2) 2D texture layout, as used by TTPF pools.
 
 This is a Python port of the parts of addrlib's
 ``Gfx10Lib::ComputeSurfaceInfoMacroTiled`` that place mips for thin 2D

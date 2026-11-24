@@ -38,7 +38,7 @@ def _path(value):
 
 
 def inspect_files(paths, *, max_nodes=100000, max_input_bytes=DEFAULT_INPUT_BYTES,
-                  expected_sha256=None, protected_outputs=()):
+                  expected_sha256=None, protected_outputs=(), with_key_holders=False):
     """Inspect one or more complete supplied byte sequences, or raise ValueError.
 
     All path, regular-file, alias and aggregate-size preflights precede payload
@@ -52,9 +52,15 @@ def inspect_files(paths, *, max_nodes=100000, max_input_bytes=DEFAULT_INPUT_BYTE
     and the existing parser's exact metadata node counts across all sources.
     Optional hashes identify caller-known bytes, not their game provenance.
     ``protected_outputs`` lets a caller preflight its later report destination.
+    ``with_key_holders`` adds the existing independent key-holder and parent
+    views from those same bytes. Unsupported leaf profiles retain their reasons;
+    a malformed recognized reference refuses the entire query. Every leaf's
+    reported work, including its independent metadata parse, shares this budget.
     """
     _limit(max_nodes, MAX_NODES, 'animation resource node limit')
     _limit(max_input_bytes, MAX_INPUT_BYTES, 'animation resource byte limit')
+    if type(with_key_holders) is not bool:
+        raise ValueError('with_key_holders must be boolean')
     if not isinstance(paths, (list, tuple)) or not 1 <= len(paths) <= MAX_FILES:
         raise ValueError('select 1..256 raw animation resource files')
     if not isinstance(protected_outputs, (list, tuple)):
@@ -104,6 +110,7 @@ def inspect_files(paths, *, max_nodes=100000, max_input_bytes=DEFAULT_INPUT_BYTE
 
     rows = []
     metadata_nodes = 0
+    key_view_nodes = key_holder_references = key_parent_links = key_views_unsupported = 0
     for path, size, identity, expected_hash in plan:
         with open(path, 'rb') as stream:
             current = os.fstat(stream.fileno())
@@ -126,14 +133,37 @@ def inspect_files(paths, *, max_nodes=100000, max_input_bytes=DEFAULT_INPUT_BYTE
             raise AnimationInputLimitError(str(exc)) from exc
         used += metadata['summary']['nodes']
         metadata_nodes += metadata['summary']['nodes']
-        rows.append(dict(file=path, bytes=size, sha256=digest,
-                         expected_sha256_verified=expected_hash is not None,
-                         status=metadata['status'], metadata=metadata,
-                         allocation_end=None, complete_format=False))
+        row = dict(file=path, bytes=size, sha256=digest,
+                   expected_sha256_verified=expected_hash is not None,
+                   status=metadata['status'], metadata=metadata,
+                   allocation_end=None, complete_format=False)
+        if with_key_holders:
+            from . import anim_bone_keys, anim_key_parents
+            for name, inspect in (('key_holder_layout', anim_bone_keys.inspect),
+                                  ('key_parent_layout', anim_key_parents.inspect)):
+                remaining = max_nodes - used
+                if remaining < 1:
+                    raise AnimationInputLimitError('animation key views exceed shared node limit')
+                try:
+                    view = inspect(data, max_work=remaining)
+                except anim_resources.ResourceLimitError as exc:
+                    raise AnimationInputLimitError(str(exc)) from exc
+                used += view['work_units']
+                key_view_nodes += view['work_units']
+                key_views_unsupported += view['status'] == 'unsupported'
+                row[name] = view
+            key_holder_references += row['key_holder_layout']['reference_count']
+            key_parent_links += row['key_parent_layout']['summary']['matched_parent_links']
+        rows.append(row)
+    summary = dict(files=len(rows), input_bytes=total_bytes,
+                   work_nodes=used, metadata_nodes=metadata_nodes)
+    if with_key_holders:
+        summary.update(key_view_nodes=key_view_nodes,
+                       key_holder_references=key_holder_references,
+                       key_parent_links=key_parent_links,
+                       key_views_unsupported=key_views_unsupported)
     return dict(format='gta6x-raw-animation-resource-inspection-v1', status='partial',
-                files=rows,
-                summary=dict(files=len(rows), input_bytes=total_bytes,
-                             work_nodes=used, metadata_nodes=metadata_nodes),
+                files=rows, summary=summary,
                 archive_search_performed=False, sources_joined=False,
                 saved_metadata_trusted=False, native_checksum_verified=False,
                 interpretation='Bounded 0DRP metadata from explicit file bytes only; '

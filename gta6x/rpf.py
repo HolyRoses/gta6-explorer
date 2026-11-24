@@ -5,8 +5,8 @@ Only what can be *verified* from the bytes is implemented here: the plaintext
 heuristics that describe the encrypted index honestly -- this module never
 claims to decrypt anything.
 
-What the header tells us (measured on all 22 archives of 1.0.2.1)
-----------------------------------------------------------------
+Header observations from 22 local GTA VI archives
+-----------------------------------------------
 * ``f1`` (0x04) is the **index size**: the payload area begins exactly at
   ``f1``.  Verified 22/22: 15 archives have zero padding immediately after
   ``f1``; the other 7 have resource bytes starting there directly.  The first

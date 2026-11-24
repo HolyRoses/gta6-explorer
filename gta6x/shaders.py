@@ -16,8 +16,8 @@ Only wrappers whose deflate stream inflates to exactly the declared length and
 whose output passes the DXBC structure check are reported, so coincidental magic
 matches are rejected.
 
-Measured on 1.0.2.1: the first 64 MiB of ``shaders.rpf`` contains **9,135**
-validated shaders.
+Measured in a local GTA VI package: the first 64 MiB of ``shaders.rpf`` contains
+**9,135** validated shaders.
 """
 
 from __future__ import annotations

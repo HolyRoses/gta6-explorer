@@ -1,6 +1,6 @@
 # gta6x — GTA VI package explorer
 
-Explore a local **GTA VI Xbox 1.0.2.1** package, extract assets, and inspect its
+Explore a local **GTA VI** package, extract assets, and inspect its
 metadata from the command line. Export textures, audio, video and shaders, or
 build a searchable asset browser without decrypting the archive index.
 
@@ -12,12 +12,13 @@ and world exports, and supported audio-to-WAV conversion.
 
 | Area | What you can do |
 | --- | --- |
-| **Textures** | List streamed and embedded textures; export supported mip chains, arrays and cubemaps to DDS; generate PNG previews, including BC1–BC7. Inspect supported DDS files and preview selected mips, slices and volume planes offline. |
-| **Audio and music** | Inspect AWC streams and music channels; extract native payloads; remux supported Opus to playable Ogg; export supported WAV audio with libopus. Browse audio-config records and TRACKID chapter metadata. |
+| **Textures** | List streamed and embedded textures; export supported mip chains, arrays and cubemaps to DDS; generate PNG previews, including BC1–BC7. Inspect DDS files and export selected planes without re-encoding. |
+| **Audio and music** | Inspect archived or extracted AWC streams and music channels; extract native payloads; remux supported Opus to playable Ogg; export supported WAV audio with libopus. Browse audio-config records and TRACKID chapter metadata. |
+| **Radio libraries** | Extract researched stations with named, tagged files; build portable VLC playlists, continuous broadcasts, chapter splits, CUE sheets and marker sidecars. Includes a bundled song/station name-and-hash catalog. |
 | **Video** | Find Bink2 movies, inspect dimensions and duration, and extract the original files. |
 | **Metadata** | Browse PSIN schemas, enums, supported instance values and record links; compare extracted schema declarations; export JSON and recover complete XML/PSIN resources. |
 | **Shaders** | Extract DXBC binaries; inspect signatures and features; query logical resource bindings by stage, register, space and type. |
-| **Animation** | List names and clips; inspect extracted resource metadata, native bone tables, packed buffers, binding keys and raw code rows; trace supported key-holder chains; browse MoVE and RBF metadata. |
+| **Animation** | List names and clips; inspect extracted resource metadata, native bone tables, packed buffers, binding keys and raw code rows; compare skeleton records, trace supported key-holder chains and browse MoVE/RBF metadata. |
 | **Native world inspection** | Browse level-resource schemas and blocks, inspect supported primitive storage, trace checked local references and export their DOT graphs. |
 | **Asset browsing** | Build JSON or SQLite catalogs, generate a searchable HTML browser, retrieve individual assets and use an interactive terminal browser. |
 | **3D exports** | Export models to glTF/GLB and world data such as placements, collision, navmeshes and paths through the optional SixNG backend. |
@@ -28,7 +29,7 @@ You need **Python 3.10+** and a local, readable package. Run commands from this
 checkout's root directory; no third-party Python packages are required.
 
 ```bash
-export GTA6_ROOT="/path/to/GTA6.Xbox.v1.0.2.1"
+export GTA6_ROOT="/path/to/gta6"
 
 python3 -m gta6x info
 python3 -m gta6x textures --max 20
@@ -79,6 +80,41 @@ and use `--wav-out` or `--music-wav-out`. Raw and Ogg export need no audio libra
 Use `music --config` for audio-config browsing and `awc --radio` for native
 markers and TRACKID chapters.
 
+### Radio libraries and VLC playlists
+
+Install [FFmpeg and ffprobe](https://ffmpeg.org/download.html), then export the
+bundled stations or select a station by name:
+
+```bash
+python3 -m gta6x radio --list
+python3 -m gta6x radio --list-credits --station "The Vault Radio"
+python3 -m gta6x radio --out ./exports/radio
+python3 -m gta6x radio --station "Flash FM" --out ./exports/flash-fm
+python3 -m gta6x radio --list-tracks --station "Flash FM"
+python3 -m gta6x radio --names-out ./radio-names.json
+```
+
+Open `playlists/All Stations.m3u8` or an individual station playlist in VLC.
+Default Opus exports preserve compressed audio; `--format flac`, `mp3`, `m4a`
+or `wav` converts explicitly. Premixed stations include full broadcasts, chapter
+files, embedded Opus chapters, CUE and native marker/seek metadata. Bundled
+acoustic and user-supplied credits name supported Vault, Worldwide and Radio
+On-U chapter occurrences, including artist tags and explicit `Song A → Song B (transition)` labels for
+audited overlaps. Unmatched intervals retain their TRACKIDs. Copy cuts follow
+packet boundaries;
+`--exact-chapters` re-encodes chapter cuts on the selected audio timeline.
+
+Talk stations are included; `--include-imaging` adds station beds and imaging.
+`--audio-dir DIR` reuses addressed Opus extractions; source-bound premixed
+credits require native archive input. Matching files and sidecar hashes permit
+safe reruns; changed settings or conflicting files require
+`--overwrite`. The [bundled catalog](gta6x/data/README.md) preserves research
+provenance and conflicting credits; it needs no files from `exports/` or `work/`.
+`--list-credits` also browses public song lists whose audio remains unidentified.
+Fuller public credits supply display metadata while JSON retains alternatives
+and provisional matching evidence. Public list order never names
+unknown TRACKID intervals.
+
 ### Metadata, shaders and animation
 
 ```bash
@@ -118,6 +154,8 @@ Add `--value-words` to inspect raw primitive bits and full key slots; it implies
 meanings remain unconfirmed.
 `--graph-dot FILE` exports checked reference ranges as a source-scoped graph;
 it implies `--links`. Large graphs may need a higher `--max-nodes` budget.
+Add `--graph-record SOURCE:BLOCK:RECORD` to show direct incoming and outgoing
+ranges for selected records; repeat the option to select more than one.
 
 For animation research, `anim --binding-layout` traces raw binding keys to
 slot-directory entries and checks local animation-dictionary membership,
@@ -128,7 +166,8 @@ the output budget. Numeric samples, poses, timing and bone bindings remain
 unresolved.
 
 `anim --key-holders` inspects supported native key-holder and parent references
-and implies `--resources`. Use `--max-nodes` to set the inspection budget;
+in archives or with `--raw-resource`; archive mode implies `--resources`.
+Use `--max-nodes` to set the inspection budget;
 bone and rig meanings remain unconfirmed.
 
 For a decompressed native pack stream, `anim --raw-skeleton FILE` inspects bone
@@ -142,6 +181,8 @@ quaternion/matrix consistency checks. Bound the expanded inspection with
 `--max-nodes`; larger tables may need a higher budget.
 Use `--provider-targets` to trace supported nested references, or `--bone-names`
 to inspect the compact name-to-bone-index lookup.
+Add `--skeleton-dot FILE` to export the checked stored-parent forest as a DOT
+graph; pose and animation ownership remain unconfirmed.
 
 Inspect selected rows from an extracted packed buffer using its parent metadata's
 binding count:
@@ -160,19 +201,39 @@ game texture and material identities remain unknown.
 Inspect assets without scanning the game archives:
 
 ```bash
-python3 -m gta6x dds texture.dds --png preview.png
+python3 -m gta6x dds texture.dds --dds-out selected.dds --png preview.png
+python3 -m gta6x awc --raw bank.awc --out bank.json
+python3 -m gta6x awc --raw bank.awc --stream-index 0 --tag-index 1 --chunk-out payload.bin
+python3 -m gta6x awc --raw clip.awc --stream-index 0 --ogg-file clip.opus
 python3 -m gta6x --json shaders --raw shader.cso --bindings
 python3 -m gta6x psin-diff before.psin after.psin --out comparison.json
+python3 -m gta6x anim-diff before.0drp after.0drp --out declarations.json
+python3 -m gta6x skeleton-diff first.bin second.bin --out skeleton-comparison.json
 python3 -m gta6x --json anim --raw-resource extracted.0drp --out ./exports/metadata
 python3 -m gta6x world --kind resources --raw-resources --archive level.bin \
   --out ./exports/world --graph-dot ./exports/world/links.dot --max-nodes 300000
 ```
 
-DDS inspection supports tightly packed DX10 layouts and legacy DXT1/3/5 and
-supported BC4/BC5 FourCC formats. Preview selectors are `--mip`, `--slice` and `--z`
-where the layout permits them. Repeat `anim --raw-resource FILE` to inspect a
+DDS inspection supports tightly packed DX10 layouts, legacy DXT1/3/5 and supported
+BC4/BC5 FourCCs, and exact RGBA8/BGRA8/BGRX8 mask layouts.
+Preview selectors are `--mip`, `--slice` and `--z`
+where the layout permits them; the same selectors apply to lossless `--dds-out`
+export. `awc --raw` accepts whole container files, with optional `--radio` views
+and ordered `--source-sha256` pins. `--chunk-out` extracts exact stored bytes by
+stream/tag ordinal from one container; the result is not decoded audio.
+For standalone mono 48 kHz Opus, `--ogg-file` remuxes unchanged packets using
+declared duration. `--ogg-pre-skip` overrides the conventional 312-sample default;
+the original alignment remains unconfirmed.
+Repeat `anim --raw-resource FILE` to inspect a
 batch; `--expected-sha256` pins each input in order. This reads bounded native
 0DRP metadata without scanning archives or joining files.
+Add `--find-structure`, `--find-field`, `--find-type`, `--find-aux` or `--find-size`
+to query native declarations; `--find-enum` selects a separate enum query.
+`anim-diff` compares complete stored structure and enum declarations, retaining
+unknown words and ambiguous matches. It reports literal differences without
+claiming schema compatibility.
+`skeleton-diff` compares checked named records and stored parent links; name
+alignment is a candidate, with pose and rig compatibility unconfirmed.
 Raw shader mode accepts multiple files and writes inspection JSON
 with `--out DIR`. PSIN comparison preserves unknowns and ambiguous declarations;
 matching hashes do not establish semantic compatibility.

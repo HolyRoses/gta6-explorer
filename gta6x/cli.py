@@ -337,7 +337,7 @@ def _cmd_anim_raw_buffer(args) -> int:
     from . import anim_selected_samples
 
     ignored = {"--archive", "--limit", "--full", "--max", "--clips", "--resources", "--key-holders", "--raw-skeleton",
-               "--bone-keys", "--pose-layout", "--skeleton-context", "--provider-targets", "--bone-names",
+               "--bone-keys", "--pose-layout", "--skeleton-context", "--provider-targets", "--bone-names", "--skeleton-dot",
                "--clip-records", "--start", "--clip-components", "--packed-layout",
                "--channel-layout", "--storage-layout", "--prefix-layout", "--aux-checkpoints",
                "--checkpoint-candidates", "--binding-layout", "--sample-codes",
@@ -401,9 +401,13 @@ def _cmd_anim_raw_skeleton(args) -> int:
     if args.max_nodes < 1:
         eprint("--max-nodes must be positive")
         return 1
+    graph_destination = getattr(args, 'skeleton_dot', None)
+    if graph_destination is not None and (not graph_destination.strip() or '\0' in graph_destination):
+        eprint('--skeleton-dot must name a nonempty output file')
+        return 1
     destination = os.path.join(args.out, "skeleton.json") if args.out else None
     try:
-        _check_output_paths([args.raw_skeleton], [destination])
+        _check_output_paths([args.raw_skeleton], [destination, graph_destination])
         from . import packs_bones, packs_skeleton_bounds
         with open(args.raw_skeleton, "rb") as source:
             data = source.read(packs_skeleton_bounds.MAX_BYTES + 1)
@@ -429,6 +433,9 @@ def _cmd_anim_raw_skeleton(args) -> int:
             if args.bone_names:
                 from . import packs_bone_names
                 extensions.append(('bone_names', packs_bone_names.inspect))
+            if graph_destination:
+                from . import packs_skeleton_dot
+                extensions.append(('skeleton_dot', packs_skeleton_dot.inspect))
             for name, inspect in extensions:
                 remaining = args.max_nodes - report['work_units']
                 if remaining < 1:
@@ -444,16 +451,32 @@ def _cmd_anim_raw_skeleton(args) -> int:
         eprint(f"raw skeleton inspection failed: {exc}")
         return 1
     failed = report.get('status') != 'complete'
-    if destination and not failed:
+    if (destination or graph_destination) and not failed:
         try:
-            os.makedirs(args.out, exist_ok=True)
-            with open(destination, 'w', encoding='utf-8') as handle:
-                json.dump(report, handle, indent=2, allow_nan=False)
-                handle.write('\n')
+            if graph_destination:
+                import tempfile
+                parent = os.path.dirname(os.path.abspath(graph_destination))
+                os.makedirs(parent, exist_ok=True)
+                temporary = None
+                try:
+                    with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=parent,
+                                                     delete=False) as handle:
+                        temporary = handle.name
+                        handle.write(report['skeleton_dot']['dot'])
+                    os.replace(temporary, graph_destination)
+                finally:
+                    if temporary and os.path.exists(temporary):
+                        os.unlink(temporary)
+            if destination:
+                os.makedirs(args.out, exist_ok=True)
+                with open(destination, 'w', encoding='utf-8') as handle:
+                    json.dump(report, handle, indent=2, allow_nan=False)
+                    handle.write('\n')
         except (OSError, ValueError) as exc:
             eprint(f"skeleton report failed: {exc}")
             return 1
-        eprint(f"manifest: {destination}")
+        if destination:
+            eprint(f"manifest: {destination}")
     if args.json:
         print(json.dumps(report, indent=2, allow_nan=False))
     elif failed:
@@ -462,9 +485,23 @@ def _cmd_anim_raw_skeleton(args) -> int:
         print('Checked native named-record metadata; poses and animation ownership remain unknown.')
         if destination:
             print(f"manifest: {destination}")
-        else:
+        elif not graph_destination:
             print(json.dumps(report, indent=2, allow_nan=False))
+        if graph_destination:
+            counts = report['skeleton_dot']['counts']
+            print(f"stored parent graph: {graph_destination}; "
+                  f"{counts['bone_nodes']} records, {counts['stored_parent_edges']} parent edges")
     return int(failed)
+
+
+def _anim_declaration_query(args):
+    return {key: value for key, value in (
+        ('structure_hash', getattr(args, 'find_structure', None)),
+        ('field_hash', getattr(args, 'find_field', None)),
+        ('type_word', getattr(args, 'find_type', None)),
+        ('auxiliary', getattr(args, 'find_aux', None)),
+        ('byte_size', getattr(args, 'find_size', None)),
+        ('enum_hash', getattr(args, 'find_enum', None))) if value is not None}
 
 
 def _cmd_anim_raw_resources(args) -> int:
@@ -472,7 +509,9 @@ def _cmd_anim_raw_resources(args) -> int:
     from . import anim_resource_inputs
 
     allowed = {'--root', '--json', '--raw-resource', '--expected-sha256',
-               '--max-input-bytes', '--max-nodes', '--out'}
+               '--max-input-bytes', '--max-nodes', '--out', '--key-holders',
+               '--find-structure', '--find-field', '--find-type', '--find-aux',
+               '--find-size', '--find-enum'}
     if args.files or getattr(args, '_supplied_options', set()) - allowed:
         eprint('--raw-resource cannot combine with archive, skeleton or packed-buffer options')
         return 1
@@ -481,10 +520,16 @@ def _cmd_anim_raw_resources(args) -> int:
         return 1
     destination = os.path.join(args.out, 'anim-resources.json') if args.out else None
     try:
-        report = anim_resource_inputs.inspect_files(args.raw_resource,
+        query = _anim_declaration_query(args)
+        inspect_files = anim_resource_inputs.inspect_files
+        if query:
+            from . import anim_resource_search
+            inspect_files = anim_resource_search.inspect_files
+        report = inspect_files(args.raw_resource,
             max_nodes=args.max_nodes, max_input_bytes=args.max_input_bytes,
             expected_sha256=args.expected_sha256,
-            protected_outputs=[destination] if destination else ())
+            with_key_holders=args.key_holders,
+            protected_outputs=[destination] if destination else (), **query)
         if destination:
             import tempfile
             os.makedirs(args.out, exist_ok=True)
@@ -507,6 +552,12 @@ def _cmd_anim_raw_resources(args) -> int:
     else:
         summary = report['summary']
         print(f"{summary['files']} native resource file(s), {summary['input_bytes']:,} input bytes")
+        if args.key_holders:
+            print(f"{summary['key_holder_references']} key-holder references, "
+                  f"{summary['key_parent_links']} parent links; "
+                  f"{summary['key_views_unsupported']} unsupported views")
+        if query:
+            print(json.dumps(report['declaration_search']['summary'], indent=2))
         print('Bounded metadata only; complete resource extents and animation semantics remain unknown.')
         if not destination:
             print(json.dumps(report, indent=2, allow_nan=False))
@@ -521,6 +572,9 @@ def cmd_anim(args) -> int:
 
     if getattr(args, 'raw_resource', None) is not None:
         return _cmd_anim_raw_resources(args)
+    if _anim_declaration_query(args):
+        eprint('native declaration queries require --raw-resource')
+        return 1
     if getattr(args, '_supplied_options', set()) & {'--expected-sha256', '--max-input-bytes'}:
         eprint('--expected-sha256 and --max-input-bytes require --raw-resource')
         return 1
@@ -528,6 +582,9 @@ def cmd_anim(args) -> int:
         return _cmd_anim_raw_buffer(args)
     if getattr(args, "raw_skeleton", None) is not None:
         return _cmd_anim_raw_skeleton(args)
+    if getattr(args, 'skeleton_dot', None) is not None:
+        eprint('--skeleton-dot requires --raw-skeleton')
+        return 1
     if args.bone_keys or args.pose_layout:
         eprint("--bone-keys and --pose-layout require --raw-skeleton")
         return 1
@@ -2061,27 +2118,61 @@ def _write_json_report(path, report):
         handle.write("\n")
 
 
+def _write_atomic_bytes(path, data):
+    """Replace one validated binary output using a temporary sibling file."""
+    import tempfile
+
+    parent = os.path.dirname(os.path.abspath(path))
+    os.makedirs(parent, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='wb', dir=parent, delete=False) as handle:
+            temporary = handle.name
+            handle.write(data)
+        os.replace(temporary, path)
+    finally:
+        if temporary and os.path.exists(temporary):
+            os.unlink(temporary)
+
+
 def cmd_dds(args) -> int:
     from . import dds
 
-    if not args.png and any(getattr(args, key) is not None for key in
-                            ("mip", "slice", "z", "max_pixels")):
-        eprint("--mip, --slice, --z and --max-pixels require --png")
+    if not args.png and not args.dds_out and any(getattr(args, key) is not None for key in
+                                                ('mip', 'slice', 'z')):
+        eprint('--mip, --slice and --z require --png or --dds-out')
+        return 1
+    if args.max_pixels is not None and not args.png:
+        eprint('--max-pixels requires --png')
         return 1
     try:
-        _check_output_paths([args.file], [args.out, args.png])
+        if args.dds_out is not None and (not args.dds_out.strip() or '\0' in args.dds_out):
+            raise ValueError('--dds-out must name a nonempty DDS file')
+        _check_output_paths([args.file], [args.out, args.png, args.dds_out])
         options = dict(max_bytes=args.max_bytes if args.max_bytes is not None else dds.MAX_BYTES,
                        max_subresources=args.max_subresources if args.max_subresources is not None else dds.MAX_SUBRESOURCES)
-        if args.png:
+        selection = dict(mip=args.mip if args.mip is not None else 0,
+                         slice_index=args.slice if args.slice is not None else 0,
+                         z_index=args.z if args.z is not None else 0)
+        if args.dds_out:
+            data = dds._read(args.file, options['max_bytes'])
+            report, exported = dds.export_plane(data, **selection, **options)
+            if args.png:
+                preview_report, preview = dds.preview(data, **selection, **options,
+                    max_pixels=args.max_pixels if args.max_pixels is not None else dds.MAX_PIXELS)
+                report['preview'] = preview_report['preview']
+        elif args.png:
             report, preview = dds.preview_file(args.file,
-                mip=args.mip if args.mip is not None else 0,
-                slice_index=args.slice if args.slice is not None else 0,
-                z_index=args.z if args.z is not None else 0,
+                **selection,
                 max_pixels=args.max_pixels if args.max_pixels is not None else dds.MAX_PIXELS,
                 **options)
         else:
             report = dds.inspect_file(args.file, **options)
         # All parsing and optional decoding finish before output files are opened.
+        if args.dds_out:
+            os.makedirs(os.path.dirname(os.path.abspath(args.dds_out)), exist_ok=True)
+            with open(args.dds_out, 'wb') as handle:
+                handle.write(exported)
         if args.png:
             os.makedirs(os.path.dirname(os.path.abspath(args.png)), exist_ok=True)
             with open(args.png, "wb") as handle:
@@ -2099,6 +2190,8 @@ def cmd_dds(args) -> int:
         print(f"{report['payload_bytes']} payload bytes; source SHA-256 {report['source']['sha256']}")
     if args.png:
         eprint(f"preview: {args.png}")
+    if args.dds_out:
+        eprint(f'selected plane: {args.dds_out}')
     if args.out:
         eprint(f"report: {args.out}")
     return 0
@@ -2124,6 +2217,61 @@ def cmd_psin_diff(args) -> int:
         print("Hash alignment is a candidate only; semantic compatibility remains unknown.")
     if args.out:
         eprint(f"report: {args.out}")
+    return 0
+
+
+def cmd_anim_diff(args) -> int:
+    """Compare source-backed native 0DRP declarations without binding claims."""
+    from . import anim_resource_diff
+
+    try:
+        if args.out is not None and (not args.out.strip() or '\0' in args.out):
+            raise ValueError('--out must name a nonempty JSON file')
+        _check_output_paths([args.left, args.right], [args.out])
+        report = anim_resource_diff.compare_files(args.left, args.right,
+            max_nodes=args.max_nodes, max_input_bytes=args.max_input_bytes,
+            protected_outputs=[args.out] if args.out else ())
+        if args.out:
+            _write_json_report(args.out, report)
+    except (OSError, ValueError) as exc:
+        eprint(f'animation declaration comparison failed: {exc}')
+        return 1
+    if args.json:
+        print(json.dumps(report, indent=2, allow_nan=False))
+    else:
+        print('Native 0DRP literal declaration comparison')
+        print(json.dumps(report['summary'], indent=2))
+        print('Hash alignment is a candidate only; semantic compatibility remains unknown.')
+    if args.out:
+        eprint(f'report: {args.out}')
+    return 0
+
+
+def cmd_skeleton_diff(args) -> int:
+    """Compare checked native named records without inferring rig compatibility."""
+    from . import packs_skeleton_diff
+
+    try:
+        if args.out is not None and (not args.out.strip() or '\0' in args.out):
+            raise ValueError('--out must name a nonempty JSON file')
+        _check_output_paths([args.left, args.right], [args.out])
+        report = packs_skeleton_diff.compare_files(args.left, args.right,
+            expected_sha256=args.expected_sha256, max_nodes=args.max_nodes,
+            max_input_bytes=args.max_input_bytes, max_output_bytes=args.max_output_bytes,
+            protected_outputs=[args.out] if args.out else ())
+        if args.out:
+            _write_json_report(args.out, report)
+    except (OSError, ValueError) as exc:
+        eprint(f'skeleton comparison failed: {exc}')
+        return 1
+    if args.json:
+        print(json.dumps(report, indent=2, allow_nan=False))
+    else:
+        print('Native skeleton stored-record comparison')
+        print(json.dumps(report['summary'], indent=2))
+        print('Name alignment is a candidate only; pose and rig compatibility remain unknown.')
+    if args.out:
+        eprint(f'report: {args.out}')
     return 0
 
 
@@ -2634,8 +2782,154 @@ def _cmd_music_config(args, targets) -> int:
     return int(incomplete)
 
 
+def _cmd_awc_tag(args) -> int:
+    """Export one ordinal-selected stored tag from a complete immutable AWC."""
+    from . import awc_tag_export
+
+    try:
+        if len(args.files) != 1:
+            raise ValueError('--chunk-out requires exactly one --raw AWC file')
+        if args.radio:
+            raise ValueError('--radio cannot combine with --chunk-out; inspect radio tables separately')
+        if args.stream_index is None or args.tag_index is None:
+            raise ValueError('--chunk-out requires explicit --stream-index and --tag-index')
+        for label, path in (('--chunk-out', args.chunk_out), ('--out', args.out)):
+            if path is not None and (not path.strip() or '\0' in path):
+                raise ValueError(f'{label} must name a nonempty output file')
+        if args.source_sha256 is not None and len(args.source_sha256) != 1:
+            raise ValueError('--chunk-out requires exactly one --source-sha256 when supplied')
+        _check_output_paths(args.files, [args.chunk_out, args.out])
+        options = dict(stream_index=args.stream_index, tag_index=args.tag_index,
+            expected_sha256=args.source_sha256[0] if args.source_sha256 else None,
+            max_records=args.max_records if args.max_records is not None else 100000,
+            max_input_bytes=args.max_input_bytes if args.max_input_bytes is not None else 64*1024*1024,
+            protected_outputs=[p for p in (args.chunk_out, args.out) if p is not None])
+        if args.max_output_bytes is not None:
+            options['max_output_bytes'] = args.max_output_bytes
+        report, payload = awc_tag_export.export_tag_file(args.files[0], **options)
+        # All source and selection validation precedes creation of either output.
+        _write_atomic_bytes(args.chunk_out, payload)
+        if args.out:
+            _write_json_report(args.out, report)
+    except (OSError, ValueError) as exc:
+        eprint(f'raw AWC tag export failed: {exc}')
+        return 1
+    if args.json:
+        print(json.dumps(report, indent=2, allow_nan=False))
+    else:
+        print(json.dumps(report['selection'], indent=2))
+        print('Stored tag bytes only; audio encoding and station membership remain unconfirmed.')
+    eprint(f'stored chunk: {args.chunk_out}')
+    if args.out:
+        eprint(f'report: {args.out}')
+    return 0
+
+
+def _cmd_awc_ogg(args) -> int:
+    """Remux one explicitly selected standalone stream from an exact AWC file."""
+    from . import awc_ogg_export
+
+    try:
+        if len(args.files) != 1:
+            raise ValueError('--ogg-file requires exactly one --raw AWC file')
+        if args.radio or args.chunk_out is not None or args.tag_index is not None:
+            raise ValueError('--ogg-file cannot combine with --radio, --chunk-out or --tag-index')
+        if args.stream_index is None:
+            raise ValueError('--ogg-file requires an explicit --stream-index')
+        for label, path in (('--ogg-file', args.ogg_file), ('--out', args.out)):
+            if path is not None and (not path.strip() or '\0' in path):
+                raise ValueError(f'{label} must name a nonempty output file')
+        if args.source_sha256 is not None and len(args.source_sha256) != 1:
+            raise ValueError('--ogg-file requires exactly one --source-sha256 when supplied')
+        _check_output_paths(args.files, [args.ogg_file, args.out])
+        options = dict(stream_index=args.stream_index,
+            pre_skip=args.ogg_pre_skip if args.ogg_pre_skip is not None else 312,
+            expected_sha256=args.source_sha256[0] if args.source_sha256 else None,
+            max_records=args.max_records if args.max_records is not None else 100000,
+            max_input_bytes=args.max_input_bytes if args.max_input_bytes is not None else 64*1024*1024,
+            protected_outputs=[p for p in (args.ogg_file, args.out) if p is not None])
+        if args.max_output_bytes is not None:
+            options['max_output_bytes'] = args.max_output_bytes
+        report, output = awc_ogg_export.export_ogg_file(args.files[0], **options)
+        _write_atomic_bytes(args.ogg_file, output)
+        if args.out:
+            _write_json_report(args.out, report)
+    except (OSError, ValueError) as exc:
+        eprint(f'raw AWC Ogg export failed: {exc}')
+        return 1
+    if args.json:
+        print(json.dumps(report, indent=2, allow_nan=False))
+    else:
+        print(json.dumps(report['selection'], indent=2))
+        print('Declared-duration Ogg remux; original pre-skip alignment remains unconfirmed.')
+    eprint(f'Ogg Opus: {args.ogg_file}')
+    if args.out:
+        eprint(f'report: {args.out}')
+    return 0
+
+
+def _cmd_awc_raw(args) -> int:
+    """Inspect explicit whole AWC files, without archive discovery or decoding."""
+    from . import awc_inputs
+
+    allowed = {'--root', '--json', '--raw', '--radio', '--source-sha256',
+               '--max-input-bytes', '--max-records', '--out', '--chunk-out',
+               '--stream-index', '--tag-index', '--max-output-bytes', '--ogg-file', '--ogg-pre-skip'}
+    if getattr(args, '_supplied_options', set()) - allowed:
+        eprint('awc --raw cannot combine with archive, offset or extraction options')
+        return 1
+    if not args.files:
+        eprint('awc --raw requires at least one complete AWC file')
+        return 1
+    if getattr(args, 'ogg_file', None) is not None:
+        return _cmd_awc_ogg(args)
+    if getattr(args, 'ogg_pre_skip', None) is not None:
+        eprint('--ogg-pre-skip requires --ogg-file with awc --raw')
+        return 1
+    if getattr(args, 'chunk_out', None) is not None:
+        return _cmd_awc_tag(args)
+    if any(getattr(args, key, None) is not None for key in
+           ('stream_index', 'tag_index', 'max_output_bytes')):
+        eprint('--stream-index and --max-output-bytes require --chunk-out or --ogg-file; --tag-index requires --chunk-out')
+        return 1
+    try:
+        if args.out is not None and (not args.out.strip() or '\0' in args.out):
+            raise ValueError('--out must name a nonempty JSON file')
+        report = awc_inputs.inspect_files(args.files, with_radio=args.radio,
+            expected_sha256=args.source_sha256,
+            max_records=args.max_records if args.max_records is not None else 100000,
+            max_input_bytes=args.max_input_bytes if args.max_input_bytes is not None else 64*1024*1024,
+            protected_outputs=[args.out] if args.out else ())
+        if args.out:
+            _write_json_report(args.out, report)
+    except (OSError, ValueError) as exc:
+        eprint(f'raw AWC inspection failed: {exc}')
+        return 1
+    if args.json:
+        print(json.dumps(report, indent=2, allow_nan=False))
+    else:
+        print(json.dumps(report['summary'], indent=2))
+        if report['status'] != 'complete':
+            for row in report['files']:
+                view = row.get('radio')
+                if view and view.get('status') not in ('parsed', 'complete'):
+                    detail = view.get('reason') or next(
+                        (table['reason'] for table in view.get('tables', []) if table.get('reason')),
+                        'requested radio profile is incomplete; use --json for full details')
+                    print(f"{row['file']}: radio view {view['status']}: {detail}")
+    if args.out:
+        eprint(f'report: {args.out}')
+    return int(report['status'] != 'complete')
+
+
 def cmd_awc(args) -> int:
     """List the streams inside AWC containers, optionally extracting payloads."""
+    if getattr(args, 'raw', False):
+        return _cmd_awc_raw(args)
+    if getattr(args, '_supplied_options', set()) & {'--source-sha256', '--max-input-bytes', '--max-records', '--out',
+            '--chunk-out', '--stream-index', '--tag-index', '--max-output-bytes', '--ogg-file'}:
+        eprint('--source-sha256, --max-input-bytes, --max-records, --out and raw export options require awc --raw')
+        return 1
     if (args.max < 0 or args.max_containers is not None and args.max_containers<1
             or any(offset<0 for offset in args.offsets)):
         eprint('AWC display/offset limits must be nonnegative and --max-containers positive')
@@ -3595,6 +3889,20 @@ def _world_context_record(value):
         raise argparse.ArgumentTypeError('expected unsigned BLOCK:RECORD indices, e.g. 0:0') from exc
 
 
+def _world_graph_record(value):
+    """Select one source-local record without inferring semantic ownership."""
+    try:
+        parts = value.split(':')
+        if len(parts) != 3:
+            raise ValueError
+        triple = tuple(int(part, 0) for part in parts)
+        if any(not 0 <= number <= 0xffffffff for number in triple):
+            raise ValueError
+        return triple
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError('expected unsigned SOURCE:BLOCK:RECORD indices, e.g. 0:1:2') from exc
+
+
 def _cmd_world_resources(args) -> int:
     """Browse bounded native resource metadata without a backend."""
     from . import world_resources, world as world_mod
@@ -3606,9 +3914,19 @@ def _cmd_world_resources(args) -> int:
         eprint('--out must be a nonempty directory path without NUL bytes')
         return 1
     graph_destination = getattr(args, 'graph_dot', None)
+    graph_records = getattr(args, 'graph_records', [])
+    if graph_records and not graph_destination:
+        eprint('--graph-record requires --graph-dot')
+        return 1
     if graph_destination is not None:
         if not graph_destination.strip() or '\0' in graph_destination:
             eprint('--graph-dot must name a nonempty output file')
+            return 1
+        from . import world_graph_dot
+        try:
+            graph_records = world_graph_dot.validate_focus_records(graph_records)
+        except ValueError as exc:
+            eprint(str(exc))
             return 1
         args.links = True
     unsupported = [flag for flag,value in (
@@ -3700,7 +4018,8 @@ def _cmd_world_resources(args) -> int:
                 if type(amount) is not int or amount < 0 or amount > remaining - graph_nodes:
                     raise world_resources.WorldResourceLimitError('world DOT exceeds shared node budget')
                 graph_nodes += amount
-            report['graph_dot'] = world_graph_dot.inspect(report, consume=consume_graph)
+            report['graph_dot'] = world_graph_dot.inspect(report, consume=consume_graph,
+                                                         focus_records=graph_records)
             report['summary']['graph_dot_nodes'] = graph_nodes
             report['summary']['metadata_nodes'] += graph_nodes
         os.makedirs(args.out,exist_ok=True)
@@ -3782,6 +4101,10 @@ def _cmd_world_resources(args) -> int:
                       f"{counts['resources_skipped']} unsupported entries skipped; {export_destination}")
         if graph_destination:
             print(f'checked local reference graph: {graph_destination}; semantic ownership remains unknown')
+            if graph_records:
+                counts = report['graph_dot']['summary']
+                print(f"{counts['reference_edges']} incident reference ranges shown; "
+                      f"{counts['omitted_reference_edges']} other ranges omitted")
         print(f'resource catalog: {destination}')
     return int(report['summary']['resources_refused']>0 or report['summary'].get('views_refused',0)>0
                or report.get('resource_export', {}).get('status') == 'refused')
@@ -3804,6 +4127,7 @@ def cmd_world(args) -> int:
     if (args.schemas or args.names or args.links or args.value_words or args.extent_diagnostics or args.primitive_layouts or
             args.reference_context or args.context_records or args.extract_resources or args.raw_resources or args.manifest or
             getattr(args, 'graph_dot', None) is not None or
+            getattr(args, 'graph_records', []) or
             any(v is not None for v in (args.schema_type,args.schema_field,args.schema_code))):
         eprint('schema, link, primitive, context and extent options apply to native resource browsing')
         return 1
@@ -5971,6 +6295,19 @@ def cmd_selftest(args) -> int:
         except ValueError:
             animation_pin_refused = True
         check('offline animation resources reject mismatched file hashes', animation_pin_refused)
+        key_report = _anim_inputs.inspect_files([raw_path], with_key_holders=True)
+        check('offline animation key views retain unsupported reasons and original metadata',
+              key_report['files'][0]['metadata'] == raw_report['files'][0]['metadata']
+              and key_report['files'][0]['key_holder_layout']['status'] == 'unsupported'
+              and key_report['files'][0]['key_parent_layout']['status'] == 'unsupported'
+              and key_report['summary']['key_views_unsupported'] == 2)
+        try:
+            _anim_inputs.inspect_files([raw_path], with_key_holders=True,
+                                      max_nodes=key_report['summary']['work_nodes'] - 1)
+            key_budget_refused = False
+        except ValueError:
+            key_budget_refused = True
+        check('offline animation key views share the whole-query work budget', key_budget_refused)
         world_report = _world_resources.inspect_sources([raw_path], raw_resources=True, with_links=True)
         world_dot = _world_dot.inspect(world_report, consume=lambda n=1: None)
         check('native world DOT keeps source-local storage and unknown semantic ownership',
@@ -5985,6 +6322,68 @@ def cmd_selftest(args) -> int:
         except ValueError:
             world_dot_limit_refused = True
         check('native world DOT refuses a short byte budget without truncating', world_dot_limit_refused)
+        focused_dot = _world_dot.inspect(world_report, consume=lambda n=1: None,
+                                         focus_records=[(0, 0, 0)])
+        check('focused native world DOT retains validation scope and explicit record selection',
+              focused_dot['selection']['records'][0]['record_index'] == 0
+              and focused_dot['summary']['validated_block_nodes'] == world_dot['summary']['block_nodes']
+              and not focused_dot['selection']['traversal_performed'])
+        try:
+            _world_dot.inspect(world_report, consume=lambda n=1: None, focus_records=[(1, 0, 0)])
+            focus_source_refused = False
+        except ValueError:
+            focus_source_refused = True
+        check('focused native world DOT rejects an absent source ordinal', focus_source_refused)
+
+    from . import anim_resource_diff as _anim_diff
+    declaration_diff = _anim_diff.compare(directory_data, directory_fixture(16))
+    check('native animation declaration comparison excludes only positional member pointers',
+          declaration_diff['declaration_content_equal'] and not declaration_diff['source_bytes_equal']
+          and declaration_diff['semantic_compatibility'] == 'unconfirmed'
+          and not declaration_diff['sources']['left']['complete_format'])
+    changed_declaration = bytearray(directory_data)
+    _s.pack_into('<I', changed_declaration, 84, 0xfedcba98)
+    check('native animation declaration comparison retains unknown header changes',
+          not _anim_diff.compare(directory_data, changed_declaration)['declaration_content_equal'])
+
+    from . import anim_resource_search as _anim_search, awc_inputs as _awc_inputs
+    with tempfile.TemporaryDirectory() as offline_assets:
+        declaration_path = os.path.join(offline_assets, 'authored.0drp')
+        with open(declaration_path, 'wb') as handle:
+            handle.write(directory_data)
+        owner_hash = int(_anim_resources.parse_resource(directory_data)['structures'][0]['hash'], 16)
+        query_report = _anim_search.inspect_files([declaration_path], structure_hash=owner_hash)
+        check('offline native declaration queries retain exact source-local matches',
+              query_report['declaration_search']['summary']['structure_matches'] == 1
+              and query_report['declaration_search']['structures'][0]['source_index'] == 0
+              and not query_report['archive_search_performed'])
+        try:
+            _anim_search.inspect_files([declaration_path], structure_hash=owner_hash, enum_hash=1)
+            query_mode_refused = False
+        except ValueError:
+            query_mode_refused = True
+        check('offline native declaration queries reject incompatible selector modes', query_mode_refused)
+
+        awc_path = os.path.join(offline_assets, 'authored.awc')
+        exact_awc = bytearray(36)
+        _s.pack_into('<4sIIIIQ', exact_awc, 0, b'ADAT', 0xff020001, 1, 28,
+                     (1 << 29) | 123, (0x55 << 56) | (8 << 28) | 28)
+        with open(awc_path, 'wb') as handle:
+            handle.write(exact_awc)
+        awc_report = _awc_inputs.inspect_files([awc_path],
+            expected_sha256=[hashlib.sha256(exact_awc).hexdigest()])
+        check('offline AWC inspection indexes exact file bytes without validating encoded audio',
+              awc_report['summary']['streams'] == 1 and awc_report['summary']['tags'] == 1
+              and not awc_report['encoded_audio_validated']
+              and awc_report['files'][0]['metadata'] == media.validate_awc(bytes(exact_awc)))
+        with open(awc_path, 'ab') as handle:
+            handle.write(b'\0')
+        try:
+            _awc_inputs.inspect_files([awc_path])
+            awc_suffix_refused = False
+        except ValueError:
+            awc_suffix_refused = True
+        check('offline AWC inspection refuses bytes beyond the declared container', awc_suffix_refused)
 
     from . import dds as _dds
     legacy_header = bytearray(128)
@@ -6005,6 +6404,154 @@ def cmd_selftest(args) -> int:
     except ValueError:
         legacy_suffix_refused = True
     check('legacy DDS refuses bytes beyond its declared mip layout', legacy_suffix_refused)
+    plane_view, plane_data = _dds.export_plane(legacy_data)
+    check('selected DDS export preserves stored block bytes in a standalone DX10 header',
+          plane_data[148:] == legacy_data[128:]
+          and plane_view['plane_export']['payload_preserved']
+          and _dds.inspect(plane_data)['dxgi_format'] == 71)
+    try:
+        _dds.export_plane(legacy_data, max_output_bytes=len(plane_data) - 1)
+        plane_size_refused = False
+    except ValueError:
+        plane_size_refused = True
+    check('selected DDS export refuses a short output budget without re-encoding', plane_size_refused)
+
+    from . import packs_skeleton_dot as _skeleton_dot
+    named_source = bytearray(400)
+    named_base, named_header, named_record = 0x50000000, 128, 272
+    _s.pack_into('<Q', named_source, 24, named_base + 64)
+    _s.pack_into('<Q', named_source, 88, named_base + named_header)
+    _s.pack_into('<QII', named_source, named_header + 16, 1, 2, 2)
+    for relative, target in ((32, 352), (40, named_record), (64, 368)):
+        _s.pack_into('<Q', named_source, named_header + relative, named_base + target)
+    _s.pack_into('<6H', named_source, named_header + 108, 1, 1, 1, 0, 0, 0)
+    _s.pack_into('<Q', named_source, named_record - 16, 1)
+    authored_name = b'AuthoredRoot'
+    authored_hash = _names.joaat(authored_name.decode('ascii'))
+    _s.pack_into('<I', named_source, named_record + 28, authored_hash)
+    _s.pack_into('<Q', named_source, named_record + 48, named_base + 384)
+    _s.pack_into('<I6H', named_source, named_record + 64, 0, 65535, 65535, 0, 0, 0, 1)
+    _s.pack_into('<4I', named_source, 352, authored_hash, 0, 0, 0)
+    _s.pack_into('<H', named_source, 368, 65535)
+    named_source[384:384 + len(authored_name)] = authored_name
+    named_graph = _skeleton_dot.inspect(named_source)
+    check('skeleton DOT retains stored roots and zero keys without pose interpretation',
+          named_graph['status'] == 'complete' and named_graph['counts']['bone_nodes'] == 1
+          and named_graph['counts']['stored_parent_edges'] == 0
+          and named_graph['counts']['roots'] == 1 and not named_graph['complete_format']
+          and named_graph['inferred_animation_links'] == [])
+    malformed_named = bytearray(named_source)
+    _s.pack_into('<H', malformed_named, 368, 0)
+    refused_named = _skeleton_dot.inspect(malformed_named)
+    check('skeleton DOT refuses inconsistent stored parent copies without a graph prefix',
+          refused_named['status'] == 'unsupported' and 'dot' not in refused_named)
+
+    rgb_header = bytearray(legacy_header)
+    _s.pack_into('<I', rgb_header, 8, 0x100f)
+    _s.pack_into('<I', rgb_header, 20, 16)
+    _s.pack_into('<7I', rgb_header, 80, 0x41, 0, 32,
+                 0xff, 0xff00, 0xff0000, 0xff000000)
+    rgb_payload = bytes((17, 34, 51, 68)) * 16
+    rgb_view, rgb_plane = _dds.export_plane(bytes(rgb_header) + rgb_payload)
+    check('legacy RGB DDS uses exact channel masks and preserves stored export bytes',
+          rgb_view['header_kind'] == 'legacy_masks' and rgb_view['dxgi_format'] == 28
+          and rgb_plane[148:] == rgb_payload)
+    _s.pack_into('<I', rgb_header, 96, 0xff)
+    try:
+        _dds.inspect(bytes(rgb_header) + rgb_payload)
+        rgb_overlap_refused = False
+    except ValueError:
+        rgb_overlap_refused = True
+    check('legacy RGB DDS refuses ambiguous overlapping channel masks', rgb_overlap_refused)
+
+    from . import packs_skeleton_diff as _skeleton_diff, awc_tag_export as _awc_tags
+    identical_skeleton = _skeleton_diff.compare(named_source, named_source)
+    check('skeleton comparison retains literal candidates without rig compatibility claims',
+          identical_skeleton['source_bytes_equal']
+          and identical_skeleton['summary']['candidate_pairs'] == 1
+          and identical_skeleton['semantic_compatibility'] == 'unconfirmed')
+    changed_record = bytearray(named_source)
+    _s.pack_into('<I', changed_record, named_record, 0x7fc00001)
+    changed_skeleton = _skeleton_diff.compare(named_source, changed_record)
+    check('skeleton comparison preserves changed opaque record words',
+          not changed_skeleton['raw_named_records_equal']
+          and changed_skeleton['comparisons'][0]['changed_u32_word_indices'] == [0]
+          and not changed_skeleton['complete_format'])
+    authored_tag_source = bytes(exact_awc[:28]) + b'authored'
+    tag_report, tag_payload = _awc_tags.export_tag(authored_tag_source, stream_index=0, tag_index=0)
+    check('AWC tag export returns the exact selected stored bytes and source offsets',
+          tag_payload == b'authored' and tag_report['selection']['data_offset'] == 28
+          and tag_report['selection']['payload_sha256'] == hashlib.sha256(tag_payload).hexdigest()
+          and not tag_report['encoded_audio_validated'])
+    try:
+        _awc_tags.export_tag(authored_tag_source + b'\0', stream_index=0, tag_index=0)
+        tag_suffix_refused = False
+    except ValueError:
+        tag_suffix_refused = True
+    check('AWC tag export refuses undeclared suffix bytes before returning a payload', tag_suffix_refused)
+
+    from types import SimpleNamespace as _SimpleNamespace
+    import io as _io
+    from . import awc_ogg_export as _awc_ogg, texture as _extent_texture
+    tiny_volume = _volume.layout_for(_SimpleNamespace(dimension=3, mips=1, dxgi_format=61,
+        width=1, height=1, slices=1))
+    try:
+        tiny_volume.untile(bytes(tiny_volume.total - 1))
+        short_volume_refused = False
+    except ValueError:
+        short_volume_refused = True
+    check('volume untile refuses a missing padding byte instead of filling texels', short_volume_refused)
+    authored_packed = _zl.compress(b'authored stored bytes')
+    packed_chunk = _SimpleNamespace(codec=rds5.CODEC_ZLIB, virtual_offset=0, source_offset=0,
+                                   size=21, packed_size=len(authored_packed) + 1)
+    try:
+        _extent_texture.read_virtual(None, _SimpleNamespace(chunks=[packed_chunk]), 0, 1,
+                                     fh=_io.BytesIO(authored_packed))
+        short_packed_refused = False
+    except ValueError:
+        short_packed_refused = True
+    check('texture reads require the whole declared packed span even after zlib EOF', short_packed_refused)
+
+    authored_opus = bytearray(68 + 2048)
+    _s.pack_into('<4s4I2Q', authored_opus, 0, b'ADAT', 0xff020001, 1, 36,
+                 (2 << 29) | 17, (0x76 << 56) | (32 << 28) | 36,
+                 (0x55 << 56) | (2048 << 28) | 68)
+    _s.pack_into('<I', authored_opus, 36, 960)
+    _s.pack_into('<H', authored_opus, 44, 48000)
+    authored_opus[64:66] = bytes((11, 1))
+    authored_opus[68:84] = b'\x02\0\0a\x02\0\0b\x02\0\0c\x02\0\0d'
+    authored_ogg_report, authored_ogg = _awc_ogg.export_ogg(authored_opus, stream_index=0)
+    check('offline AWC Ogg export retains packets and states its timing assumption',
+          authored_ogg.startswith(b'OggS') and authored_ogg_report['retained_packets_preserved']
+          and authored_ogg_report['ogg']['retained_packet_count'] == 3
+          and authored_ogg_report['ogg']['final_granule'] == 1272
+          and not authored_ogg_report['encoded_audio_decoded'])
+    try:
+        _awc_ogg.export_ogg(authored_opus, stream_index=0, max_output_bytes=len(authored_ogg) - 1)
+        short_ogg_refused = False
+    except ValueError:
+        short_ogg_refused = True
+    check('offline AWC Ogg export refuses a short output budget before returning bytes', short_ogg_refused)
+
+    from . import radio_catalog as _radio_catalog, radio_library as _radio_library
+    radio_labels = _radio_catalog.load()
+    one_name = radio_labels['data']['names'][0]
+    radio_dictionary = _radio_catalog.name_dictionary(radio_labels)
+    check('bundled radio preimages remain compatible with the names lookup command',
+          any(text == one_name['text'] for text, source in
+              _names.lookup(radio_dictionary, one_name['hash32'])))
+    radio_selection = _radio_catalog.select(radio_labels)
+    check('radio selection keeps talk stations while excluding optional music-station imaging',
+          any(s['kind'] == 'talk' and s['recordings'] for s in radio_selection)
+          and all(r['role'] == 'music' for s in radio_selection if s['kind'] == 'music'
+                  for r in s['recordings']))
+    radio_navigation = _radio_library.playlist_text('Authored station', [dict(
+        path='/authored/library/stations/song.opus', station='Authored station', title='TRACKID 77',
+        artist='', duration_s=1, start_frames=4800, end_frames=52800)], '/authored/library/playlists')
+    check('radio chapter playlists retain relative paths and explicit VLC interval bounds',
+          '../stations/song.opus' in radio_navigation
+          and '#EXTVLCOPT:start-time=0.100000000' in radio_navigation
+          and '#EXTVLCOPT:stop-time=1.100000000' in radio_navigation)
 
     print(f"\n{len(failures)} failure(s)")
     return 0 if not failures else 1
@@ -6017,7 +6564,7 @@ def cmd_selftest(args) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="gta6x",
-        description="Read-only explorer for the GTA VI Xbox 1.0.2.1 package "
+        description="Read-only explorer for GTA VI packages "
                     "(RPF9 archives, RDS5 resources, plaintext Bink2/AWC media).",
     )
     parser.add_argument("--root", default=os.environ.get("GTA6_ROOT", DEFAULT_ROOT),
@@ -6028,6 +6575,8 @@ def build_parser() -> argparse.ArgumentParser:
     rbf_cli.configure(sub)
     from . import move_cli
     move_cli.configure(sub)
+    from . import radio_cli
+    radio_cli.configure(sub)
 
     p = sub.add_parser("info", help="package overview and identity")
     p.set_defaults(func=cmd_info)
@@ -6071,7 +6620,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--resources", action="store_true",
                    help="join bounded 0DRP resources and export raw schema/block metadata; curves remain unknown")
     p.add_argument("--key-holders", action="store_true",
-                   help="inspect supported raw key-holder and parent references; implies --resources; bone and rig meanings unknown")
+                   help="inspect supported raw key-holder and parent references in archives or --raw-resource files; bone and rig meanings unknown")
     p.add_argument("--max-nodes", type=int, default=100000,
                    help="total metadata node budget for --resources (default 100000)")
     p.add_argument("--clip-records", action="store_true",
@@ -6104,8 +6653,15 @@ def build_parser() -> argparse.ArgumentParser:
                    help='pin each --raw-resource input in order; repeat once per file')
     p.add_argument('--max-input-bytes', type=int, default=64*1024*1024,
                    help='aggregate --raw-resource byte limit (default 64 MiB)')
+    for option, label in (('structure', 'structure name hash'), ('field', 'field name hash'),
+                          ('type', 'raw field type word'), ('aux', 'raw field auxiliary word'),
+                          ('size', 'declared structure byte size'), ('enum', 'enum name hash')):
+        p.add_argument('--find-' + option, type=_psin_schema_word, metavar='WORD',
+                       help=f'query {label} in --raw-resource inputs')
     p.add_argument("--raw-skeleton", metavar="FILE",
                    help="inspect supported named bone records in one decompressed native stream without scanning archives")
+    p.add_argument('--skeleton-dot', metavar='FILE',
+                   help='export checked stored-parent relationships as DOT; requires --raw-skeleton')
     p.add_argument("--bone-keys", action="store_true",
                    help="compare stored alternate bone keys with the independently fitted candidate; requires --raw-skeleton")
     p.add_argument("--pose-layout", action="store_true",
@@ -6176,7 +6732,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("report", help="write a markdown or HTML inventory report")
     p.add_argument("--out", default="gta6x-report.md")
     p.add_argument("--hash", action="store_true", help="include file hashes (slow: reads the payload)")
-    p.add_argument("--title", default="GTA VI Xbox 1.0.2.1 package")
+    p.add_argument("--title", default="GTA VI package")
     p.add_argument("--with-media", action="store_true", help="include a media scan")
     p.add_argument("--limit", type=int, default=64, help="MiB per archive for the scan")
     p.set_defaults(func=cmd_report)
@@ -6352,6 +6908,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--links',action='store_true',help='inspect bounded local 0DRP counted-record references')
     p.add_argument('--graph-dot', metavar='FILE',
                    help='export checked native local reference ranges as a DOT graph; implies --links')
+    p.add_argument('--graph-record', dest='graph_records', action='append', default=[],
+                   type=_world_graph_record, metavar='SOURCE:BLOCK:RECORD',
+                   help='show only reference ranges incident to selected local records; repeat up to 32 times; requires --graph-dot')
     p.add_argument('--value-words',action='store_true',help='inspect checked raw primitive words and full key slots; --names adds verified preimage candidates; implies --links')
     p.add_argument('--manifest', help='inspect complete PSIN files pinned by a native export manifest; no archive scan')
     p.add_argument('--raw-resources', action='store_true',
@@ -6404,7 +6963,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_music)
 
     p = sub.add_parser("awc", help="list streams inside AWC audio containers")
-    p.add_argument("files", nargs="*", help="specific .rpf files")
+    p.add_argument("files", nargs="*", help="specific .rpf files, or whole AWC files with --raw")
+    p.add_argument('--raw', action='store_true', help='inspect exact whole AWC files without archive scanning')
+    p.add_argument('--source-sha256', action='append', metavar='HASH',
+                   help='pin each --raw input in order; repeat once per file')
+    p.add_argument('--max-input-bytes', type=int, help='aggregate --raw input byte limit (default 64 MiB)')
+    p.add_argument('--max-records', type=int, help='shared --raw metadata/radio work limit (default 100000)')
+    p.add_argument('--out', metavar='FILE', help='write --raw inspection JSON to this file')
+    p.add_argument('--chunk-out', metavar='FILE', help='export one exact stored tag payload from a single --raw AWC file')
+    p.add_argument('--ogg-file', metavar='FILE',
+                   help='remux one standalone mono 48 kHz Opus stream from a single --raw AWC; declared duration, default pre-skip 312')
+    p.add_argument('--stream-index', type=lambda value: int(value, 0), metavar='N',
+                   help='source-local stream ordinal; requires --raw and --chunk-out or --ogg-file')
+    p.add_argument('--tag-index', type=lambda value: int(value, 0), metavar='N',
+                   help='tag ordinal within selected stream; requires --raw and --chunk-out')
+    p.add_argument('--max-output-bytes', type=int, help='output byte limit; requires --chunk-out or --ogg-file')
     p.add_argument("--archive", action="append", default=[], help="archive name fragment")
     p.add_argument("--limit", type=int, default=64, help="MiB to scan per archive")
     p.add_argument("--full", action="store_true", help="scan whole archives")
@@ -6423,9 +6996,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--music-skip-policy", choices=("zero", "verified-overlap"), default="zero",
                    help="music export policy: verified-overlap checks exact repeated packets; zero keeps existing export paths")
     p.add_argument("--ogg-policy", choices=("legacy", "declared"), default="legacy",
-                   help="standalone Ogg timing policy (default: preserve legacy output)")
+                   help="--ogg-out timing policy (default: preserve legacy output)")
     p.add_argument("--ogg-pre-skip", type=int,
-                   help="explicit pre-skip for --ogg-policy declared (default 312; original alignment unconfirmed)")
+                   help="pre-skip for --ogg-policy declared or --raw --ogg-file (default 312; original alignment unconfirmed)")
     p.add_argument("--wav-out", help="decode supported standalone 48 kHz Opus streams to PCM16 WAV using optional libopus")
     p.add_argument("--wav-policy", choices=("declared", "packet-sequence"), default="declared",
                    help="standalone WAV interval: declared mono duration (default) or full mono/stereo packet sequence")
@@ -6435,13 +7008,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_awc, spread=0, quiet=False, no_padding=False,
                    no_align=False, align=0x1000)
 
-    p = sub.add_parser("dds", help="inspect a supported DDS file and preview a selected subresource", allow_abbrev=False)
+    p = sub.add_parser("dds", help="inspect DDS files, preview or export a selected plane", allow_abbrev=False)
     p.add_argument("file", help="complete DDS file")
     p.add_argument("--png", metavar="FILE", help="write the selected subresource as PNG")
+    p.add_argument('--dds-out', metavar='FILE', help='write the selected mip/layer/face/Z plane as a standalone DDS without re-encoding')
     p.add_argument("--out", metavar="FILE", help="write complete layout/preview metadata as JSON")
     for option in ("mip", "slice", "z"):
         p.add_argument("--" + option, type=lambda value: int(value, 0), metavar="N",
-                       help=f"preview {option} index (default 0; requires --png)")
+                       help=f"selected {option} index (default 0; requires --png or --dds-out)")
     p.add_argument("--max-bytes", type=int, help="input byte limit")
     p.add_argument("--max-subresources", type=int, help="layout output limit")
     p.add_argument("--max-pixels", type=int, help="selected preview pixel limit (requires --png)")
@@ -6453,6 +7027,26 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", help="write the complete comparison as JSON")
     p.add_argument("--max-nodes", type=int, default=100000, help="shared comparison work/output limit")
     p.set_defaults(func=cmd_psin_diff)
+
+    p = sub.add_parser('anim-diff', help='compare native 0DRP resource declarations', allow_abbrev=False)
+    p.add_argument('left', help='first extracted native 0DRP resource')
+    p.add_argument('right', help='second extracted native 0DRP resource')
+    p.add_argument('--out', help='write the complete comparison as JSON')
+    p.add_argument('--max-nodes', type=int, default=100000, help='shared comparison work/output limit')
+    p.add_argument('--max-input-bytes', type=int, default=32*1024*1024,
+                   help='combined source byte limit (default 32 MiB)')
+    p.set_defaults(func=cmd_anim_diff)
+
+    p = sub.add_parser('skeleton-diff', help='compare checked native skeleton records and stored parent links', allow_abbrev=False)
+    p.add_argument('left', help='first decompressed native skeleton stream')
+    p.add_argument('right', help='second decompressed native skeleton stream')
+    p.add_argument('--out', metavar='FILE', help='write complete comparison JSON')
+    p.add_argument('--expected-sha256', action='append', metavar='HASH',
+                   help='pin left then right source; supply exactly twice')
+    p.add_argument('--max-nodes', type=int, default=100000, help='shared parsing/comparison work limit')
+    p.add_argument('--max-input-bytes', type=int, default=32*1024*1024, help='combined source byte limit')
+    p.add_argument('--max-output-bytes', type=int, default=16*1024*1024, help='compact comparison JSON byte limit; formatted output may be larger')
+    p.set_defaults(func=cmd_skeleton_diff)
 
     p = sub.add_parser("shaders", help="recover shaders or inspect exported DXContainer files")
     p.add_argument("files", nargs="*", help="specific .rpf files, or exported shaders with --raw")

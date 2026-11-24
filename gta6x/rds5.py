@@ -29,7 +29,7 @@ Each 64-bit chunk-table entry packs a source range and a virtual range::
 The sentinel repeats the source length and the virtual size, which is what lets
 a pool be validated without decoding a single texture.
 
-Verified on all 46 pools of ``GTA6.Xbox.v1.0.2.1``: header, bitmap word count,
+Verified on all 46 pools of a local GTA VI package: header, bitmap word count,
 alignment word, chunk table, sentinel and embedded ``ETPF`` agree every time.
 """
 

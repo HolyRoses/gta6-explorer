@@ -64,7 +64,7 @@ class App:
         height, width = self.screen.getmaxyx()
         left_w = max(34, min(52, width // 3))
 
-        title = " gta6x — GTA VI Xbox 1.0.2.1 package explorer "
+        title = " gta6x — GTA VI package explorer "
         self._put(0, 0, title.ljust(width - 1), curses.A_REVERSE)
 
         visible = height - 4

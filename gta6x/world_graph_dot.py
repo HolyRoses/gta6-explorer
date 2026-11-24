@@ -15,6 +15,7 @@ MAX_BYTES = 8 * 1024 * 1024
 MAX_SOURCES = 4096
 MAX_BLOCKS = 65536
 MAX_EDGES = 131072
+MAX_FOCUS_RECORDS = 32
 _DIGEST = re.compile(r'[0-9a-f]{64}\Z')
 _TYPE = re.compile(r'0x[0-9a-f]{8}\Z')
 _WORD = re.compile(r'0x[0-9a-f]{16}\Z')
@@ -39,7 +40,23 @@ def _quote(text):
     return value
 
 
-def inspect(report, *, consume, max_bytes=MAX_BYTES):
+def validate_focus_records(focus_records):
+    """Validate only selector syntax, before a caller opens native inputs."""
+    if (not isinstance(focus_records, (list, tuple))
+            or len(focus_records) > MAX_FOCUS_RECORDS):
+        raise ValueError('world DOT focus requires at most 32 source/block/record triples')
+    selected = []
+    for row in focus_records:
+        if (not isinstance(row, (list, tuple)) or len(row) != 3
+                or any(type(value) is not int or not 0 <= value <= 0xffffffff for value in row)):
+            raise ValueError('world DOT focus requires unsigned source/block/record triples')
+        selected.append(tuple(row))
+    if len(set(selected)) != len(selected):
+        raise ValueError('world DOT focus records must be distinct')
+    return tuple(selected)
+
+
+def inspect(report, *, consume, max_bytes=MAX_BYTES, focus_records=()):
     """Render a complete bounded view or raise, never emit a partial DOT string.
 
     ``report`` must be freshly produced by ``world_resources.inspect_sources``
@@ -47,7 +64,11 @@ def inspect(report, *, consume, max_bytes=MAX_BYTES):
     relationships are replayed against the report's own block declarations.
     This does not reread source payloads or authenticate caller-supplied JSON.
     Each block is one node; counted ranges are never expanded to record nodes.
+    Optional source/block/record selectors retain direct incoming/outgoing edges
+    only. All sources, blocks and edges are validated before a result returns;
+    filtering narrows presentation, never validation or native coverage.
     """
+    focus = validate_focus_records(focus_records)
     if type(max_bytes) is not int or not 1 <= max_bytes <= MAX_BYTES:
         raise ValueError('world DOT byte limit must be 1..8388608')
     if (not isinstance(report, dict) or report.get('format') != 'gta6x-native-world-resources-v1'
@@ -60,8 +81,15 @@ def inspect(report, *, consume, max_bytes=MAX_BYTES):
     if (not all(isinstance(rows, list) for rows in (resources, refused, unknown, groups))
             or len(resources) + len(refused) > MAX_SOURCES or len(groups) > MAX_SOURCES):
         raise ValueError('world DOT exceeds source/schema limits')
+    if any(source >= len(resources) for source, _, _ in focus):
+        raise ValueError('world DOT focus source is outside selected resources')
     used = output_bytes = block_count = edge_count = unavailable = partial = 0
+    rendered_blocks = rendered_edges = 0
     lines = []; source_rows = []
+    focus_by_source = {}
+    focus_hits = {row: 0 for row in focus}
+    for source, block, record in focus:
+        focus_by_source.setdefault(source, set()).add((block, record))
 
     def charge(n=1):
         nonlocal used
@@ -91,6 +119,8 @@ def inspect(report, *, consume, max_bytes=MAX_BYTES):
         output_bytes += len(encoded); lines.append(line)
 
     charge(1 + len(resources) + len(refused) + len(unknown) + len(groups))
+    if focus:
+        charge(len(focus))
     group_index = {}
     for group in groups:
         charge()
@@ -113,6 +143,8 @@ def inspect(report, *, consume, max_bytes=MAX_BYTES):
     emit('digraph world_references {')
     title = ('Checked local world counted-reference ranges; semantic owners and graph completeness unknown\n'
              f'{len(unknown)} unclassified streams; {len(refused)} refused metadata sources')
+    if focus:
+        title += '\nFocused direct incidence only; all input sources and edges validated; omitted relationships are not absent'
     emit(f'  graph [label={_quote(title)}, labelloc=t];')
     emit('  node [shape=box];')
     for si, resource in enumerate(resources):
@@ -134,6 +166,10 @@ def inspect(report, *, consume, max_bytes=MAX_BYTES):
             raise ValueError('world DOT exceeds aggregate block limit')
         block_count += len(blocks)
         typed = {}
+        node_labels = {}
+        selected = focus_by_source.get(si, set())
+        kept_blocks = {block for block, _ in selected}
+        kept_edges = []
         prefix = f's{si}_{source_digest[:16]}'
         emit(f'  subgraph cluster_{prefix} {{')
         source = dict(index=si, sha256=source_digest, schema_group_id=group_id,
@@ -147,7 +183,8 @@ def inspect(report, *, consume, max_bytes=MAX_BYTES):
         if not supported:
             unavailable += 1
             label += '\nChecked counted-reference profile unavailable; coverage incomplete'
-        emit(f'    label={_quote(label)};')
+        if not focus:
+            emit(f'    label={_quote(label)};')
         for bi, block in enumerate(blocks):
             charge()
             if (not isinstance(block, dict) or type(block.get('block_index')) is not int
@@ -180,7 +217,16 @@ def inspect(report, *, consume, max_bytes=MAX_BYTES):
                 style = ', style=dashed'
             else:
                 raise ValueError('invalid world DOT block status')
-            emit(f'    {prefix}_b{bi} [label={_quote(block_label)}{style}];')
+            if focus:
+                node_labels[bi] = block_label, style
+            else:
+                emit(f'    {prefix}_b{bi} [label={_quote(block_label)}{style}];')
+        for bi, record in selected:
+            charge()
+            if bi not in typed:
+                raise ValueError('world DOT focus requires a declared typed local block')
+            if record >= typed[bi][0]['record_count']:
+                raise ValueError('world DOT focus record exceeds its declared block')
         if supported:
             if (links.get('profile') != world_links.PROFILE or not isinstance(links.get('links'), list)
                     or not isinstance(links.get('source_paths'), list) or not isinstance(links.get('summary'), dict)):
@@ -233,6 +279,19 @@ def inspect(report, *, consume, max_bytes=MAX_BYTES):
                 identity = sb, sr, position
                 if identity in headers: raise ValueError('world DOT repeats a source field reference')
                 headers.add(identity)
+                if focus:
+                    incident = []
+                    for bi, record in selected:
+                        charge()
+                        if (bi == sb and record == sr or bi == tb and tr <= record < tr + count):
+                            incident.append((si, bi, record))
+                    if not incident:
+                        continue
+                    for selection in incident:
+                        focus_hits[selection] += 1
+                    kept_blocks.update((sb, tb))
+                    kept_edges.append((ei, edge, path))
+                    continue
                 field_path = '.'.join(str(step['field_index']) +
                     (f'[{step["element_index"]}]' if 'element_index' in step else '')
                     for step in path['field_path'])
@@ -242,6 +301,33 @@ def inspect(report, *, consume, max_bytes=MAX_BYTES):
             edge_count += len(rows)
             source.update(status=links['status'], reference_edges=len(rows))
             partial += links['status'] == 'partial'
+        if focus:
+            checked_edges = source['reference_edges']
+            source.update(validated_block_nodes=len(blocks), validated_reference_edges=checked_edges,
+                          block_nodes=len(kept_blocks), reference_edges=len(kept_edges),
+                          omitted_block_nodes=len(blocks) - len(kept_blocks),
+                          omitted_reference_edges=checked_edges - len(kept_edges))
+            label += (f'\nFocused direct incidence: {len(kept_blocks)} / {len(blocks)} blocks; '
+                      f'{len(kept_edges)} / {checked_edges} checked reference ranges')
+            if selected:
+                label += '\nSelected local records: ' + ', '.join(f'{bi}:{ri}' for bi, ri in sorted(selected))
+            emit(f'    label={_quote(label)};')
+            for bi in sorted(kept_blocks):
+                charge()
+                block_label, style = node_labels[bi]
+                emit(f'    {prefix}_b{bi} [label={_quote(block_label)}{style}];')
+            for ei, edge, path in kept_edges:
+                charge(1 + len(path['field_path']))
+                field_path = '.'.join(str(step['field_index']) +
+                    (f'[{step["element_index"]}]' if 'element_index' in step else '')
+                    for step in path['field_path'])
+                sr, tr, count = edge['source_record_index'], edge['target_record_index'], edge['count']
+                sb, tb, position = edge['source_block_index'], edge['target_block_index'], edge['source_data_offset']
+                edge_label = (f'e{ei} | source record {sr}, field {field_path} | {path["field_hash"]}\n'
+                              f'header @{position} -> target records [{tr}, {tr + count}) ({count})')
+                emit(f'    {prefix}_b{sb} -> {prefix}_b{tb} [id="{prefix}_e{ei}", label={_quote(edge_label)}];')
+            rendered_blocks += len(kept_blocks)
+            rendered_edges += len(kept_edges)
         emit('  }')
     for ri, resource in enumerate(refused):
         charge()
@@ -250,8 +336,8 @@ def inspect(report, *, consume, max_bytes=MAX_BYTES):
         emit(f'    label={_quote(f"Refused metadata source {ri}; checked references unavailable")};')
         emit('  }')
     emit('}')
-    return dict(format='gta6x-world-graph-dot-v1', profile=PROFILE,
-                status='partial' if unavailable or partial or refused or unknown or not resources else 'complete',
+    result = dict(format='gta6x-world-graph-dot-v1', profile=PROFILE,
+                status='partial' if focus or unavailable or partial or refused or unknown or not resources else 'complete',
                 dot='\n'.join(lines) + '\n', sources=source_rows,
                 source_payloads_reverified=False, complete_world_graph=False,
                 summary=dict(nodes=used, sources=len(resources), source_graphs=len(resources)-unavailable,
@@ -262,3 +348,17 @@ def inspect(report, *, consume, max_bytes=MAX_BYTES):
                 interpretation='Fresh report replay only; each edge is one checked counted record range, '
                 'not per-record expansion or semantic ownership. No new links, resource extents, '
                 'placements, transforms, assets or complete-world coverage. Filenames omitted.')
+    if focus:
+        result['summary'].update(block_nodes=rendered_blocks, reference_edges=rendered_edges,
+                                 validated_block_nodes=block_count, validated_reference_edges=edge_count,
+                                 omitted_block_nodes=block_count - rendered_blocks,
+                                 omitted_reference_edges=edge_count - rendered_edges)
+        result['selection'] = dict(mode='direct_incident_records',
+            records=[dict(source_index=si, block_index=bi, record_index=ri,
+                          incident_reference_edges=focus_hits[si, bi, ri],
+                          status=('unavailable' if source_rows[si]['status'] == 'unavailable' else
+                                  'matched' if focus_hits[si, bi, ri] else 'no_checked_incident_edges'))
+                     for si, bi, ri in focus],
+            validation_scope='all input sources, declarations, blocks and checked reference edges',
+            traversal_performed=False, target_ranges_expanded=False)
+    return result

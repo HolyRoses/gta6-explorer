@@ -504,8 +504,8 @@ def _volume_planes(tex: EmbeddedTexture, gfx: bytes, z_start: int, z_count: int)
     end = tex.data_off + layout.total
     if end > len(gfx):
         raise ValueError("truncated embedded volume graphics allocation")
-    # Do not use VolumeLayout.untile's pool zero-fill policy. Even a selected
-    # preview plane requires the complete declared allocation to be present.
+    # Even a selected preview plane requires the complete declared allocation;
+    # the loop below copies only the requested planes after that check.
     element = tex.element_size
     out = bytearray(tex.width * tex.height * z_count * element)
     for z in range(z_start, z_start + z_count):

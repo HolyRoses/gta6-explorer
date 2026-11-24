@@ -1,4 +1,4 @@
-"""Bounded offline inspection of tightly packed DX10 and legacy BC DDS files.
+"""Bounded offline inspection of tightly packed DX10 and legacy DDS files.
 
 This reads serialized linear DDS subresources, not game tiling or allocations.
 Layouts are exact; unsupported headers, padding, formats and previews refuse.
@@ -23,6 +23,12 @@ _TYPELESS = {27, 48, 60, 70, 73, 76, 79, 82, 90, 94, 97}
 # Public Microsoft DDS format mappings; unsupported aliases are not guessed.
 _LEGACY_FORMATS = {b'DXT1': 71, b'DXT3': 74, b'DXT5': 77,
                    b'BC4U': 80, b'BC4S': 81, b'ATI2': 83, b'BC5S': 84}
+# Exact DDS_PIXELFORMAT tuples: flags, FourCC, bits, red, green, blue, alpha.
+_LEGACY_MASK_FORMATS = {
+    (0x41, 0, 32, 0xff, 0xff00, 0xff0000, 0xff000000): 28,
+    (0x41, 0, 32, 0xff0000, 0xff00, 0xff, 0xff000000): 87,
+    (0x40, 0, 32, 0xff0000, 0xff00, 0xff, 0): 88,
+}
 
 
 def _limit(value, maximum, name):
@@ -51,7 +57,8 @@ def inspect(data, *, max_bytes=MAX_BYTES, max_subresources=MAX_SUBRESOURCES):
     The supported profile has tightly packed known-size formats, explicit mip
     counts, 2D arrays/cubemaps or uncompressed 3D textures, and no trailing bytes.
     A volume mip is one subresource containing consecutive depth planes. Legacy
-    input supports only documented BC FourCCs, 2D textures and complete cubes.
+    input supports documented BC FourCCs and exact 32-bit RGB masks, with 2D
+    textures and complete cubes only.
     """
     _limit(max_bytes, MAX_BYTES, 'DDS input byte limit')
     _limit(max_subresources, MAX_SUBRESOURCES, 'DDS subresource limit')
@@ -65,16 +72,20 @@ def inspect(data, *, max_bytes=MAX_BYTES, max_subresources=MAX_SUBRESOURCES):
     h = struct.unpack_from('<31I', data, 4)
     if h[0] != 124 or h[18] != 32:
         raise ValueError('DDS header or pixel-format size is invalid')
-    if h[19] != 4 or any(h[21:26]):
-        raise ValueError('unsupported DDS pixel-format profile; FourCC without legacy masks is required')
+    masked = tuple(h[19:26]) in _LEGACY_MASK_FORMATS
+    if not masked and (h[19] != 4 or any(h[21:26])):
+        raise ValueError('unsupported DDS pixel-format profile; use FourCC without legacy masks or an exact supported RGB mask layout')
     fourcc = data[84:88]
-    legacy = fourcc != b'DX10'
+    legacy = masked or fourcc != b'DX10'
     if legacy:
-        if fourcc in (b'DXT2', b'DXT4'):
-            raise ValueError('unsupported DDS premultiplied-alpha FourCC; DXT2/DXT4 are not reinterpreted')
-        if fourcc not in _LEGACY_FORMATS:
-            raise ValueError('unsupported DDS legacy FourCC')
-        fmt = _LEGACY_FORMATS[fourcc]
+        if masked:
+            fmt = _LEGACY_MASK_FORMATS[tuple(h[19:26])]
+        else:
+            if fourcc in (b'DXT2', b'DXT4'):
+                raise ValueError('unsupported DDS premultiplied-alpha FourCC; DXT2/DXT4 are not reinterpreted')
+            if fourcc not in _LEGACY_FORMATS:
+                raise ValueError('unsupported DDS legacy FourCC')
+            fmt = _LEGACY_FORMATS[fourcc]
         dimension, misc, arrays, alpha = 3, (4 if h[27] & 0x200 else 0), 1, 0
         header_bytes = LEGACY_HEADER_BYTES
         dx10_words = None
@@ -171,7 +182,16 @@ def inspect(data, *, max_bytes=MAX_BYTES, max_subresources=MAX_SUBRESOURCES):
         payload_bytes=len(data)-header_bytes, subresource_count=len(rows), subresources=rows,
         preview_format_supported=fmt not in _TYPELESS and fmt != 65,
         interpretation='serialized linear DDS layout only; no game tiling, allocation, orientation or semantic ownership claim')
-    if legacy:
+    if masked:
+        report.update(header_kind='legacy_masks', legacy_fourcc=None,
+            raw_mip_count=h[6], legacy_pixel_flags=f'0x{h[19]:08x}',
+            legacy_rgb_bit_count=h[21],
+            legacy_channel_masks={name: f'0x{value:08x}' for name, value in
+                zip(('red', 'green', 'blue', 'alpha'), h[22:26])},
+            alpha_interpretation=('opaque color; unused X byte ignored' if fmt == 88 else
+                                  'stored alpha channel; premultiplication unspecified'),
+            format_mapping='exact documented legacy RGB masks to typed DXGI layout; no sRGB inference')
+    elif legacy:
         report.update(header_kind='legacy_fourcc', legacy_fourcc=fourcc.decode('ascii'),
             raw_mip_count=h[6],
             alpha_interpretation=('straight alpha' if fourcc in (b'DXT3', b'DXT5') else
@@ -232,3 +252,76 @@ def preview_file(path, *, mip=0, slice_index=0, z_index=0, max_bytes=MAX_BYTES,
     _limit(max_subresources, MAX_SUBRESOURCES, 'DDS subresource limit')
     return preview(_read(path, max_bytes), mip=mip, slice_index=slice_index, z_index=z_index,
                    max_bytes=max_bytes, max_subresources=max_subresources, max_pixels=max_pixels)
+
+
+def export_plane(data, *, mip=0, slice_index=0, z_index=0, max_bytes=MAX_BYTES,
+                 max_subresources=MAX_SUBRESOURCES, max_output_bytes=MAX_BYTES):
+    """Return (source report, standalone DX10 DDS) for one exact stored plane.
+
+    The complete source layout is validated before selection. A mip, array/cube
+    face or volume depth plane becomes a single-level 2D texture without changing
+    any stored payload byte. The typed/typeless/sRGB format and raw DX10 alpha
+    mode remain unchanged. This performs no pixel decoding, conversion or writes.
+    """
+    if any(type(value) is not int or value < 0 for value in (mip, slice_index, z_index)):
+        raise ValueError('DDS mip, slice and depth-plane selectors must be nonnegative integers')
+    _limit(max_bytes, MAX_BYTES, 'DDS input byte limit')
+    _limit(max_subresources, MAX_SUBRESOURCES, 'DDS subresource limit')
+    _limit(max_output_bytes, MAX_BYTES, 'DDS plane output byte limit')
+    if not isinstance(data, (bytes, bytearray)):
+        raise ValueError('DDS source must be bounded bytes')
+    if len(data) > max_bytes:
+        raise ValueError('DDS source exceeds input byte limit')
+    data = bytes(data)
+    report = inspect(data, max_bytes=max_bytes, max_subresources=max_subresources)
+    if mip >= report['mip_count'] or slice_index >= report['slice_count']:
+        raise ValueError('DDS plane mip or slice exceeds its declared range')
+    row = report['subresources'][slice_index * report['mip_count'] + mip]
+    if z_index >= row['depth']:
+        raise ValueError('DDS plane depth selector exceeds the selected mip')
+    length = row['plane_byte_length']
+    if length > max_output_bytes - HEADER_BYTES:
+        raise ValueError('DDS plane output exceeds byte limit')
+    at = row['data_offset'] + z_index * length
+    payload = data[at:at + length]
+    header = bytearray(texture.dds_header(row['width'], row['height'], 1, 1,
+                                         report['dxgi_format']))
+    struct.pack_into('<I', header, 144, report['alpha_mode_code'])
+    output = bytes(header) + payload
+    # Reuse the strict serialized layout contract on the independently generated
+    # header. This adds no source or format interpretation and decodes no pixels.
+    checked = inspect(output, max_bytes=max_output_bytes, max_subresources=1)
+    if (checked['resource_dimension'] != 3 or checked['slice_count'] != 1
+            or checked['mip_count'] != 1 or checked['payload_bytes'] != length
+            or (checked['width'], checked['height']) != (row['width'], row['height'])
+            or checked['dxgi_format'] != report['dxgi_format']
+            or checked['alpha_mode_code'] != report['alpha_mode_code']
+            or output[HEADER_BYTES:] != payload):
+        raise ValueError('DDS plane export does not reproduce its selected layout')
+    report['plane_export'] = dict(
+        mip_index=mip, slice_index=slice_index, z_index=z_index,
+        source_subresource_index=row['index'], data_offset=at, byte_length=length,
+        width=row['width'], height=row['height'], dxgi_format=report['dxgi_format'],
+        alpha_mode_code=report['alpha_mode_code'],
+        payload_sha256=hashlib.sha256(payload).hexdigest(),
+        output_sha256=checked['source']['sha256'], output_bytes=len(output),
+        output_header_bytes=HEADER_BYTES, output_resource_dimension=3,
+        output_mip_count=1, output_array_size=1, output_cube=False,
+        payload_preserved=True,
+        interpretation='Selected stored plane projected to one 2D DX10 DDS; '
+                       'no pixel/block conversion or complete source-texture export')
+    if 'cube_face' in row:
+        report['plane_export'].update(cube_index=row['cube_index'], cube_face=row['cube_face'])
+    return report, output
+
+
+def export_plane_file(path, *, mip=0, slice_index=0, z_index=0, max_bytes=MAX_BYTES,
+                      max_subresources=MAX_SUBRESOURCES, max_output_bytes=MAX_BYTES):
+    """Read one bounded immutable file snapshot, then export a selected plane."""
+    if any(type(value) is not int or value < 0 for value in (mip, slice_index, z_index)):
+        raise ValueError('DDS mip, slice and depth-plane selectors must be nonnegative integers')
+    _limit(max_subresources, MAX_SUBRESOURCES, 'DDS subresource limit')
+    _limit(max_output_bytes, MAX_BYTES, 'DDS plane output byte limit')
+    return export_plane(_read(path, max_bytes), mip=mip, slice_index=slice_index,
+                        z_index=z_index, max_bytes=max_bytes,
+                        max_subresources=max_subresources, max_output_bytes=max_output_bytes)

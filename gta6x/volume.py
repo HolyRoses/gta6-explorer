@@ -66,7 +66,13 @@ class VolumeLayout:
         return off
 
     def untile(self, data: bytes) -> bytes:
-        """Z-major linear bytes (x fastest, then y, then z)."""
+        """Z-major linear bytes from a complete tiled allocation.
+
+        Padding is part of the declared source extent even when no logical
+        texel visits it. A missing source element never becomes a zero texel.
+        """
+        if len(data) < self.total:
+            raise ValueError('truncated volume graphics allocation')
         out = bytearray(self.width * self.height * self.depth * self.bpe)
         for z in range(self.depth):
             z_row = z * self.width * self.height * self.bpe
@@ -74,9 +80,10 @@ class VolumeLayout:
                 row = z_row + y * self.width * self.bpe
                 for x in range(self.width):
                     at = self.addr(x, y, z)
-                    if at + self.bpe <= len(data):
-                        dst = row + x * self.bpe
-                        out[dst:dst + self.bpe] = data[at:at + self.bpe]
+                    if not 0 <= at <= self.total - self.bpe:
+                        raise ValueError('volume element address exceeds its allocation')
+                    dst = row + x * self.bpe
+                    out[dst:dst + self.bpe] = data[at:at + self.bpe]
         return bytes(out)
 
 
