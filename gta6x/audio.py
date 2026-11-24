@@ -4,10 +4,10 @@ AWC audio streams in this package are Opus at 48 kHz, stored as
 ``[u16 length][packet]`` records packed into 2 KiB blocks. A record never
 crosses a block; a zero length or the end of the block moves to the next one.
 
-This module extracts those packets and wraps them in a standard Ogg Opus
-container (OpusHead, OpusTags, one packet per page, correct granule positions
-and CRCs). Nothing is decoded or re-encoded: the result is the original Opus
-bitstream in a playable container.
+Export entry points check complete transport allocations and public Opus
+packet framing. The legacy timing policy and its granule limitations remain
+unchanged; audio_ogg supplies the explicit declared-duration policy. Nothing
+is decoded or re-encoded, and framing alone does not validate codec contents.
 """
 
 from __future__ import annotations
@@ -40,7 +40,11 @@ def _crc(data: bytes) -> int:
 
 
 def packets(data: bytes) -> list[bytes]:
-    """Opus packets from a stream's raw data (2 KiB block layout)."""
+    """Best-effort legacy splitter, not a framing validator.
+
+    Export entry points use the strict transport reader instead: this helper
+    alone cannot distinguish padding from an incomplete trailing record.
+    """
     out: list[bytes] = []
     for offset in range(0, len(data), BLOCK):
         block = data[offset:offset + BLOCK]
@@ -55,7 +59,7 @@ def packets(data: bytes) -> list[bytes]:
 
 
 def packet_samples(packet: bytes) -> int:
-    """Samples at 48 kHz carried by one Opus packet (RFC 6716 section 3.1)."""
+    """TOC-signaled duration only; frame payload/length validity is unchecked."""
     if not packet:
         return 0
     toc = packet[0]
@@ -105,9 +109,31 @@ def _page(out: bytearray, sequence: int, granule: int, flags: int,
 
 def ogg_opus(packet_list: list[bytes], frames: int,
              title: str = "gta6x") -> bytes:
-    """Build a complete Ogg Opus file from packets and per-channel frames."""
-    if not packet_list:
-        raise ValueError("no Opus packets")
+    """Build the legacy timing policy from completely checked packet framing.
+
+    Valid inputs retain the historical bytes and granule policy. Use
+    audio_ogg.ogg_opus for explicit declared-duration granules. Framing checks
+    do not decode compressed frame contents or recover original alignment.
+    """
+    from . import audio_ogg, audio_pcm
+    if not isinstance(packet_list, (list, tuple)) or not 1 <= len(packet_list) <= audio_pcm.MAX_PACKETS:
+        raise ValueError('Opus packets must be a nonempty bounded sequence')
+    if any(not isinstance(packet, bytes) for packet in packet_list):
+        raise ValueError('Opus packet entries must be bytes')
+    if sum(map(len, packet_list)) > 256 * 1024 * 1024:
+        raise ValueError('legacy Opus packet bytes exceed the encoded input limit')
+    if type(frames) is not int or not 0 <= frames <= 0xffffffff:
+        raise ValueError('legacy Opus frames must be a bounded nonnegative integer')
+    if not isinstance(title, str):
+        raise ValueError('Ogg title must be text')
+    try:
+        comment = f"TITLE={title}".encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise ValueError('Ogg title must be valid UTF-8 text') from exc
+    if len(comment) > audio_ogg.MAX_TITLE_BYTES:
+        raise ValueError('Ogg title exceeds byte limit')
+    # Validate every packet before writing any header, including unused tails.
+    durations = [audio_ogg.packet_frames(packet) for packet in packet_list]
     channels = packet_channels(packet_list)
     out = bytearray()
     head = bytearray(b"OpusHead")
@@ -119,14 +145,13 @@ def ogg_opus(packet_list: list[bytes], frames: int,
     head.append(0)                       # mapping family
     _page(out, 0, 0, 0x02, bytes(head))
     vendor = b"gta6x"
-    comment = f"TITLE={title}".encode("utf-8")
     tags = b"OpusTags" + struct.pack("<I", len(vendor)) + vendor
     tags += struct.pack("<I", 1) + struct.pack("<I", len(comment)) + comment
     _page(out, 1, 0, 0, tags)
     granule = PRE_SKIP
     end = PRE_SKIP + frames if frames > 0 else 0
-    for index, packet in enumerate(packet_list):
-        granule += packet_samples(packet)
+    for index, (packet, duration) in enumerate(zip(packet_list, durations)):
+        granule += duration
         last = index + 1 == len(packet_list)
         value = min(granule, end) if (last and end) else granule
         _page(out, 2 + index, value, 0x04 if last else 0, packet)
@@ -183,53 +208,53 @@ def music_channels(bank: bytes, stream: dict) -> list[dict]:
 
 def extract_music_ogg(bank: bytes, stream: dict, channel_index: int = 0,
                       title: str = "gta6x") -> bytes:
-    """Ogg Opus for one channel of an AWC music descriptor."""
-    channels = music_channels(bank, stream)
-    if channel_index < 0 or channel_index >= len(channels):
+    """Ogg Opus for one completely checked AWC music allocation.
+
+    Legacy mono timing/skip behavior is retained. Stereo nonzero block skips
+    remain unsupported; checked storage is not proof of skip semantics.
+    """
+    from . import audio_music_pcm, audio_pcm, audio_ogg
+    channels = audio_music_pcm.inspect_channels(bank, stream,
+        max_input_bytes=audio_music_pcm.MAX_BANK_BYTES)['channels']
+    if type(channel_index) is not int or not 0 <= channel_index < len(channels):
         raise ValueError("music channel out of range")
     channel = channels[channel_index]
-    frames = channel["samples"] or 0
-    mode = channel.get('channels_per_record')
-    descriptor = stream.get('music_offset')
-    if mode is None and type(descriptor) is int and descriptor >= 0:
-        at = descriptor+12+16*channel_index
-        if at+16 <= len(bank):mode = bank[at+13]
-    if mode not in (1, 2) or frames % mode:
-        raise ValueError('music Ogg requires a supported integral mono/stereo descriptor')
-    frames //= mode
+    frames, mode = channel['frames'], channel['channels_per_record']
     if mode == 2:
-        from . import audio_music_pcm, audio_pcm, audio_ogg
-        checked = audio_music_pcm.inspect_channels(bank, stream,
-            max_input_bytes=audio_music_pcm.MAX_BANK_BYTES)['channels'][channel_index]
-        if any(span['raw_skip'] for span in checked['spans']):
+        if any(span['raw_skip'] for span in channel['spans']):
             raise ValueError('stereo music with nonzero block skips is not validated')
-        packets_ = []
-        for span in checked['spans']:
-            at, size = span['data_offset'], span['byte_length']
-            packets_.extend(audio_pcm.strict_packets(bank[at:at+size]))
+    packets_ = []
+    for span in channel['spans']:
+        at, size = span['data_offset'], span['byte_length']
+        packets_.extend(audio_pcm.strict_packets(bank[at:at+size]))
+    if mode == 2:
         # Correct stereo granules without changing legacy mono export bytes.
         return audio_ogg.ogg_opus(packets_, frames, channels=mode, title=title,
             max_frames=0xffffffff//mode,max_input_bytes=256*1024*1024)[0]
-    raw = b"".join(bank[at:at + length] for at, length, _skip in channel["spans"])
-    packets_ = packets(raw)
-    if not packets_:
-        raise ValueError("no Opus packets")
     if packet_channels(packets_) != mode:
         raise ValueError('music Opus packet channels differ from descriptor')
     return ogg_opus(packets_, frames, title=title)
 
 
 def extract_ogg(bank: bytes, stream: dict, title: str = "gta6x") -> bytes:
-    """Ogg Opus bytes for one AWC stream entry, or raise ValueError."""
+    """Legacy-timing Ogg for a complete standalone AWC Opus allocation."""
+    from . import audio_pcm
     at = stream.get("data_offset")
-    length = stream.get("data_bytes") or 0
-    if at is None or length <= 0:
-        raise ValueError("stream has no data chunk")
-    raw = bank[at:at + length]
-    packets_ = packets(raw)
-    if not packets_:
-        raise ValueError("no Opus packets")
-    channels = stream.get("channels") or packet_channels(packets_)
-    samples = stream.get("samples") or 0
-    frames = samples // max(1, channels)
+    length = stream.get("data_bytes")
+    if (type(at) is not int or type(length) is not int or at < 0 or length <= 0
+            or length > audio_pcm.MAX_INPUT_BYTES or at > len(bank) - length):
+        raise ValueError('AWC Opus data span exceeds the complete bounded container')
+    packets_ = audio_pcm.strict_packets(bytes(bank[at:at + length]))
+    observed_channels = packet_channels(packets_)
+    channels = stream.get('channels')
+    if channels is None:
+        channels = observed_channels
+    if type(channels) is not int or channels not in (1, 2) or channels != observed_channels:
+        raise ValueError('AWC Opus packet channels differ from stream metadata')
+    samples = stream.get('samples')
+    if samples is None:
+        samples = 0
+    if type(samples) is not int or not 0 <= samples <= 0xffffffff or samples % channels:
+        raise ValueError('AWC Opus samples must be an integral bounded frame count')
+    frames = samples // channels
     return ogg_opus(packets_, frames, title=title)

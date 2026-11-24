@@ -14,7 +14,7 @@ from . import anim_resources as resources
 BASE = resources.VIRTUAL_BASE
 
 
-def inspect_animation(data, animation_start, buffers, *, consume, with_channels=False, with_storage=False, with_payloads=False, with_bitrows=False, with_lookups=False, with_prefix=False, with_aux_checkpoints=False, with_checkpoint_candidates=False):
+def inspect_animation(data, animation_start, buffers, *, consume, with_channels=False, with_storage=False, with_payloads=False, with_bitrows=False, with_lookups=False, with_prefix=False, with_aux_checkpoints=False, with_checkpoint_candidates=False, with_bindings=False, with_sample_codes=False):
     """Inspect one bounded animation's header/channel metadata atomically.
 
     Invalid or unsupported layouts return no prefix binding/buffer rows. Parent
@@ -22,6 +22,10 @@ def inspect_animation(data, animation_start, buffers, *, consume, with_channels=
     propagates to discard dictionary output. All offsets refer to the original
     joined dictionary; region offsets are also retained relative to each buffer.
     """
+    if with_sample_codes:
+        with_lookups = True
+    if with_bindings:
+        with_channels = True
     if with_checkpoint_candidates:
         with_aux_checkpoints = True
     if with_aux_checkpoints:
@@ -138,6 +142,10 @@ def inspect_animation(data, animation_start, buffers, *, consume, with_channels=
                 from . import anim_lookups
                 layouts[-1]['lookup_layout'] = anim_lookups.inspect_buffer(
                     data, at, length, len(bindings), consume=consume)
+            if with_sample_codes:
+                from . import anim_samples
+                layouts[-1]['sample_code_layout'] = anim_samples.inspect_buffer(
+                    data, at, length, len(bindings), consume=consume)
             if with_prefix:
                 from . import anim_prefix
                 layouts[-1]['prefix_layout'] = anim_prefix.inspect_buffer(
@@ -152,6 +160,14 @@ def inspect_animation(data, animation_start, buffers, *, consume, with_channels=
         context = {}
         if 1 + sum(s['count'] - 1 for s in samples) != total or samples[-1]['last_index'] != total - 1:
             raise ValueError('packed sample counts do not reconcile with one-sample overlaps and animation total')
+        if with_bindings:
+            from . import anim_bindings, anim_owners, anim_dictionary_refs
+            result['binding_layout'] = anim_bindings.inspect_animation(
+                data, animation_start, buffers, consume=consume)
+            result['owner_dictionary_layout'] = anim_owners.inspect_animation(
+                data, animation_start, consume=consume)
+            result['dictionary_reference_layout'] = anim_dictionary_refs.inspect_animation(
+                data, animation_start, consume=consume)
         result.update(status='complete', interpretation='inferred structural metadata; samples/timing/codec meanings unconfirmed',
                       profile=result.pop('candidate_profile'), binding_header=binding_header,
                       bindings=bindings, buffers=layouts, binding_count=len(bindings), buffer_count=len(layouts),

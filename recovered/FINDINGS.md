@@ -1178,6 +1178,284 @@ controls refuse; 794 row swaps intentionally pass. The unchanged profile was
 sealed before validation; no channel/lane/quantizer/codec meaning is inferred.
 A native frozen-discovery CLI check emits 15 candidate views from five clips.
 
+### Raw animation binding keys and conditional code sequences
+
+`anim --binding-layout` checks unique unsigned `(raw_word_1, raw_word_0)`
+ordering and traces each raw binding row to every bounded directory incidence.
+Exact raw-key API queries validate the whole source table before selecting a
+row; duplicate and reordered keys refuse rather than choosing a collision.
+Discovery: 786 distinct local animation records and 879 buffers, 60,447 binding
+observations, 243 distinct raw keys and 154,126 original u16 incidence roundtrips.
+The third word does not establish component arity; no source-record/channel or
+bone ownership is inferred from directory arithmetic.
+
+`anim --sample-codes` materializes existing conditional lookup candidates as
+source-row index codes and exact selected packed-entry bits, preserving both
+bit origins. The whole output product is budgeted before observation allocation.
+Discovery: 383 supported buffers, 2,274 sequences, 546,544 raw observations and
+1,093,088 independently checked source-bit roundtrips. The 496 zero-variable
+buffers remain explicitly unsupported. Entry mutations change the corresponding
+observations while row swaps still pass: these are raw storage observations,
+not integrity, temporal-order, numeric sample or codec proofs.
+
+A separate rig investigation compared 191 discovery dictionaries / 1,277 clips
+with 6,677 RBF rig entries. All four preplanned exact text/path/stem comparisons
+returned zero matches. The four Dictionary labels do not establish resource
+dependencies. No runtime rig/bone binding was added; it requires a bounded bone
+table and a separately verified channel-owner reference.
+
+All three investigations used existing frozen discovery sources only. Reserved
+payloads were not read, source roles and prior artifacts are unchanged, and no
+independent semantic-accuracy claim is made. A native hash-verified discovery
+dictionary in an isolated carrier passes API/CLI integration: five binding
+layouts, 15 raw-code buffer views, 169,515 observations and 557,555 shared nodes;
+previous entry metadata remains exact. Six integration tests supplement the
+17 workstream tests. Full validation: 1,936 unit tests (two optional-data skips)
+and 267 selftests pass. No external implementation or game fixture was added.
+
+### Animation ownership, numeric and rig-reference hypotheses
+
+A discovery-only ownership audit retains exact raw constant records and all
+compatible key/subindex domains across buffers. Its 51,486 observations span
+786 distinct local animations, including 74 with multiple buffers. Among 1,109
+repeated-content signatures spanning buffers, 14 domains conflict, three become
+singleton-unconfirmed and 1,092 remain ambiguous. There are 4,736 buffer/signature
+groups with duplicated content, covering 4,390 signatures. Another 144 local
+distinct-content/two-owner alternatives preserve the stated conditions; these
+are neither full global permutations nor independent decoded channels. Repeated
+values do not supply a unique source-record identity or verified channel owner.
+
+The numeric audit verifies the unchanged 879-buffer cache and 173 source buffers
+for 99 prior nonalias edges. It tests twelve predeclared combinations of source
+order, same group/slot ownership, finite binary32 parameters, signed/unsigned
+affine code formulas and nearest-quantizer intervals using exact rational
+arithmetic. Across 2,364 matched conditional slots and 954 unmatched slots, every
+joint hypothesis has counterexamples. Interval overlap is separate from exact
+agreement; direct-scale models can create wide intervals. Constant/zero-code,
+unchanged-parameter and colliding-formula cases remain separate, and endpoint
+swap/unrelated-edge controls retain their own denominators.
+
+The unsigned-direct/swapped-parameter candidate gives 50 exact, 2,203 interval-only
+and 111 disjoint comparisons; its informative subset has 2,074 interval-only and
+64 disjoint outcomes. A separately frozen supplement preserves every numeric
+outcome while classifying source-checkpoint availability. With checkpoints at
+both ends, fixed group4 has 48 comparisons and no disjoint outcomes, while variable
+group5 has 77 comparisons and eight disjoint outcomes (two in the informative
+subset). Stored checkpoints establish source/bit positions, not slot ownership
+or numeric meaning. This rejects the joint assumptions for the failing cases,
+not the affine formula in isolation; no numeric runtime decoder is justified.
+
+The rig-reference audit verifies the original 794 discovery pages and 618 joined
+0DRP resources. Neither of the 1,236 opaque header-word observations lands inside
+a declared block. Of 13,904 blocks, 11,014 have one local same-hash/divisible schema
+candidate, which does not prove serialized stride. The 4,510,733 aligned block
+word observations yield 89 address-shaped words in 17 resources; all repeat one
+raw value. A separately sealed field-position audit finds no exact source field
+start or candidate target record start for any of them. No bounded bone/rig text
+clues, independently framed bone table or channel-owner reference was recovered.
+These observations concern the tested declared spans; they do not establish the
+absence of rig references elsewhere or turn data words into verified pointers.
+
+New bounded research tools, synthetic tests and provenance preserve all prior
+runtime features and artifacts. No animation validation payload was read, source
+role changed or semantic accuracy claimed. Ownership hardening retains its v1 seal/report; numeric hardening also retains
+the original code snapshots. Both have separately frozen discovery replays. Rig
+phases retain both immutable plans and reports. The README remains a capability
+overview; this round adds research evidence rather than speculative runtime
+bindings or decoded sample values. All 27 new synthetic tests and the full
+1,963-test suite pass (two optional-data skips), together with 267 selftests.
+The 1,094 inherited protected artifacts and all prior runtime code are unchanged.
+
+### Checkpointed contradictions and complete ownership constraints
+
+The next discovery-only numeric audit reconstructs the original 77 checkpointed
+variable-group comparisons: 11 exact, 58 interval-only and eight disjoint. All
+926 reconstructed endpoint records agree with independently reread original
+row indices, packed entry bits, parameter words and auxiliary coordinates. All
+eight original residuals remain disjoint under the separately declared nearest,
+floor-directed and symmetric-full-step quantizer conditions. Both informative
+residuals are disjoint under all twelve earlier joint numeric hypotheses.
+Wrong-endpoint and unrelated-edge controls remain separate, with their own
+77/22 denominators. Only one eligible distinct checkpointed right-source
+alternative exists across the eight cases, and it is also disjoint; the other
+seven have no eligible local alternative, which does not prove ownership.
+
+A complete conditional all-different audit examines 4,395 supported-family
+graphs over 879 buffers and 92,185 source records. There are 1,376 empty groups,
+174 unique-conditional groups, 2,845 ambiguous-conditional groups and no
+infeasible groups. Each ambiguous group has two different complete assignments,
+stronger than the preceding local pair witnesses. Of 436 forced-conditional
+source positions, 428 already have singleton domains and only eight arise from
+the unproved bijection assumption. It excludes 813 of 4,622,546 candidate edges;
+none becomes a confirmed source/channel owner. Exhaustive independent checks of
+all 512 three-by-three graphs validate the bounded matching implementation.
+Unsupported auxiliary rows and outside-family slots remain explicit.
+
+An independent parent source-context audit rechecks the original 393 discovery
+pages / 191 dictionaries / 786 local animations. Every one of the 879 buffer
+hashes has a single observed raw binding table, and every cached ordered edge
+has exactly one actual adjacent-owner context. Both cache-exemplar tables match
+that context for all 99 edges. Thus cache-table mismatch does not explain these
+residuals. This establishes native animation/buffer context, not source-to-slot
+identity, underlying scalar equality, numeric meaning, timing or bone identity.
+
+The rig follow-up compares 243 raw binding keys with bounded schema/field and
+enum/value/member pairs across the original 618 resources. No paired match or
+independent schema/enum-owner-word match occurs. The 47,532 field auxiliary-word
+equalities to local definitions remain untyped metadata clues. A full-cohort
+classification using retained parsed metadata was refused: only 69 of 618
+resource records are present, even though those 69 have qualified discovery
+identities. No partial sample is presented as complete rig/bone evidence.
+
+All investigations preserve original seals/reports and frozen source roles;
+no reserved payloads, packs probe payloads or external implementation sources
+were read. The added research audits retain unknowns and add no speculative
+runtime decoder or rig/bone mapping. README capabilities and prior runtime
+features remain unchanged. Private evidence is under
+work/native_animation_checkpoint_next/, work/anim_checkpoint_contradictions/,
+work/anim_owner_constraints/ and work/anim_rig_link_owners/.
+
+All 21 new synthetic tests and the full 1,984-test suite pass (two optional-data
+skips), plus 267 selftests. All 1,136 inherited protected artifacts and prior
+runtime modules remain unchanged. No commit or push.
+
+### Entry representations, cross-buffer persistence and recovered field metadata
+
+A separately frozen numeric study retains all mechanical forward/reversed entry
+orders and original/reversed per-entry bits. Reversal considers every total
+cardinality allowed by the observed dense domain, rounded payload extent,
+zero high padding and index-width capacity. Of 463 variable source records,
+306 permit more than one total; 906 candidate totals are retained rather than
+choosing an observed-domain total or convenient numeric fit. Both informative
+numeric residuals remain disjoint under every declared representation/cardinality.
+Seven of the eight original residuals admit no compatible alternative; the
+eighth admits only noninformative zero-endpoint interval candidates. Wrong-
+endpoint and unrelated controls retain their original 77/22 denominators.
+No representation, numeric value or channel association is selected.
+
+The ownership study tests a persistent source ordinal across buffers only as
+an explicit hypothesis, together with the previous all-different assumption.
+Among 370 family groups across 74 chains, 206 change count or owner-slot set and
+are excluded as incompatible persistence shapes. The 164 stable groups comprise
+92 empty, eight unique-conditional and 64 ambiguous-conditional cases. Their
+1,740 source ordinals retain two complete shared assignments in every ambiguous
+group. All 18 forced-conditional positions were already forced in individual
+buffers: intersections add zero forced positions and zero domain reductions.
+An independent permutation oracle tests 4,096 paired three-source cases.
+
+A separate parent audit resolves terminal coverage without rewriting the
+ownership study's original cache caveat. Original counted arrays across all
+786 native animation prefixes declare 885 buffer references, 74 multi-buffer
+animations and exactly 99 adjacent edges. These are precisely the 99 selected
+cached pairs, with no omitted trailing edge. Exact membership/hash checks cover
+393 discovery pages, 191 dictionaries and 879 distinct buffers. Complete declared
+chain coverage supplies no source-to-slot, scalar, timing or bone meaning.
+
+The missing-metadata replay now covers all 794 discovery pages / 618 joined
+0DRP resources. It retains every one of 218,458 fields and all 38,394 local
+definitions, including original raw type/auxiliary words, source spans and empty
+or duplicate target sets. There are 47,532 local equality observations and
+170,926 unmatched fields; 154,385 auxiliary words are zero. Matched raw type
+`0x00000005` fields point to 32,528 local structure declarations by equality,
+but another 3,170 nonzero words of that raw type have no local target. The
+15,004 observed enum-target equalities span twelve other raw type words.
+These correlations do not import PSIN type meanings or establish object links.
+
+A separately frozen metadata-only provider census examines those 3,170 fields
+across the same complete report. Eight of their 19 auxiliary words have 1,937
+provider observations elsewhere, covering 1,153 fields; eleven words covering
+2,017 fields have no provider in this cohort. All eight found words have multiple
+structure providers. Partial field-layout fingerprints agree, but exclude unknown
+header words and enum-member contents and cannot prove full schema/version
+equality or choose a provider. Repeated payloads remain separate observations
+(618 resources / 617 payload hashes). No reference or rig/bone identity is resolved.
+
+A final separately sealed pass retains every raw structure/enum header word,
+all 218,458 ordered field tuples and all 399,769 complete u64-value/hash/unknown
+member tuples. Complete nonpositional fingerprints include unknown words and
+exclude only the established field/member references and source positions,
+which remain recorded separately. All retained fields round-trip against the
+immutable earlier field report. The eight words with candidates have eight
+fingerprints total and no within-word content conflict, across 1,937 provider
+observations / 1,934 distinct payload-and-definition identities (three alias
+observations). Every word still has multiple providers. Identical retained
+nonpositional content establishes neither semantic/version equivalence nor an
+external scope, selected provider or bone identity. All partial-signature v1
+code, reports, provenance and verification remain unchanged.
+
+All new evidence is discovery-only, with prior refusals, source roles, seals and
+reports preserved. The complete local metadata report fills the previous 69/618
+cache gap; it does not retroactively change the old refusal or supply a bone
+table. No runtime decoder, semantic mapping or speculative feature was added.
+README capabilities and prior runtime behavior remain unchanged. New provenance
+and private audit records are under work/native_animation_residual_next/,
+work/anim_residual_representation/, work/anim_owner_crossbuffer/ and
+work/anim_missing_rig_metadata/.
+
+All 28 new synthetic tests and the full 2,012-test suite pass (two optional-data
+skips), plus 267 selftests. All 1,177 inherited protected artifacts and 132 prior
+runtime modules are unchanged. No commit or push.
+
+### Numeric identity classes, checkpoint runs and provider source context
+
+The numeric identity audit preserves the original 77 checkpointed comparisons
+(11 exact / 58 interval-only / eight disjoint) and all source-bit results. Both
+informative residuals occur in group 5 record-count changes (one to three and five
+to three); four other residuals retain the same slot set. Every residual keeps
+the same derived counted-record ordinal and actual raw binding key/third word.
+One informative case changes sibling-component group incidence, while the other
+does not. These facts narrow the context, but establish neither scalar identity
+nor a count/ordinal correction to the numeric interpretation.
+
+A separately frozen metadata-only supplement retains the actual raw third words
+and conditional subindices. Raw third-word value `0` has 49 comparisons (four exact / 37 interval /
+eight disjoint); raw third-word value `2` has 28 (seven exact / 21 interval / zero disjoint).
+All eight failures have value `0` at subindices 2/3: five, including both informative
+cases, at 2 and three at 3. The labels remain opaque. This correlation does not
+establish component arity, scalar/vector/quaternion, property or bone meaning.
+Wrong-endpoint and unrelated controls retain separate cohort denominators.
+
+The auxiliary-run study checks all 879 discovery buffers / 1,758 counted high/low
+parts. All 878 nonempty parts have supported source checkpoints; 283 also contain
+unsupported selector rows. Supported source positions and selector/derived-ordinal
+pairs increase in every such part. Under a separate strictly increasing target-slot
+hypothesis, however, 53 supported subsequences are infeasible (52 complete parts
+and one incomplete), 160 unique-conditional and 665 ambiguous. Original/reversed
+order is feasible in both directions for 701 parts, original only for 124, reversed
+only for 33 and neither for 20. Physical within-part reversal preserves all earlier
+source/bit projections in 879 cases, with 334 actually changed byte strings. The
+584-case independent exhaustive ordering oracle and 878 budget controls pass.
+Observed source order supplies no universal slot-order or channel identity rule.
+
+The provider-context study source-qualifies all complete declaration content and
+218,458 original fields. The 3,170 nonlocal type `0x05` fields fall into 20 exact
+complete-enclosing-declaration/field contexts. Nine contexts contain both local
+and nonlocal targets, covering all 1,153 queries with elsewhere providers plus
+2,486 local peer observations. Eleven contexts cover 2,017 queries without any
+observed provider. Identical enclosing declaration content cannot determine
+whether the resource includes a local target, and no provider is selected.
+
+A separately sealed replay of the original 794 discovery pages / 618 resources
+retains all 13,904 declared block rows and classifies 5,656 context-field
+observations. Among 3,170 nonlocal fields, 1,733 have nonempty enclosing-hash blocks
+and 1,437 lack enclosing-hash blocks; all lack auxiliary-hash blocks. Local peers
+include 1,756 with enclosing absent/auxiliary present, 593 with enclosing present/
+auxiliary absent and 137 with both present. These counterexamples reject simple
+bidirectional block-presence scope rules. Block-type/declaration word equality
+remains metadata context, not actual object ownership or rig/bone identity.
+No block body was interpreted and no source/provider binding was added.
+
+All new native work uses the original discovery sources only, preserving prior
+artifacts and frozen roles. New bounded audits, independent synthetic controls
+and provenance are local under work/native_animation_provider_next/,
+work/anim_numeric_identity/, work/anim_owner_checkpoints/ and
+work/anim_rig_provider_context/. No runtime decoder, semantic promotion or
+speculative mapping was added; README capabilities remain unchanged.
+
+All 27 new synthetic tests and the full 2,039-test suite pass (two optional-data
+skips), plus 267 selftests. All 1,220 inherited protected artifacts and 132 prior
+runtime modules remain unchanged. No commit or push.
+
 ### Mixed animation prefix storage
 
 `anim --prefix-layout` bounds raw leading triplet/word groupings against the
@@ -3564,3 +3842,573 @@ unrelated runtime, frozen source roles, HEAD and staged contents are preserved.
 There is no new type, association, semantic/held-out accuracy claim, staging,
 commit or push. Methods: `docs/psin_enum_lanes_provenance.md`,
 `docs/psin_enum_masks_provenance.md`, `docs/psin_enum_context_provenance.md`.
+
+
+## External animation proposals checked against discovery evidence
+
+DSH used the configured OpenCode Go / DeepSeek v4.1 Flash model for separate
+numeric, ownership and rig/provider briefs. The user explicitly approved sending
+those aggregate summaries after the initial automatic review block. No native
+payloads, identifiers, source files or credentials were sent in the briefs.
+Responses supplied untrusted ideas only; no generated implementation or external
+source/table was copied. Empty workspaces and disabled tools yielded no tool
+invocations. Failed output-budget attempts are retained alongside final responses.
+
+Local source-checked replay uses only the original 173 edge buffers (6,560,064B),
+879 discovery metadata rows and previously qualified 618-resource rig metadata.
+All 77 old numeric comparisons reproduce exactly. The proposed raw shared-word
+pattern fails 50, with 27 insufficient; the eight original residuals split six/two.
+Wrong endpoints have the identical split; unrelated controls split eight/fourteen
+across their original 22 comparisons. An affine inverse of a self-constructed
+output is circular, and even unrelated synthetic sources can share default words.
+No coupling, owner or numeric decoder follows.
+
+Every one of 110 distinct binding tables (879 cache observations) reuses opaque
+tags across different keys. All 879 auxiliary suffixes are entirely counted
+six-byte records, leaving no out-of-record padding; possible in-band markers
+remain unestablished. Neither finding establishes source ownership.
+
+The rig review retains nine mixed-label classes under complete declaration/field
+context alone. Adding declared-block-presence states gives 33 classes without
+local-availability conflicts across the same 5,656 observations. This is a narrow
+discovery lead, not held-out prediction or evidence of a stored provider/bone
+reference. Same-word fingerprint shuffles are fixed for all eight populated
+classes; eleven empty classes have no such test. Analysis fingerprints are not
+identified stored backlink values, and identical content does not select scope.
+
+Six authored synthetic tests cover false-positive controls, feature collisions,
+permutation variation, invalid inputs and exact work limits. Runtime modules,
+prior refusals, source roles and all reserved payloads remain unchanged. Methods,
+limitations and retry history: `docs/anim_dsh_research_provenance.md`. Private
+plans/seals/results remain ignored under `work/dsh_animation_research/`.
+
+
+## GLM animation proposal replay
+
+Three unchanged aggregate briefs completed through DSH / OpenCode Go GLM-5.3,
+using the configured 1,000,000-token context and 131,072-token output limit.
+No game payload, identifiers, source files or new local findings were sent;
+no tool events or generated workspace files occurred. Responses remain untrusted
+hypotheses, and no generated implementation or external source/table was copied.
+
+The source-checked 173-buffer discovery subset (6,560,064B) retains 539 supported
+and 80 unsupported auxiliary rows. Supported selector/word/bit triples are unique
+within examined buffers, yet 77 triples recur across buffers; coordinates do not
+supply a global identity. Among 95 buffers with supported rows in both parts,
+30 have low-before-high ranges, fourteen high-before-low and 51 overlap/touch.
+Another 78 have no supported comparison. Partial coverage remains explicit;
+the mixed ranges reject a universal strict boundary order within this subset.
+The other 706 discovery payloads and all reserved payloads were not reread.
+
+Existing 618-resource rig metadata yields no decoded block-start hit in retained
+local-target definition header/entry regions for all 2,486localpeer observations,
+covering 1,934distinctpayload/target identities. Absence does not disprove a field
+reference to an instance or establish a need for reciprocal schema pointers.
+Seven/eight populated provider words also occur as block hashes; none of eleven
+unpopulated words adds a retained header/block/nonaux-entry role. Full-width
+literal comparisons neither identify a content-hash algorithm nor select scope.
+
+The numeric response proposes coefficient/transform fitting without independent
+numeric output or known sibling ownership. That cannot confirm representation;
+no new fit is performed, and all original scalar contradictions remain intact.
+Other overclaims about finite alternatives, passing strata, 32-bit hash widths,
+block subtotals and cross-resource reference nulls are corrected in provenance.
+
+Five authored controls pass; full validation is 2,050 unit tests with two optional
+data skips and 267 selftests. All 1,347 baseline artifacts, 132 runtime modules,
+frozen roles and BCPack labels are preserved. No semantic promotion, new decoder,
+provider/bone link, staging, commit or push. Methods and limitations:
+`docs/anim_glm_research_provenance.md`; private records remain ignored under
+`work/glm_animation_research/`.
+
+
+## Selected raw animation queries, shader bindings and audio integrity
+
+Three separate native workstreams add two practical inspection APIs and fix
+legacy malformed-audio acceptance. There was no DSH/model or external reference
+implementation use. Clean-room boundaries and all frozen validation roles remain
+intact; no new semantic interpretation is inferred from plausible values.
+
+`anim --raw-buffer FILE --binding-count N --sample-source ORDINAL` inspects an
+exact selected raw source/row product. `--sample-source` repeats, and
+`--sample-rows START:COUNT` defaults to 0:1. Full existing lookup validation still
+runs, including unselected records. Bounds are not clipped; malformed input,
+unsupported profiles and exhausted budgets retain explicit refusals. JSON and
+`--out DIR` reports preserve exact source hashes/spans, separate full/range hashes
+and conditional ownership/time labels. The binding count is caller-supplied, not
+an authenticated table. Scan-option conflicts and input-overwrite paths refuse.
+
+The original 173-buffer discovery subset yields 356 queries/632 sequences/948
+observations and 1,896 independent original-bit checks. All exact/one-under budget
+checks behave correctly and old full views stay exact. Eighty-four zero-variable
+sources retain explicit unsupported states; no decoder coverage is inflated.
+Parent CLI/native report/export/budget replay also agrees on one original source.
+
+`shaders --bindings` queries raw declared stage, register space/index and resource
+type, preserving source spans, namespace distinctions, unknown enums, duplicate
+ranges and stage conflicts. Requested feature/signature/mask metadata and binding
+inspection share one limit. A filter narrows reported declarations, not .cso
+extraction; empty matches succeed. No game texture/material identity follows.
+Native source checks cover all original 742 discovery wrappers/7,505 declarations,
+5,936 predicates and 20,044 selected source-word roundtrips. Under-budget controls
+and 703 hidden late-range mutations refuse. Native overlaps are absent; authored
+controls cover them. Parent CLI keeps the zero-match register0/space0 result and
+separately verifies the existing type3 query's 1,096 matches across 104 shaders.
+
+Legacy standalone and mono music Ogg export now validate complete bounded
+allocations and public Opus packing before output. Truncated/bad-padding tails
+no longer silently disappear. CLI failures carry `ogg_skipped` reasons and failing
+status instead of disappearing. All 3,349 original standalone outputs and 35
+mono music outputs remain byte-identical; 10,047 malformed controls refuse.
+Current timing and mono skip behavior are preserved, not newly validated as game
+playback; stereo nonzero skips still refuse. The best-effort legacy splitter is
+explicitly not a validator and is no longer used by export entry points.
+
+Full validation: 2,089 unit tests (two optional-data skips), 274 selftests; 39 new
+authored tests and seven built-in checks. All 1,381 protected artifacts, names,
+BCPack labels, original source roles and earlier outstanding animation runtime
+are preserved. Of 132 baseline runtime modules, only CLI/audio change; two new
+query modules are added. No held-out semantic accuracy claim, staging, commit or
+push. Details: `docs/native_parallel_queries_provenance.md` and the three linked
+workstream provenance files. Private evidence remains under ignored
+`work/native_parallel_next/`.
+
+
+## Offline DDS, shader and PSIN comparison workflows
+
+Three separate native workstreams add usable extracted-file workflows without
+changing game readers, existing exporters or semantic profiles. No external
+model or reference implementation was used. Root review retained all three
+bounded modules and integrated their CLI/tests/docs.
+
+`dds FILE` validates supported strict DX10 layouts, including ordered mip/array/
+cube spans and raw-volume planes. `--png FILE` selects an exact mip/slice/z view;
+`--out FILE` records source-hashed metadata. Complete layout bounds precede
+preview/output. Unknown pitch/header/format profiles and typeless/A8 previews
+remain explicit refusals. Typed signed conversions use the existing decoder.
+Seven frozen discovery exports reproduce original DDS bytes and preview hashes;
+117 subresources/179 source-plane checks agree, seven wrong-subresource controls
+discriminate and fourteen malformed-file controls refuse. This is regression,
+not a new independent pixel or tiling oracle.
+
+`shaders --raw FILE...` reparses selected immutable files with the existing
+metadata/features/PSV/binding readers, per-source and aggregate limits and
+optional ordered SHA-256 pins. Unsupported bytes remain explicit rows; no wrapper
+carving/archive fallback occurs. --out writes shader-inspection.json only.
+Native checks cover 742 original discovery shaders, 7,505 declarations, 1,484
+fixed query/file checks, 1,096 selected declarations and exact combined metadata.
+An exact 37,506-record aggregate budget passes; short budgets and late source
+hash tampering refuse without a report prefix. Temporary payload files are removed.
+
+`psin-diff LEFT RIGHT` compares full raw LSCH/LENM content from checksum-verified
+complete resources. Source positions, unknown words, aliases and full enum bits
+remain available. Only unique high-ID same-kind/hash declarations get candidate
+alignment; file-local/duplicate definitions remain unaligned. Literal equality
+or difference does not establish ABI, identity, schema evolution or provider scope.
+The first eight qualified exports have equal schema sections; their64comparisons
+remain intact. Two separately frozen existing-discovery sources add36comparisons,
+providing natural structure/enum absence/equality and15file-local unaligned groups.
+Total10files/100orderedpairs yield250,800source-word checks and100exact/underbudget
+checks. Native changed-content/duplicate-ambiguity positives remain absent;
+those behaviors are authored-tested only.
+
+Parent CLI replay matches API/JSON/file results on two qualified existing DDS
+caches, a fixed cross-schema source pair and two frozen-cohort raw shaders/seven
+declarations. Input/output path, symlink and hardlink conflicts refuse before
+reads/writes. Accepted abbreviated scan flags are normalized before raw-mode
+preflight, including the earlier animation raw-buffer path. No source selector
+or validation role changes; first-replay seal-order correction is retained and
+explained in provenance, without changing sources or claiming independence.
+
+Validation: 2,133 unit tests (two optional-data skips), 280 selftests; 44 new tests
+and six new built-in checks. All 1,441 protected artifacts and earlier work are
+preserved. Of134baseline runtime modules only CLI changes, plus three new readers.
+No decoder tables, game fixtures, semantic promotions, staging, commit or push.
+Methods: `docs/native_offline_workflows_provenance.md` and its linked workstream
+records; private evidence remains ignored under `work/native_followup_round/`.
+
+
+## Native object/model, transform-owner and boundary follow-up
+
+Three discovery-only investigations add source-backed audit evidence, with no
+runtime decoder, native model resolver, transform owner or new0DRPjoin enabled.
+Existing clean-room readers and frozen source roles are preserved.
+
+The13-source asset cohort(801,196B) retains51opaque slots/4maps/18key observations.
+The known nonzero Model-candidate/key equality terminates at a float32 map value,
+without a separately identified model object or entry namespace. Other maps have
+one enum32 and two12Bembedded value profiles; all12embedded leaves are existing
+inferredhash32fields. No admitted checked edge originates from an opaque field
+or map value. Reader incompleteness means this does not disprove unknown reference
+encodings. Thirty-five full-word groups include six across source contents:
+five nonzero plus one zero group. Only one nonzero group crosses declaration
+roles. Repeated companion enum strata have11observations but all values zero,
+so their zero conflicts provide no category/model discrimination.
+
+Transform-owner qualification covers433schema pairs/821labels/21,485structures.
+Each candidate owner and84Bchild remains unique to its original source; the exact
+4Bscalarwrapper occurs in73labels. Native replay uses the same two already-covered
+sources(50,764B), eight checked reverse-ancestry records/305field observations and
+six exact incoming-source-header proofs. There are zero supported0x42/0x44 text
+fields and no typed native label corroboration. The negative is restricted to
+that admitted label route; other names/encodings/edges and actual transforms
+remain unresolved. The two source populations overlap; they are not independent
+additional asset samples.
+
+The boundary audit verifies nine existing discovery envelopes/24,952,960inflatedB
+rather than repeating the entire101stream payload census. All five incomplete
+0DRPprefixes have seven source-proved unavailable spans:five data blocks and two
+32Bfield lists, union122,248B. This known requirement is a lower bound, not a
+whole allocation length or continuation assignment. One bounded prefix accepts
+three distinct lengths with unchanged supported metadata projection, showing
+current parser acceptance cannot identify a game endpoint. The variants are not
+claimed valid whole game objects. Two existing completePSIN controls reject all
+six trim/append/checksum changes; their established grammar is not transferred
+to0DRP. No carrier, new length rule or resource join is selected.
+
+Parent source-seal/report review independently recounts missing interval unions
+and checks every semantic/endpoint result remains unconfirmed. Twenty-five new
+authored tests pass; full suite2,158tests(twooptional-data skips),280selftests.
+All1,505protectedprior artifacts,137runtime modules,README,names andBCPacklabels
+remain unchanged. Only research tools/tests/provenance and append-only findings/
+TODO records are added. No external model, SixNG invocation, GPL/unlicensed
+implementation/source, reserved payload read, source promotion, stage, commit
+or push. Exact missing authority and methods:
+`docs/world_native_owner_boundary_provenance.md`; private evidence stays under
+ignored `work/world_native_next/`.
+
+
+## Native model-entry IDs, transform owners and continuation carriers
+
+The original packs discovery cohort reproduces all 445 exact streams / 350
+distinct contents (22,540,384 decoded bytes). Existing leading readers verify
+42 bounded local `0DRP` directories, refuse 21 unavailable local table spans
+and leave 382 observations opaque. The bounded directories contain 798
+structure rows, 4,112 field rows, 42 enums, 210 enum members and 756 block rows.
+These are local framing observations, with no native model-entry ID, model
+object or complete resource extent established. No stream join is inferred.
+
+The current later-role gate leaves 425 schema pairs / 813 labels eligible for
+the transform declaration census: 21,308 structures and no distinct bounded
+common-root model-profile/transform-name conjunction. All 264 additional pairs
+are excluded before section decoding. Eight preliminary metadata pairs later
+excluded by the full gate are explicitly quarantined and omitted from final
+evidence; no native payloads were read for that probe. Eligible aliases do not
+promote excluded aliases. The previous two candidate sources were not reopened.
+
+The exact prior-hashed 48,631-byte raw gap remains opaque under supported
+leading envelope grammars. No continuation record, endpoint or ownership is
+identified. The earlier small-stream omission suggestion was withdrawn because
+the actual prior scan already used min_out=1. No interior scan, decompression,
+new grammar, encrypted TOC/key work or speculative join follows this result.
+
+Three research tools and 27 authored tests were added; runtime behavior and the
+capability-focused README remain unchanged. Full validation: 2,185 unit tests
+(two optional-data skips), 280 selftests. All 1,567 baseline artifacts and 137
+runtime modules remain identical; frozen source roles and provisional labels
+are preserved. No held-out accuracy is claimed, no game fixture is added, and
+nothing is staged, committed or pushed. Exact methods and missing witnesses:
+`docs/world_authority_next_provenance.md`; private evidence remains ignored under
+`work/world_authority_next/`.
+
+
+## Native fixed-embedded 48-byte owners and guarded 40-byte counted slots
+
+Exact discovery replay of the 42 bounded packs carriers reaches four declared
+48-byte embedded owners per 192-byte record. Every owner has an unknown zero
+eight-byte prefix and a counted field at offset eight. The field's initial
+16 bytes reproduce the existing equal-count/local-reference profile; its
+remaining 24 bytes are zero in all 168 observations. Each fixed pair has one
+nonnull and one null header. All 84 nonnull ranges exhaust their same-source,
+matching declared 88/80-byte target block.
+
+The native link reader now admits only this guarded nested declaration shape;
+it checks all 32 unknown zero bytes even for null or late owners. Other slot
+shapes, direct unembedded owners, nonzero guards and malformed references refuse.
+Unknown bytes are not assigned padding or semantic meaning. Source paths carry
+an explicit profile and zero-guard spans; reference-context revalidation checks
+them against declarations and source bytes before tracing local ancestry.
+
+All 15,245 prior direct ranges remain identical. The 84 newly supported ranges
+bring the total to 15,329, with 6,486 null headers and 76,190 referenced-record
+observations. Views remain partial. Eighty-four target-record queries reproduce
+their embedded header paths and terminate at the selected 192-byte record under
+the admitted local profile; this is not a semantic root/owner or model binding.
+The next investigation target is its reachable 88/80-byte records' unresolved
+0x71 container declarations, without transferring PSIN semantics by analogy.
+
+Validation: 17 new authored tests; 2,221 unit tests (two optional-data skips),
+280 selftests; 588 malformed layout and 336 context controls refuse. All 1,634
+protected artifacts, source roles and previous provisional labels are preserved.
+Only world_links.py and world_owners.py change among 137 runtime modules; README
+gets a capability wording update. Earlier uncommitted work remains intact. No
+protected payload access, external implementation, game fixture, stage, commit
+or push. Methods: `docs/world_embedded_owners_provenance.md`; private reports:
+`work/world_embedded_owners/`.
+
+
+## Reachable 88/80-byte raw0x71 container-entry spans
+
+The exact 42 existing discovery carriers provide 21,647 reachable 88/80-byte
+records and 43,294 declared24B raw0x71headers. Every header matches a leading
+u64one, local entry reference, equal u16countwords and zero u32tail. Source-local
+synthetic descriptors select raw4a keys and counted raw4a/raw14 values; target
+entry declarations match those trees despite local descriptor-index relocation.
+
+Native --links now exposes the checked entry spans in a separate local_containers
+view: 24,428 nonempty ranges, 18,866 empties, 120,122 entry-record observations.
+Keys and counted payloads remain opaque; no hash/numeric/model meaning is
+transferred from PSIN. Eighty-four target entry blocks have no observed overlap;
+42 are covered completely and 42 retain unassigned gaps. No adjacency assignment
+or complete application graph follows. All 15,329 prior counted ranges remain
+unchanged and counted-record ancestry stays a separate view.
+
+Guarded incoming headers are source-revalidated. Distinct incoming aliases retain
+evidence without double-counting physical owner blocks; partial incoming ranges
+remain explicitly unsupported. Malformed admitted containers refuse the entire
+new view, preserve the counted view and cause CLI failure. These compatibility
+cases have authored controls; the native cohort has whole unique owner ranges.
+
+Validation: 17 new authored tests; 2,238 unit tests (two optional-data skips),
+280 selftests. All 1,090 malformed controls refuse; 42 sources pass exact node
+budgets and refuse one-under. Two qualified native carriers agree across whole
+API/CLI reports, including 1,168 entry ranges. Existing frozen validation stays
+unopened. Two prior discovery consistency reports named validation were checked
+against exact hashes/source plans before overriding only the filename heuristic;
+no source role was promoted and inherited exclusions remain intact.
+
+All 1,663 protected artifacts and earlier work are preserved. Runtime changes
+are one new reader plus catalogue/CLI integration. Next: the entry values'16B
+counted slots and independently evidenced primitive-pool coverage. Model IDs,
+semantic ownership and resource endpoints remain unresolved. No external
+implementation, game fixture, stage, commit or push. Methods:
+`docs/world_containers71_provenance.md`; private evidence:
+`work/world_containers71/`.
+
+
+## Counted container values and primitive-pool references
+
+All 120,122 initially reached entry-value slots match native <IIQ> equal-u32
+counts/reference order; none match the separately tested reference-first PSIN
+hypothesis. Four-byte candidate spans fully cover raw0x14 pools but leave 28,760
+bytes of raw0x4a gaps. No alternative width or unreferenced entry scan is used.
+
+Existing checked links reach 19,539 typed184Brecords. Their direct primitive
+arrays add 875 nonnull references / 11,092 bytes and 18,664 null headers. Their
+qualified raw0x71 containers add 2,233 entry ranges / 3,551 value headers,
+explaining the remaining17,668bytes through stored links. Other descriptor
+families remain unsupported. The resulting 84 primitive pools / 788,916 bytes
+have complete disjoint coverage: 143,212 value headers, 124,548 nonnull pool
+references and 197,229 opaque four-byte groups.
+
+Native --links exposes local_value_sequences with source/entry-range evidence,
+pool references and coverage diagnostics. Four-byte grouping is granted only
+to complete disjoint pools; gaps/overlaps retain unknown widths/byte extents.
+Partial descendant record blocks are not scanned to improve coverage. Parent
+counted/container views and ancestry scopes remain unchanged. Keys and primitive
+payloads are not decoded; no model IDs, numeric/hash types, semantic owners or
+resource boundaries are inferred.
+
+Validation: 18 new authored tests; 2,256 unit tests (two optional-data skips),
+280 selftests. All 882 malformed controls refuse; 168 gap/overlap controls stay
+unresolved; 126 opaque key/payload controls preserve results. Every source passes
+its exact work budget and refuses one-under. Two native whole API/CLI comparisons
+agree on 5,718 pool references / 9,116 groups. These are discovery consistency
+checks; frozen validation remains unopened and no independent accuracy is claimed.
+
+All 1,696 protected artifacts, source roles, dictionary and prior provisional
+labels are preserved. Runtime changes are an internal descendant option, one
+new reader and catalogue/CLI integration. README stays capability-focused.
+No external implementation, game fixture, staging, commit or push. Methods:
+`docs/world_value_sequences_provenance.md`; private reports:
+`work/world_value_sequences/`.
+
+
+## Raw0x4a/0x14 words and container key vocabularies
+
+Source-qualified inspection of the same42discoverycarriers observes197,229pool
+words,123,673fullkeyslots and191,700declared4Braw4ascalars. Raw4apools contain
+3,441globaldistinctpatterns:56nonzero patterns /36,572observations have verified
+local-dictionary preimages, against zero byte-swapped/halfword-rotated matches.
+Raw14 has211distinctpatterns and no preimages. This supports hash-compatible
+candidacy for raw4a, without transferring PSIN types or confirming a namespace.
+
+All full8Bkeyslots have zero upperwords and nonzero lowerwords. There are102
+globalkeys:94inraw4a-valuedcontainers and8inraw14-valuedcontainers, no overlap.
+Seven keys /15,270observations have mathematical preimages. Candidate spellings,
+high-word zeros and full-key equality do not establish native names, padding,
+primitive signedness, model IDs or semantic owners.
+
+The two frozen raw14 plain-index hypotheses do not provide a decoder. Of14,051
+words with unique counted-child context,7,723contradict zero-based bounds; the
+1,932fully fitting sequences remain numerical candidates, not references.
+Another487sequences lack a unique child range. No same-owner/full-key sibling
+raw4asequence exists for any of5,334raw14sequences. Keep the type unknown; more
+complicated index/sentinel encodings were not tested or excluded.
+
+Native --value-words now exposes rawbits/fullkeys and optional --names verified
+preimage candidates, with explicit unknown meanings. It implies --links while
+default behavior stays opaque. Incomplete pools are skipped and nonzero key
+highwords are preserved without truncated naming. Native manifest forwarding,
+unsupported-format reasons and backend preflight are covered.
+
+Validation:15newauthoredtests;2,271unit tests(twooptional skips),280selftests.
+All42sources reproduce their rawwords/keys and exact/one-under budgets;126
+byte-order/high-key/wrong-bucket controls pass. Two native whole API/CLI reports
+agree. All1,736priorartifacts, source roles, dictionary and provisional labels
+are unchanged. No independent held-out accuracy, source promotion, external
+implementation, game fixture, stage, commit or push. Methods:
+`docs/world_word_namespaces_provenance.md`; private evidence:
+`work/world_word_namespaces/`.
+
+
+## Bounded animation channel-row layout (2026-11-23)
+
+- Stored animation+96 arrays confirm 12-byte rows with ordered unsigned
+  (word1, word0) keys. Across 60,447 discovery / 62,441 frozen validation rows,
+  bonerotation's JOAAT preimage is always at +4 with code 0 (34,732 / 35,072);
+  bonetranslation is always at +4 with code 2 (12,363 / 13,658). No in-table
+  wrong-word/unaligned or byte-reversed hash matches occur. Sixteen other hash
+  hits lie outside checked tables and remain unclassified.
+- The candidate {bone, kind, type} names exceed the established structure.
+  Word0 target/bone ownership and word2 type/codec meanings remain unknown.
+  Shared first words and validation-only SKEL_HEAD/SKEL_ROOT hash preimages
+  supply no bounded rig/bone link; no runtime semantic labels were promoted.
+- Hardened optional native binding inspection against table/header/reference/
+  packed-buffer overlaps. Nine new synthetic tests; 2,280 unit tests (two
+  optional-data skips), 280 selftests. Original splits and provisional labels
+  unchanged; original and integration native audit observations match exactly.
+  Methods: docs/anim_channel_row_layout_provenance.md; work/anim_channel_layout/.
+
+
+## Native bone-table and channel-owner evidence
+
+Sixteen of163discovery channel word0 values have verified existing bone-like
+JOAAT preimages, covering7,828of60,447native rows. Exact names remain candidates;
+no native bone table, hierarchy, bone-owner reference or channel-to-bone link is
+confirmed. Dictionary source labels lack original record addresses. Sticky
+validation scopes protect common.rpf entirely, so that source was not reopened.
+
+No bounded SKEL_/PH_ cstrings were found in1,187original discovery streams or
+768streams from four new predeclared8MiBdiscovery windows. Their four paired
+reserved windows remain unopened. Retained0DRPstructure/enum metadata supplies
+no bone-labelled declaration; all11,305enum-value/target equalities are zero.
+
+Native393page/191dictionary/786animation replay verifies879buffer identities
+and compares3,144prefix u64words against already bounded local spans. None
+matches a previously checked target. A separately frozen discovery probe follows
+the786local-range+24words only under a checked kind0dictionary profile. All786
+animations are unique members of191localdictionaries containing exactly786members.
+Stored pointers, full chains, bounded names, stem hashes and reverse membership
+agree;955malformed controls and786exact/under-budget pairs pass. Initial borrowed
+kind2node-tag equality failed all786discoverycases; preserved separately before
+the independently tested kind0zero-word profile. No validation fitting occurred.
+
+Native --binding-layout now adds owner_dictionary_layout, retaining separate
+unsupported views. This is an animation-dictionary backlink, not a bone or rig
+mapping. Nine native CLI alias views/threeanimations match the reader exactly.
+Sixteen authored tests;2,296unit tests(twooptional skips),280selftests.
+Original splits, dictionary, prior evidence and provisional labels are unchanged.
+Methods: `docs/anim_bone_owner_provenance.md`; `work/anim_bone_owners/`.
+
+
+## Animation dictionary references and bounded key holders (2026-11-24)
+
+Three nonoverlapping clean-room investigations retain unknown bone meanings.
+All191nativekind0dictionaries/786nodes pass identifier-hash and unsigned
+key%bucket_count checks. Their supported112Bprefixes/32Bnodes cover46,544bytes
+and4,091reference words, all to identifiers/buckets/members/chains. Unknown+16
+is not followed;3*member_count fails163/191cases. Allocation extent is unknown.
+Native --binding-layout now exposes this separate reference view with owner/
+reference counts and distinct unsupported reasons; earlier owner/binding views
+remain valid independently. No skeleton or bone-owner reference is inferred.
+
+The original618resource discovery block scan finds five nonzero channel-key
+equalities among9,022,079fixed4Bgroup observations, zero swapped controls.
+Declared40Breference holders,32Btargets and16Bnested structures independently
+bound726singleton links across45sources. Full8Bslots/highwords are preserved;
+five slots equal two channelword0patterns, while zero full(key,nested)tuples
+match stored channel(word0,word1).572sources are unsupported and one explicitly
+refuses the observed singleton profile. This is structural key-holder evidence,
+not a decoded skeleton, hierarchy, bone namespace or dictionary-owner bridge.
+
+Metadata-only rig-source comparison yields zero exact candidates from202queries
+against1,126RBFsets/6,677entries.786animation members reuse23filenames,19across
+multiple dictionary scopes(max155), preventing filename-only provider lookup.
+
+Thirty-one new synthetic tests;2,327unit tests(twooptional skips),280selftests.
+Native full-source identities, malformed controls, exact/under budgets and nine
+CLI reference alias views pass. No validation payloads, role promotions, GPL
+source, game fixtures, staging, commit or push. Frozen splits/provisional labels
+are unchanged. Methods: `docs/anim_dictionary_team_provenance.md` and the three
+track-specific provenance records; private evidence under `work/anim_dictionary_team/`.
+
+
+## Key-holder parent paths and provider-reference limits (2026-11-24)
+
+All726previouslychecked40Bholders have a stored incoming reference from a
+declared1024Brecord, field+144/raw7/aux0, forming an independently bounded local
+1024->40->32keyrecord chain.736sourcerecords contribute726links and10zerowords;
+allholders reached, nootherunmatchedword. The field has no typedtargetdescriptor
+and does not establish a bone/root/rig/provider owner. Raw siblings remain
+untraversed; the24Blocaldeclaration at+32 leaves8unassignedbytes at+56..63,
+preserved explicitly after the original32Bextent assumption refused45sources.
+
+Full794page/618resource discovery replay retains45complete/572unsupported/
+1inheritedholderrefusal. Allfivepriorchannelkey coincidences keep parentpaths
+without semantic promotion. Native controls617exact/underpairs,726eachhighbit/
+misalignmentrefusals andzero/unmatched/sibling preservationchecks pass.
+
+No RBFproviderID was recovered:1168stored dictionary/memberwords versus6677
+fullPrioritypatterns yields0exact/byte-swapped equalities.158of192Priority
+patterns repeat acrossliteral scopes. Outerkind2header+8counted-zero contexts
+have178exactcomponent-array endpoints and13unsupported cases; no skeleton or
+allocation meaning inferred. Allsource roles and prior evidence are preserved.
+
+Native `anim --key-holders` now exposes separate raw holder/parent views with
+explicit limits/reasons and shared budgets. Two qualified source CLIcopies
+reproduce5links as exact nativeAPI JSON objects; defaultmetadata remains
+exact with new views/workcharges removed. Thirtynewtests;2357unit tests(two
+optional skips),280selftests. No validationpayloads, GPLsource, gamefixtures,
+stage,commit,push or changedprovisionallabels. Methods:
+`docs/anim_reference_team_next_provenance.md`; `work/anim_reference_team_next/`.
+
+
+## Native named pack tables and animation-key evidence (2026-11-24)
+
+The user-requested whole-packs SKEL_ROOT scan yielded2,875observations at2,864
+distinct offsets. A separately frozen alternating4MiBwindow split qualifies
+16MiBdiscovery/16MiBreserved against inherited/newmetadata exclusions; no old
+roles changed. Discovery cache2943observations/1517payloads contains1414hits;
+fourdiagnostichitstreams cross reservedboundaries andremainomitted.
+
+Native minimum-prefix path root+24->child+24->tableheader is bounded separately
+from wholeallocations. Stored redundant counts,80Bordinals/namepointers/hashfields,
+duplicatedparentarray,2Nlookupcoverage andstoredsibling/subtreecolumns establish
+1,383discovery tables/23,145records/46,290lookupentries. Multiple roots, case
+variants, rawposebytes, opaque counts and source-qualified alternatekeys remain
+visible. Nearby`skel`text is not a proven typedentry. No resourceallocationend
+or globalalternate-IDalgorithm inferred.
+
+Root fixed-profile reserved evaluation quarantines1,449exactdiscoverycontent
+duplicates before parsing and resolves1,360tables/20,833records.84of1,444wholly
+framed reserved diagnostic hits remainunsupported; two additionalhitstreams
+cross windowboundaries. Combined2,743tables/43,978records are structurally
+supported; sixoriginalhits omitted and115unsupported, with no approximation.
+The prior broadstringdiagnostic is acknowledged: this is heldout structural
+coverage, not independent semantic accuracy. Decoder/tests were frozen before
+reserved evaluation and unchanged afterward.
+
+Original animationdiscovery replay gives95/163word0storedhash equalities,
+covering32,490/60,447source-owned channel rows. Allnativebone/source alternatives
+remain; alternateu16, swappedword0, wrongword1 andfixedsignature comparisons
+do not establish ownership. No dictionary-to-skeleton provider link inferred.
+
+Native `anim --raw-skeleton FILE` now exports supported named-table/forest JSON.
+Bounded input, atomic unsupported/budget refusal, output collision checks and
+explicit raw dispatch prevent unintended archive fallback; two discovery CLI
+cases exactly match fixed nativeAPI/audit metadata. Fortynewtests;2,397unit
+tests(twooptional skips),280selftests. No GPLsource, gamefixture, preferredbone
+map, name-dictionary change, staging, commit or push. Frozen roles and provisional
+labels preserved. Methods:`docs/packs_skeleton_team_provenance.md` and its three
+track records; private evidence:`work/packs_skeleton_team/`.

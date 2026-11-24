@@ -288,10 +288,173 @@ def _scan_targets(args) -> list[str]:
     return archives
 
 
+def _check_output_paths(inputs, outputs):
+    """Reject source/output aliases before any offline reader or writer runs."""
+    outputs = [os.fspath(path) for path in outputs if path is not None]
+    inputs = [os.fspath(path) for path in inputs]
+    for index, output in enumerate(outputs):
+        for other in inputs + outputs[:index]:
+            if (os.path.realpath(output) == os.path.realpath(other)
+                    or os.path.exists(output) and os.path.exists(other)
+                    and os.path.samefile(output, other)):
+                raise ValueError("output paths must be distinct and cannot overwrite inputs")
+
+
+def _supplied_options(parser, args, arguments):
+    """Normalize accepted long-option abbreviations for offline preflight."""
+    options = set(parser._option_string_actions)
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            selected = action.choices.get(getattr(args, action.dest, None))
+            if selected is not None:
+                options.update(selected._option_string_actions)
+    supplied = set()
+    for argument in arguments:
+        if argument == "--":
+            break
+        if argument.startswith("--"):
+            option = argument.split("=", 1)[0]
+            candidates = [known for known in options if known.startswith(option)]
+            supplied.add(option if option in options or len(candidates) != 1 else candidates[0])
+    return supplied
+
+
+def _sample_row_range(value):
+    """Parse a stored-row selection; these indices do not imply time units."""
+    try:
+        parts = value.split(":")
+        if len(parts) != 2:
+            raise ValueError
+        start, count = (int(part, 0) for part in parts)
+        if start < 0 or count < 1:
+            raise ValueError
+        return start, count
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("expected nonnegative START:positive COUNT") from exc
+
+
+def _cmd_anim_raw_buffer(args) -> int:
+    from . import anim_selected_samples
+
+    ignored = {"--archive", "--limit", "--full", "--max", "--clips", "--resources", "--key-holders", "--raw-skeleton",
+               "--clip-records", "--start", "--clip-components", "--packed-layout",
+               "--channel-layout", "--storage-layout", "--prefix-layout", "--aux-checkpoints",
+               "--checkpoint-candidates", "--binding-layout", "--sample-codes",
+               "--lookup-candidates", "--bit-layout", "--payload-layout"}
+    supplied = getattr(args, "_supplied_options", set())
+    if args.files or supplied & ignored:
+        eprint("--raw-buffer cannot be combined with archive inputs or archive inspection options")
+        return 1
+    if args.binding_count is None or not args.sample_source:
+        eprint("--raw-buffer requires --binding-count and at least one --sample-source")
+        return 1
+    start, count = args.sample_rows or (0, 1)
+    destination = os.path.join(args.out, "anim-samples.json") if args.out else None
+    try:
+        _check_output_paths([args.raw_buffer], [destination])
+    except (OSError, ValueError) as exc:
+        eprint(str(exc))
+        return 1
+    try:
+        report = anim_selected_samples.inspect_file(args.raw_buffer,
+            binding_count=args.binding_count, source_ordinals=args.sample_source,
+            row_start=start, row_count=count, max_nodes=args.max_nodes)
+    except (OSError, ValueError) as exc:
+        eprint(f"raw animation query failed: {exc}")
+        return 1
+    failed = report.get("status") != "complete"
+    if destination and not failed:
+        try:
+            os.makedirs(args.out, exist_ok=True)
+            with open(destination, "w", encoding="utf-8") as handle:
+                json.dump(report, handle, indent=2, allow_nan=False)
+                handle.write("\n")
+        except OSError as exc:
+            eprint(f"animation report failed: {exc}")
+            return 1
+        eprint(f"manifest: {destination}")
+    if args.json:
+        print(json.dumps(report, indent=2, allow_nan=False))
+    elif failed:
+        eprint(report.get("reason", "raw animation query is unresolved"))
+    else:
+        print(f"{len(args.sample_source)} source(s), stored rows {start}:{start + count}")
+        print("Conditional raw codes only; numeric samples, timing and channel ownership remain unknown.")
+        if destination:
+            print(f"manifest: {destination}")
+        else:
+            print(json.dumps(report, indent=2, allow_nan=False))
+    return int(failed)
+
+
+def _cmd_anim_raw_skeleton(args) -> int:
+    """Inspect one explicitly supplied decompressed native stream."""
+    ignored = {"--archive", "--limit", "--full", "--max", "--clips", "--resources", "--key-holders",
+               "--clip-records", "--start", "--clip-components", "--packed-layout", "--channel-layout",
+               "--storage-layout", "--prefix-layout", "--aux-checkpoints", "--checkpoint-candidates",
+               "--binding-layout", "--sample-codes", "--lookup-candidates", "--bit-layout", "--payload-layout",
+               "--raw-buffer", "--binding-count", "--sample-source", "--sample-rows"}
+    if args.files or getattr(args, "_supplied_options", set()) & ignored:
+        eprint("--raw-skeleton cannot be combined with archive or packed-buffer inspection options")
+        return 1
+    if args.max_nodes < 1:
+        eprint("--max-nodes must be positive")
+        return 1
+    destination = os.path.join(args.out, "skeleton.json") if args.out else None
+    try:
+        _check_output_paths([args.raw_skeleton], [destination])
+        from . import packs_bones, packs_skeleton_bounds
+        with open(args.raw_skeleton, "rb") as source:
+            data = source.read(packs_skeleton_bounds.MAX_BYTES + 1)
+        if len(data) > packs_skeleton_bounds.MAX_BYTES:
+            raise ValueError('raw skeleton input exceeds resource size limit')
+        report = packs_bones.inspect(data, max_work=args.max_nodes)
+    except (OSError, ValueError) as exc:
+        eprint(f"raw skeleton inspection failed: {exc}")
+        return 1
+    failed = report.get('status') != 'complete'
+    if destination and not failed:
+        try:
+            os.makedirs(args.out, exist_ok=True)
+            with open(destination, 'w', encoding='utf-8') as handle:
+                json.dump(report, handle, indent=2, allow_nan=False)
+                handle.write('\n')
+        except (OSError, ValueError) as exc:
+            eprint(f"skeleton report failed: {exc}")
+            return 1
+        eprint(f"manifest: {destination}")
+    if args.json:
+        print(json.dumps(report, indent=2, allow_nan=False))
+    elif failed:
+        eprint(report.get('reason', 'unsupported raw skeleton layout'))
+    else:
+        print('Checked native named-record metadata; poses and animation ownership remain unknown.')
+        if destination:
+            print(f"manifest: {destination}")
+        else:
+            print(json.dumps(report, indent=2, allow_nan=False))
+    return int(failed)
+
+
 def cmd_anim(args) -> int:
     """Index animation archive streams and name tables (no clip decode)."""
     from . import anim as anim_mod
 
+    if getattr(args, "raw_buffer", None) is not None:
+        return _cmd_anim_raw_buffer(args)
+    if getattr(args, "raw_skeleton", None) is not None:
+        return _cmd_anim_raw_skeleton(args)
+    if any(getattr(args, key, None) is not None for key in
+           ("binding_count", "sample_source", "sample_rows")):
+        eprint("--binding-count, --sample-source and --sample-rows require --raw-buffer")
+        return 1
+
+    if args.binding_layout:
+        args.channel_layout = True
+    if args.key_holders:
+        args.resources = True
+    if args.sample_codes:
+        args.lookup_candidates = True
     if args.checkpoint_candidates:
         args.aux_checkpoints = True
     if args.aux_checkpoints:
@@ -353,8 +516,12 @@ def cmd_anim(args) -> int:
             continue
         if args.resources:
             from . import anim_resources
+            resource_scan = anim_resources.scan_resources
+            if args.key_holders:
+                from . import anim_key_resources
+                resource_scan = anim_key_resources.scan_resources
             try:
-                for resource in anim_resources.scan_resources(path, start=args.start, limit=limit, max_nodes=remaining_nodes):
+                for resource in resource_scan(path, start=args.start, limit=limit, max_nodes=remaining_nodes):
                     resources.append(resource)
                     remaining_nodes -= resource.get('summary', {}).get('nodes', 0)
             except (OSError, ValueError) as exc:
@@ -363,6 +530,10 @@ def cmd_anim(args) -> int:
         if args.clip_records:
             from . import anim_clips
             checkpoint_options = {'with_aux_checkpoints': True} if args.aux_checkpoints else {}
+            if args.binding_layout:
+                checkpoint_options['with_bindings'] = True
+            if args.sample_codes:
+                checkpoint_options['with_sample_codes'] = True
             if args.checkpoint_candidates:
                 checkpoint_options['with_checkpoint_candidates'] = True
             try:
@@ -394,6 +565,8 @@ def cmd_anim(args) -> int:
                      or r.get('summary', {}).get('aux_checkpoint_layouts_partial', 0)
                      or r.get('summary', {}).get('aux_checkpoint_layouts_unresolved', 0)
                      or r.get('summary', {}).get('checkpoint_candidate_layouts_unresolved', 0)
+                     or r.get('summary', {}).get('binding_layouts_unresolved', 0)
+                     or r.get('summary', {}).get('sample_code_layouts_unresolved', 0)
                      for r in resources + clip_dictionaries))
     if not records:
         print("no animation streams found")
@@ -413,6 +586,17 @@ def cmd_anim(args) -> int:
             **{key: sum(r.get('summary', {}).get(key, 0) for r in resources)
                for key in ('structures', 'fields', 'enums', 'enum_members', 'blocks')}),
             resources=resources)
+        if args.key_holders:
+            holders = [r['key_holder_layout'] for r in resources if 'key_holder_layout' in r]
+            parents = [r['key_parent_layout'] for r in resources if 'key_parent_layout' in r]
+            detail['resource_summary'].update(
+                key_holder_resources=sum(v['status'] == 'complete' for v in holders),
+                key_holder_unsupported=sum(v['status'] == 'unsupported' for v in holders),
+                key_holder_references=sum(v['reference_count'] for v in holders),
+                key_parent_resources=sum(v['status'] == 'complete' for v in parents),
+                key_parent_unsupported=sum(v['status'] == 'unsupported' for v in parents),
+                key_parent_links=sum(v['summary']['matched_parent_links'] for v in parents),
+                key_holders_without_parent=sum(v['summary']['holders_without_parent'] for v in parents))
         if not args.json:
             info = detail['resource_summary']
             print(f"0DRP: {info['metadata_parsed']:,} metadata parsed, {info['refused']:,} refused; "
@@ -420,6 +604,14 @@ def cmd_anim(args) -> int:
                   "0DRP payload semantics remain unresolved")
             for resource in [r for r in resources if r['status'] == 'refused'][:args.max]:
                 print(f"  0DRP at 0x{resource['offset']:x}: {resource['reason']}")
+            if args.key_holders:
+                print(f"raw key holders: {info['key_holder_references']:,} stored references; "
+                      f"{info['key_holder_unsupported']:,} unsupported resource views")
+                print(f"key-holder parents: {info['key_parent_links']:,} checked local links; "
+                      f"{info['key_parent_unsupported']:,} unsupported resource views; bone and rig meanings unknown")
+                reasons = sorted({v['reason'] for v in holders + parents if v['status'] == 'unsupported'})
+                for reason in reasons[:args.max]:
+                    print(f"  skipped: {reason}")
     if args.clip_records:
         clip_summary = dict(candidates=len(clip_dictionaries),
             metadata_parsed=sum(r['status'] == 'partial' for r in clip_dictionaries),
@@ -470,6 +662,18 @@ def cmd_anim(args) -> int:
                         'ambiguous_rows','unsupported_source_rows','layouts_unresolved'):
                 label = 'checkpoint_'+key if key in ('candidate_sets','candidate_slots') else 'checkpoint_candidate_'+key
                 clip_summary[label] = sum(r.get('summary', {}).get(label, 0) for r in clip_dictionaries)
+        if args.binding_layout:
+            for key in ('binding_layouts_attempted', 'binding_layouts_resolved', 'binding_layouts_unresolved',
+                        'binding_key_rows', 'binding_directory_incidences',
+                        'owner_dictionary_layouts_attempted', 'owner_dictionary_layouts_resolved',
+                        'owner_dictionary_layouts_unresolved', 'owner_dictionary_member_observations',
+                        'dictionary_reference_layouts_attempted', 'dictionary_reference_layouts_resolved',
+                        'dictionary_reference_layouts_unresolved'):
+                clip_summary[key] = sum(r.get('summary', {}).get(key, 0) for r in clip_dictionaries)
+        if args.sample_codes:
+            for key in ('sample_code_layouts_attempted', 'sample_code_layouts_resolved', 'sample_code_layouts_unresolved',
+                        'sample_code_sequences', 'sample_code_observations'):
+                clip_summary[key] = sum(r.get('summary', {}).get(key, 0) for r in clip_dictionaries)
         detail.update(clip_record_summary=clip_summary, clip_dictionaries=clip_dictionaries)
         if not args.json:
             print(f"named clips: {clip_summary['clips_linked']:,} linked, "
@@ -523,6 +727,19 @@ def cmd_anim(args) -> int:
                 print(f"checkpoint candidates: {clip_summary['checkpoint_candidate_singleton_rows']:,} singleton rows, "
                       f"{clip_summary['checkpoint_candidate_ambiguous_rows']:,} ambiguous rows; "
                       "compatible sets only, channel ownership unconfirmed")
+            if args.binding_layout:
+                print(f"binding keys: {clip_summary['binding_layouts_resolved']:,} checked layouts, "
+                      f"{clip_summary['binding_layouts_unresolved']:,} unresolved; "
+                      "slot arithmetic only; source and bone ownership unconfirmed")
+                print(f"animation dictionaries: {clip_summary['owner_dictionary_layouts_resolved']:,} checked backlinks, "
+                      f"{clip_summary['owner_dictionary_layouts_unresolved']:,} unresolved; rig and bone links unknown")
+                print(f"dictionary references: {clip_summary['dictionary_reference_layouts_resolved']:,} checked views, "
+                      f"{clip_summary['dictionary_reference_layouts_unresolved']:,} unresolved")
+            if args.sample_codes:
+                print(f"raw sample-code candidates: {clip_summary['sample_code_sequences']:,} sequences, "
+                      f"{clip_summary['sample_code_observations']:,} observations; "
+                      f"{clip_summary['sample_code_layouts_unresolved']:,} unsupported layouts; "
+                      "numeric values, channel assignments and temporal order unconfirmed")
             reasons = [(r['offset'], r['reason']) for r in clip_dictionaries if r['status'] == 'refused']
             reasons += [(r['offset'], e['reason']) for r in clip_dictionaries for e in r.get('entries', [])
                         if e['status'] == 'unresolved']
@@ -604,6 +821,26 @@ def cmd_anim(args) -> int:
                             for buffer in segment['animation'].get('packed_layout', {}).get('buffers', [])
                             for candidate in [buffer.get('auxiliary_checkpoint_layout', {}).get('candidate_layout', {})]
                             if candidate.get('status') == 'unresolved']
+            if args.binding_layout or args.sample_codes:
+                for dictionary in clip_dictionaries:
+                    for entry in dictionary.get('entries', []):
+                        for group in entry.get('components', {}).get('groups', []):
+                            for segment in group['segments']:
+                                layout = segment['animation'].get('packed_layout', {})
+                                view = layout.get('binding_layout', {})
+                                if args.binding_layout and view.get('status') == 'unresolved':
+                                    reasons.append((dictionary['offset'], view['reason']))
+                                owner = layout.get('owner_dictionary_layout', {})
+                                if args.binding_layout and owner.get('status') == 'unresolved':
+                                    reasons.append((dictionary['offset'], 'animation dictionary: ' + owner['reason']))
+                                references = layout.get('dictionary_reference_layout', {})
+                                if args.binding_layout and owner.get('status') == 'complete' and references.get('status') == 'unresolved':
+                                    reasons.append((dictionary['offset'], 'dictionary references: ' + references['reason']))
+                                if args.sample_codes:
+                                    for buffer in layout.get('buffers', []):
+                                        view = buffer.get('sample_code_layout', {})
+                                        if view.get('status') == 'unresolved':
+                                            reasons.append((dictionary['offset'], view['reason']))
             for offset, reason in reasons[:args.max]:
                 print(f"  clip dictionary at 0x{offset:x}: {reason}")
     if args.out:
@@ -1724,6 +1961,127 @@ def _run_tui(root: str, db: str | None) -> int:
     return tui.run_catalog(db) if db else tui.run(root)
 
 
+def _write_json_report(path, report):
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(report, handle, indent=2, allow_nan=False)
+        handle.write("\n")
+
+
+def cmd_dds(args) -> int:
+    from . import dds
+
+    if not args.png and any(getattr(args, key) is not None for key in
+                            ("mip", "slice", "z", "max_pixels")):
+        eprint("--mip, --slice, --z and --max-pixels require --png")
+        return 1
+    try:
+        _check_output_paths([args.file], [args.out, args.png])
+        options = dict(max_bytes=args.max_bytes if args.max_bytes is not None else dds.MAX_BYTES,
+                       max_subresources=args.max_subresources if args.max_subresources is not None else dds.MAX_SUBRESOURCES)
+        if args.png:
+            report, preview = dds.preview_file(args.file,
+                mip=args.mip if args.mip is not None else 0,
+                slice_index=args.slice if args.slice is not None else 0,
+                z_index=args.z if args.z is not None else 0,
+                max_pixels=args.max_pixels if args.max_pixels is not None else dds.MAX_PIXELS,
+                **options)
+        else:
+            report = dds.inspect_file(args.file, **options)
+        # All parsing and optional decoding finish before output files are opened.
+        if args.png:
+            os.makedirs(os.path.dirname(os.path.abspath(args.png)), exist_ok=True)
+            with open(args.png, "wb") as handle:
+                handle.write(preview)
+        if args.out:
+            _write_json_report(args.out, report)
+    except (OSError, ValueError) as exc:
+        eprint(f"DDS inspection failed: {exc}")
+        return 1
+    if args.json:
+        print(json.dumps(report, indent=2, allow_nan=False))
+    else:
+        print(f"{report['format_name']}: {report['width']}x{report['height']}x{report['depth']}, "
+              f"{report['mip_count']} mip(s), {report['slice_count']} slice(s)")
+        print(f"{report['payload_bytes']} payload bytes; source SHA-256 {report['source']['sha256']}")
+    if args.png:
+        eprint(f"preview: {args.png}")
+    if args.out:
+        eprint(f"report: {args.out}")
+    return 0
+
+
+def cmd_psin_diff(args) -> int:
+    from . import psin_schema_diff
+
+    try:
+        _check_output_paths([args.left, args.right], [args.out])
+        report = psin_schema_diff.compare_files(args.left, args.right,
+            max_nodes=args.max_nodes, protected_outputs=[args.out] if args.out else ())
+        if args.out:
+            _write_json_report(args.out, report)
+    except (OSError, ValueError) as exc:
+        eprint(f"PSIN comparison failed: {exc}")
+        return 1
+    if args.json:
+        print(json.dumps(report, indent=2, allow_nan=False))
+    else:
+        print("PSIN literal declaration comparison")
+        print(json.dumps(report["summary"], indent=2))
+        print("Hash alignment is a candidate only; semantic compatibility remains unknown.")
+    if args.out:
+        eprint(f"report: {args.out}")
+    return 0
+
+
+def _cmd_shaders_raw(args, *, include_bindings, binding_query,
+                     include_psv_signatures, include_psv_masks, include_features):
+    from . import shader_inputs
+
+    supplied = getattr(args, "_supplied_options", set())
+    if supplied & {"--archive", "--limit", "--full"}:
+        eprint("--raw cannot be combined with archive scan options")
+        return 1
+    if not args.files:
+        eprint("shaders --raw requires at least one input file")
+        return 1
+    if args.max < 0:
+        eprint("--max must be nonnegative")
+        return 1
+    destination = os.path.join(args.out, "shader-inspection.json") if args.out else None
+    try:
+        _check_output_paths(args.files, [destination])
+        report = shader_inputs.inspect_files(args.files,
+            with_bindings=include_bindings, **binding_query,
+            with_psv_signatures=include_psv_signatures, with_psv_masks=include_psv_masks,
+            with_features=include_features, max_records=args.max_records,
+            max_total_records=args.max_total_records if args.max_total_records is not None else 100000,
+            max_input_bytes=args.max_input_bytes if args.max_input_bytes is not None else 64*1024*1024,
+            expected_sha256=args.source_sha256,
+            protected_outputs=[destination] if destination else ())
+        if destination:
+            _write_json_report(destination, report)
+    except (OSError, ValueError) as exc:
+        eprint(f"raw shader inspection failed: {exc}")
+        return 1
+    if args.json:
+        print(json.dumps(report, indent=2, allow_nan=False))
+    else:
+        rows = []
+        for source in report["files"][:args.max]:
+            bindings = source.get("bindings") or {}
+            rows.append([source["file"], str(source["bytes"]), source["status"],
+                         str(bindings.get("summary", {}).get("matched_count", "-"))])
+        print(table(rows, ["file", "bytes", "metadata", "bindings"], align="lrll"))
+        print(f"{report['summary']['files']} file(s), {report['summary']['record_count']} inspection records")
+        for source in report["files"]:
+            for reason in source.get("reasons", []):
+                eprint(f"{source['file']}: {reason}")
+    if destination:
+        eprint(f"report: {destination}")
+    return int(report["status"] != "complete")
+
+
 def cmd_shaders(args) -> int:
     """Recover DXBC shaders from RPF9 archives."""
     from . import shaders as shaders_mod
@@ -1731,13 +2089,29 @@ def cmd_shaders(args) -> int:
     include_psv_masks = getattr(args, "psv_masks", False)
     include_psv_signatures = getattr(args, "psv_signatures", False) or include_psv_masks
     include_features = getattr(args, "features", False)
-    include_metadata = getattr(args, "metadata", False) or include_psv_signatures or include_features
+    binding_query = {key: getattr(args, option, None) for key, option in
+                     (("stage_code", "binding_stage"), ("register_space", "binding_space"),
+                      ("register_index", "binding_register"), ("type_code", "binding_type"))}
+    include_bindings = getattr(args, "bindings", False) or any(value is not None for value in binding_query.values())
+    if any(value is not None and (type(value) is not int or not 0 <= value <= 0xffffffff)
+           for value in binding_query.values()):
+        eprint("shader binding filters must be unsigned 32-bit integers")
+        return 1
+    include_metadata = getattr(args, "metadata", False) or include_psv_signatures or include_features or include_bindings
     max_records = getattr(args, "max_records", 4096)
     if include_metadata:
         from .shader_metadata import MAX_RECORDS
         if not 1 <= max_records <= MAX_RECORDS:
             eprint(f"--max-records must be from 1 to {MAX_RECORDS}")
             return 1
+    if getattr(args, "raw", False):
+        return _cmd_shaders_raw(args, include_bindings=include_bindings, binding_query=binding_query,
+            include_psv_signatures=include_psv_signatures, include_psv_masks=include_psv_masks,
+            include_features=include_features)
+    if any(getattr(args, key, None) is not None for key in
+           ("max_total_records", "max_input_bytes", "source_sha256")):
+        eprint("--max-total-records, --max-input-bytes and --source-sha256 require --raw")
+        return 1
     targets = _scan_targets(args)
     if not targets:
         eprint("no archive matched")
@@ -1751,6 +2125,8 @@ def cmd_shaders(args) -> int:
     manifest: list[dict] = []
     shown_metadata: list[dict] = []
     metadata_incomplete = 0
+    binding_declarations = 0
+    binding_matches = 0
     for path in targets:
         for hit in shaders_mod.scan(path, limit=limit):
             total += 1
@@ -1762,8 +2138,18 @@ def cmd_shaders(args) -> int:
                     signature_options['with_psv_masks'] = True
                 if include_features:
                     signature_options['with_features'] = True
-                record["metadata"] = shaders_mod.metadata(hit.data, max_records=max_records, **signature_options)
-                if record["metadata"]["status"] != "complete":
+                if include_bindings:
+                    from . import shader_bindings
+                    query_report = shader_bindings.inspect(hit.data, max_records=max_records,
+                        **binding_query, **signature_options)
+                    record["metadata"] = query_report.pop("metadata")
+                    record["bindings"] = query_report
+                    binding_declarations += query_report["summary"].get("declaration_count", 0)
+                    binding_matches += query_report["summary"].get("matched_count", 0)
+                else:
+                    record["metadata"] = shaders_mod.metadata(hit.data, max_records=max_records, **signature_options)
+                if (record["metadata"] is None or record["metadata"]["status"] != "complete"
+                        or include_bindings and record["bindings"]["status"] != "complete"):
                     metadata_incomplete += 1
             if args.out:
                 dest = os.path.join(args.out, f"{name}_{hit.offset:09x}.cso")
@@ -1776,7 +2162,7 @@ def cmd_shaders(args) -> int:
                 row = [os.path.basename(path)[:22], hit.name[:46],
                        f"0x{hit.offset:09x}", f"{hit.stored:,}", f"{hit.decoded:,}"]
                 if include_metadata:
-                    programs = record["metadata"]["programs"]
+                    programs = (record["metadata"] or {}).get("programs", [])
                     if len(programs) == 1:
                         program = programs[0]
                         stage = program["stage"] or f"stage-{program['stage_code']}"
@@ -1784,7 +2170,10 @@ def cmd_shaders(args) -> int:
                     else:
                         profile = "multiple" if programs else "unavailable"
                     row.append(profile)
-                    row.append(record["metadata"]["status"])
+                    row.append((record["metadata"] or {}).get("status", "unresolved"))
+                    if include_bindings:
+                        counts = record["bindings"]["summary"]
+                        row.append(f"{counts.get('matched_count', 0)}/{counts.get('declaration_count', 0)}")
                     if not args.out:
                         shown_metadata.append(record)
                 rows.append(row)
@@ -1797,16 +2186,22 @@ def cmd_shaders(args) -> int:
             summary = {"shaders": total, "written": written, "manifest": manifest_path}
             if include_metadata:
                 summary["metadata_incomplete"] = metadata_incomplete
+            if include_bindings:
+                summary.update(binding_declarations=binding_declarations, binding_matches=binding_matches)
             print(json.dumps(summary, indent=2))
             return int(metadata_incomplete > 0)
         print(f"recovered {total:,} shader(s); wrote {written:,} .cso files to {args.out}")
         print(f"manifest: {manifest_path}")
+        if include_bindings:
+            print(f"bindings: {binding_matches:,} matching / {binding_declarations:,} declared")
         if metadata_incomplete:
             print(f"metadata incomplete for {metadata_incomplete:,} shader(s); see manifest reasons")
         return int(metadata_incomplete > 0)
     if args.json:
         result = {"shaders": total, "shown": len(shown_metadata),
                   "records": shown_metadata, "metadata_incomplete": metadata_incomplete} if include_metadata else rows
+        if include_bindings:
+            result.update(binding_declarations=binding_declarations, binding_matches=binding_matches)
         print(json.dumps(result, indent=2))
         return int(metadata_incomplete > 0)
     if not rows:
@@ -1815,8 +2210,12 @@ def cmd_shaders(args) -> int:
     headings = ["archive", "name", "payload@", "deflate", "dxbc"]
     if include_metadata:
         headings.extend(["profile", "metadata"])
-    print(table(rows, headings, align="llrrrll" if include_metadata else "llrrr"))
+    if include_bindings:
+        headings.append("bindings")
+    print(table(rows, headings, align="llrrrllr" if include_bindings else "llrrrll" if include_metadata else "llrrr"))
     print(f"\n{total:,} shader(s); pass --out DIR to write .cso files")
+    if include_bindings:
+        print(f"bindings: {binding_matches:,} matching / {binding_declarations:,} declared")
     if metadata_incomplete:
         print(f"metadata incomplete for {metadata_incomplete:,} shader(s); use --json for reasons")
     return int(metadata_incomplete > 0)
@@ -2425,13 +2824,13 @@ def cmd_awc(args) -> int:
                                 blob = audio_mod.extract_ogg(buf, stream, title=name)
                                 ogg_info = None
                         except ValueError as exc:
-                            if args.ogg_policy == "declared":
-                                reason = str(exc)
-                                candidate = (stream.get("codec") == 0x0b and not stream.get("music")
-                                             and stream.get("channels") == 1 and stream.get("sample_rate") == 48000)
-                                ogg_failed = ogg_failed or candidate
-                                ogg_skipped[reason] = ogg_skipped.get(reason, 0) + 1
-                                record.setdefault("ogg_skipped", []).append(dict(stream_index=stream['index'], reason=reason))
+                            reason = str(exc)
+                            candidate = (args.ogg_policy == "legacy" or
+                                         stream.get("codec") == 0x0b and not stream.get("music")
+                                         and stream.get("channels") == 1 and stream.get("sample_rate") == 48000)
+                            ogg_failed = ogg_failed or candidate
+                            ogg_skipped[reason] = ogg_skipped.get(reason, 0) + 1
+                            record.setdefault("ogg_skipped", []).append(dict(stream_index=stream['index'], reason=reason))
                             continue
                         with open(dest, "wb") as out:
                             out.write(blob)
@@ -2510,6 +2909,9 @@ def cmd_awc(args) -> int:
         for reason, count in sorted(ogg_skipped.items(), key=lambda item: -item[1]):
             print(f"  declared-length Ogg skipped {count:,}: {reason}")
         print("Ogg uses explicit pre-skip and declared duration; original sample alignment is unconfirmed")
+    elif args.ogg_out:
+        for reason, count in sorted(ogg_skipped.items(), key=lambda item: -item[1]):
+            print(f"  Ogg skipped {count:,}: {reason}")
     print("raw payloads keep their native codec; --ogg-out remuxes Opus losslessly; --music-out extracts one Ogg per music channel")
     return int(wav_failed or ogg_failed or music_wav_failed or music_failed or radio_failed)
 
@@ -3172,6 +3574,7 @@ def _cmd_world_resources(args) -> int:
         inspect_options = dict(scan_bytes=args.scan_mib*1024*1024,max_nodes=args.max_nodes,max_resources=args.limit,
             with_schemas=args.schemas, dictionary=dictionary, structure_hash=args.schema_type,
             field_hash=args.schema_field, type_word=args.schema_code, with_links=args.links,
+            with_value_words=args.value_words,
             with_extent_diagnostics=args.extent_diagnostics,
             with_primitive_layouts=args.primitive_layouts,
             with_reference_context=args.reference_context, context_records=args.context_records)
@@ -3219,8 +3622,17 @@ def _cmd_world_resources(args) -> int:
             counts = report['manifest_input']['summary']
             print(f"manifest: {counts['selected_files']} verified files / {counts['skipped_rows']} declared skips / "
                   f"{counts['uninspected_files']} uninspected exports")
-        if args.links:
+        if args.links or args.value_words:
             print(f"{summary['local_reference_ranges']} local counted-reference ranges; primitive fields remain unknown")
+            if summary.get('local_container_headers'):
+                print(f"{summary['local_container_entry_ranges']} local container-entry ranges / "
+                      f"{summary['local_container_entry_records']} entry observations; key/value meanings remain unknown")
+            if summary.get('local_value_headers'):
+                print(f"{summary['local_value_primitive_pool_ranges']} primitive-pool sequences / "
+                      f"{summary['local_value_primitive_pool_groups']} checked four-byte groups; value meanings remain unknown")
+        if args.value_words:
+            print(f"{summary['raw_primitive_words']} raw primitive words / {summary['raw_key_slots']} full-width key slots; "
+                  'names are preimage candidates only')
         if args.primitive_layouts:
             print(f"{summary['primitive_pools']} checked raw primitive pools / {summary['primitive_groups']} opaque groups; "
                   'numeric types and meanings remain unknown')
@@ -3255,7 +3667,7 @@ def cmd_world(args) -> int:
     if args.start is not None or args.scan_mib!=8 or args.max_nodes!=100000:
         eprint('--start, --scan-mib and --max-nodes apply to native resource browsing')
         return 1
-    if (args.schemas or args.names or args.links or args.extent_diagnostics or args.primitive_layouts or
+    if (args.schemas or args.names or args.links or args.value_words or args.extent_diagnostics or args.primitive_layouts or
             args.reference_context or args.context_records or args.extract_resources or args.raw_resources or args.manifest or
             any(v is not None for v in (args.schema_type,args.schema_field,args.schema_code))):
         eprint('schema, link, primitive, context and extent options apply to native resource browsing')
@@ -3720,16 +4132,42 @@ def cmd_selftest(args) -> int:
         volume_padding_refused = True
     check("embedded volume preview requires complete allocation padding", volume_padding_refused)
 
+    from . import shader_bindings as _shader_bindings
+    public_psv = (_s.pack('<I', 24) + bytes(16) + _s.pack('<II', 0, 0xffffffff)
+                  + _s.pack('<II4I', 1, 16, 3, 4, 2, 5))
+    binding_source = shader_container((b'PSV0', public_psv))
+    binding_view = _shader_bindings.inspect(binding_source, register_space=4, register_index=5)
+    check('shader binding query matches inclusive public register ranges',
+          binding_view['status'] == 'complete' and binding_view['summary']['matched_count'] == 1
+          and binding_view['declarations'][0]['register_namespace'] == 't'
+          and binding_view['declarations'][0]['declared_stage_code'] is None)
+    binding_missing = _shader_bindings.inspect(binding_source, register_space=3)
+    check('shader binding query distinguishes an empty match from malformed metadata',
+          binding_missing['status'] == 'complete' and binding_missing['declarations'] == []
+          and binding_missing['summary']['declaration_count'] == 1)
+    binding_limited = _shader_bindings.inspect(binding_source, register_space=4,
+        register_index=5, max_records=binding_view['record_count']-1)
+    check('shader binding query shares its metadata and output budget atomically',
+          binding_limited['status'] == 'unresolved' and binding_limited['metadata'] is None
+          and binding_limited['declarations'] == [])
+
     # Opus packet records and Ogg remux.
-    block = _s.pack("<H", 1) + b"\x00" + _s.pack("<H", 2) + b"\x01\x02"
+    block = _s.pack("<H", 1) + b"\x00" + _s.pack("<H", 3) + b"\x01\x02\x03"
     opus_packets = _audio.packets(block + b"\x00" * (2048 - len(block)))
     check("audio packets split",
-          len(opus_packets) == 2 and opus_packets[1] == b"\x01\x02")
+          len(opus_packets) == 2 and opus_packets[1] == b"\x01\x02\x03")
     check("audio packet samples", _audio.packet_samples(b"\x00") == 480)
     ogg = _audio.ogg_opus(opus_packets, 960)
     check("ogg opus pages",
           ogg.startswith(b"OggS") and b"OpusHead" in ogg[:64]
           and ogg.count(b"OggS") == 4)
+
+    try:
+        _audio.ogg_opus([b"\x01\x02"], 960)
+        bad_opus_refused = False
+    except ValueError:
+        bad_opus_refused = True
+    check("legacy Ogg rejects malformed equal-frame Opus payloads", bad_opus_refused)
 
     bc1 = _s.pack("<HHI", 0xF800, 0x0000, 0)
     check("bc1 preview decodes", _bcn.decode_rgba(71, bc1, 4, 4)[:4] == b"\xff\x00\x00\xff")
@@ -5051,6 +5489,23 @@ def cmd_selftest(args) -> int:
     check('animation lookup candidates check high packed-entry padding',
           bad_lookup_view['status'] == 'unresolved' and bad_lookup_view['lookup_candidates'] == [])
 
+    from . import anim_selected_samples as _selected_samples
+    selected_view = _selected_samples.inspect_buffer(lookup_buffer, 0, len(lookup_buffer), 2,
+        source_ordinals=[0], row_start=1, row_count=2, consume=lambda n=1: None)
+    check('selected animation rows retain raw source indices and exact values',
+          selected_view['status'] == 'complete' and selected_view['observation_count'] == 2
+          and [row['index_code'] for row in selected_view['selected_sequences'][0]['observations']] == [1, 2]
+          and [int(row['raw_entry_bits'], 16) for row in selected_view['selected_sequences'][0]['observations']] == [7, 31]
+          and 'unconfirmed' in selected_view['semantic_status'])
+    selected_bad = _selected_samples.inspect_buffer(lookup_buffer, 0, len(lookup_buffer), 2,
+        source_ordinals=[0], row_start=3, row_count=2, consume=lambda n=1: None)
+    check('selected animation rows reject a range beyond the stored end',
+          selected_bad['status'] == 'unresolved' and selected_bad['selected_sequences'] == [])
+    selected_bad = _selected_samples.inspect_buffer(bytes(bad_lookup), 0, len(bad_lookup), 2,
+        source_ordinals=[0], row_start=0, row_count=1, consume=lambda n=1: None)
+    check('selected animation output does not skip whole-buffer validation',
+          selected_bad['status'] == 'unresolved' and selected_bad['selected_sequences'] == [])
+
     from . import psin_record_graph as _record_graph
     graph_lrsc = (b'0DRP' + _s.pack('<I', 122) + bytes(8) + _s.pack('<Q', 1)
                   + b'\xbb'*32 + _s.pack('<4H', 2, 0, 2, 0) + b'\xbb'*8 + bytes(8))
@@ -5317,6 +5772,53 @@ def cmd_selftest(args) -> int:
         selection_refused = True
     check('Texture preview selection refuses an out-of-range mip without substitution', selection_refused)
 
+    from . import dds as _dds
+    offline_pixels = bytes((9, 27, 81, 255))
+    offline_dds = _texture.dds_header(1, 1, 1, 1, 28) + offline_pixels
+    offline_layout, offline_png = _dds.preview(offline_dds)
+    check('offline DDS inspection and selected preview retain exact source bytes',
+          offline_layout['subresource_count'] == 1 and offline_layout['payload_bytes'] == 4
+          and offline_png == _png.png_bytes(1, 1, offline_pixels))
+    try:
+        _dds.preview(offline_dds + b'outside')
+        dds_tail_refused = False
+    except ValueError:
+        dds_tail_refused = True
+    check('offline DDS preview validates the complete declared file extent', dds_tail_refused)
+
+    from . import psin_schema_diff as _schema_diff
+    diff_source = instance_fixture(text_schema, text_body)
+    equal_diff = _schema_diff.compare(diff_source, diff_source)
+    check('PSIN literal comparison retains identical content without semantic compatibility',
+          equal_diff['source_bytes_equal'] and equal_diff['schema_sections_equal']
+          and equal_diff['semantic_compatibility'] == 'unconfirmed'
+          and any(row['status'] == 'equal_content' for row in equal_diff['comparisons']))
+    try:
+        _schema_diff.compare(diff_source, diff_source, max_nodes=equal_diff['work_units']-1)
+        schema_diff_budget_refused = False
+    except _schema_diff.SchemaDiffLimitError:
+        schema_diff_budget_refused = True
+    check('PSIN literal comparison refuses a short shared budget', schema_diff_budget_refused)
+
+    from . import shader_inputs as _shader_inputs
+    with tempfile.TemporaryDirectory() as offline_directory:
+        raw_shader_path = os.path.join(offline_directory, 'authored.cso')
+        with open(raw_shader_path, 'wb') as handle:
+            handle.write(public_program)
+        raw_shader_sha256 = hashlib.sha256(public_program).hexdigest()
+        raw_shader_report = _shader_inputs.inspect_files([raw_shader_path],
+            expected_sha256=[raw_shader_sha256])
+        check('offline shader inspection regenerates existing metadata from pinned file bytes',
+              raw_shader_report['status'] == 'complete'
+              and not raw_shader_report['archive_search_performed']
+              and raw_shader_report['files'][0]['metadata'] == _shaders.metadata(public_program))
+        try:
+            _shader_inputs.inspect_files([raw_shader_path], expected_sha256=['0'*64])
+            shader_pin_refused = False
+        except ValueError:
+            shader_pin_refused = True
+        check('offline shader inspection rejects mismatched source hashes', shader_pin_refused)
+
     print(f"\n{len(failures)} failure(s)")
     return 0 if not failures else 1
 
@@ -5381,6 +5883,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", help="write anim.json and anim-names.txt")
     p.add_argument("--resources", action="store_true",
                    help="join bounded 0DRP resources and export raw schema/block metadata; curves remain unknown")
+    p.add_argument("--key-holders", action="store_true",
+                   help="inspect supported raw key-holder and parent references; implies --resources; bone and rig meanings unknown")
     p.add_argument("--max-nodes", type=int, default=100000,
                    help="total metadata node budget for --resources (default 100000)")
     p.add_argument("--clip-records", action="store_true",
@@ -5401,6 +5905,20 @@ def build_parser() -> argparse.ArgumentParser:
                    help="check auxiliary source-record/row-bit checkpoints; implies --prefix-layout; samples and channel meanings remain unknown")
     p.add_argument("--checkpoint-candidates", action="store_true",
                    help="report compatible directory-slot sets without selecting channels (implies --aux-checkpoints)")
+    p.add_argument("--binding-layout", action="store_true",
+                   help="inspect raw binding keys, slot incidences and local animation-dictionary membership; implies --channel-layout; bone ownership unconfirmed")
+    p.add_argument("--sample-codes", action="store_true",
+                   help="export conditional raw row codes and packed entry bits; implies --lookup-candidates; numeric samples and timing unconfirmed")
+    p.add_argument("--raw-buffer", metavar="FILE",
+                   help="inspect selected raw codes in one exact packed buffer without scanning archives")
+    p.add_argument("--raw-skeleton", metavar="FILE",
+                   help="inspect supported named bone records in one decompressed native stream without scanning archives")
+    p.add_argument("--binding-count", type=lambda value: int(value, 0),
+                   help="caller-supplied binding count for --raw-buffer")
+    p.add_argument("--sample-source", action="append", type=lambda value: int(value, 0),
+                   help="source-record ordinal for --raw-buffer; repeat for multiple sources")
+    p.add_argument("--sample-rows", type=_sample_row_range, metavar="START:COUNT",
+                   help="stored-row selection for --raw-buffer (default 0:1); no time meaning implied")
     p.add_argument("--lookup-candidates", action="store_true",
                    help="check source-order indexed-payload candidates; implies --bit-layout; assignments unconfirmed")
     p.add_argument("--bit-layout", action="store_true",
@@ -5629,6 +6147,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--schema-code',type=lambda value:int(value,0),help='annotate a raw field type-word query; implies --schemas')
     p.add_argument('--names',help='explicit read-only joaat dictionary for schema name candidates; implies --schemas')
     p.add_argument('--links',action='store_true',help='inspect bounded local 0DRP counted-record references')
+    p.add_argument('--value-words',action='store_true',help='inspect checked raw primitive words and full key slots; --names adds verified preimage candidates; implies --links')
     p.add_argument('--manifest', help='inspect complete PSIN files pinned by a native export manifest; no archive scan')
     p.add_argument('--raw-resources', action='store_true',
                    help='inspect a whole direct resource file named by --archive; no carving or joining; no extraction')
@@ -5711,12 +6230,36 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_awc, spread=0, quiet=False, no_padding=False,
                    no_align=False, align=0x1000)
 
-    p = sub.add_parser("shaders", help="recover DXBC shaders from shaders.rpf")
-    p.add_argument("files", nargs="*", help="specific .rpf files")
+    p = sub.add_parser("dds", help="inspect a supported DDS file and preview a selected subresource", allow_abbrev=False)
+    p.add_argument("file", help="complete DDS file")
+    p.add_argument("--png", metavar="FILE", help="write the selected subresource as PNG")
+    p.add_argument("--out", metavar="FILE", help="write complete layout/preview metadata as JSON")
+    for option in ("mip", "slice", "z"):
+        p.add_argument("--" + option, type=lambda value: int(value, 0), metavar="N",
+                       help=f"preview {option} index (default 0; requires --png)")
+    p.add_argument("--max-bytes", type=int, help="input byte limit")
+    p.add_argument("--max-subresources", type=int, help="layout output limit")
+    p.add_argument("--max-pixels", type=int, help="selected preview pixel limit (requires --png)")
+    p.set_defaults(func=cmd_dds)
+
+    p = sub.add_parser("psin-diff", help="compare complete extracted PSIN schema declarations", allow_abbrev=False)
+    p.add_argument("left", help="first complete PSIN file")
+    p.add_argument("right", help="second complete PSIN file")
+    p.add_argument("--out", help="write the complete comparison as JSON")
+    p.add_argument("--max-nodes", type=int, default=100000, help="shared comparison work/output limit")
+    p.set_defaults(func=cmd_psin_diff)
+
+    p = sub.add_parser("shaders", help="recover shaders or inspect exported DXContainer files")
+    p.add_argument("files", nargs="*", help="specific .rpf files, or exported shaders with --raw")
+    p.add_argument("--raw", action="store_true", help="inspect complete supplied shader files without archive scanning")
+    p.add_argument("--max-total-records", type=int, help="shared inspection limit across --raw inputs (default 100000)")
+    p.add_argument("--max-input-bytes", type=int, help="aggregate --raw file byte limit (default 64 MiB)")
+    p.add_argument("--source-sha256", action="append", metavar="HASH",
+                   help="pin each --raw input in order; repeat once per file")
     p.add_argument("--archive", action="append", default=[], help="archive name fragment")
     p.add_argument("--limit", type=int, default=64, help="MiB to scan per archive")
     p.add_argument("--full", action="store_true", help="scan whole archives")
-    p.add_argument("--out", help="write .cso files into this directory")
+    p.add_argument("--out", help="write .cso files, or --raw shader-inspection.json, into this directory")
     p.add_argument("--metadata", action="store_true",
                    help="include bounded native DXBC stage/model and signature metadata")
     p.add_argument("--psv-signatures", action="store_true",
@@ -5725,6 +6268,12 @@ def build_parser() -> argparse.ArgumentParser:
                    help="inspect supported public PSV0 dependency masks (implies --psv-signatures)")
     p.add_argument("--features", action="store_true",
                    help="inspect public SFI0 shader feature flags (implies --metadata)")
+    p.add_argument("--bindings", action="store_true",
+                   help="query public PSV binding declarations and register overlaps (implies --metadata)")
+    for option, label in (("stage", "raw declared stage code"), ("space", "register space"),
+                          ("register", "register index within a declared range"), ("type", "raw resource type code")):
+        p.add_argument("--binding-" + option, type=lambda value: int(value, 0), metavar="N",
+                       help=f"filter reported binding declarations by {label} (implies --bindings)")
     p.add_argument("--max-records", type=int, default=4096,
                    help="metadata output record limit per shader (default 4096)")
     p.add_argument("--max", type=int, default=20, help="rows to display (default 20)")
@@ -5785,6 +6334,7 @@ def main(argv: list[str] | None = None) -> int:
     arguments = sys.argv[1:] if argv is None else argv
     parser = build_parser()
     args = parser.parse_args(arguments)
+    args._supplied_options = _supplied_options(parser, args, arguments)
     args._root_explicit = args.root != parser.get_default('root') or any(
         value == '--root' or value.startswith('--root=') for value in arguments)
     return args.func(args)

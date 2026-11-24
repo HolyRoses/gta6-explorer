@@ -11,6 +11,7 @@ from __future__ import annotations
 import struct
 
 PROFILE = 'world_0drp_local_counted_structure_ranges_v1'
+GUARDED_40_PROFILE = 'world_0drp_embedded_48_counted_40_zero_guard_v1'
 MAX_BYTES = 16 * 1024 * 1024
 
 
@@ -27,7 +28,9 @@ def inspect(data, structures, blocks, *, consume, max_depth=16):
     Inline fixed arrays retain a checked field/element path within their source
     row. Nulls are counted, unknown fields stay explicit, and a malformed known
     header refuses the entire view with no returned link prefix. The caller's
-    budget exception propagates. No target row is expanded into an object.
+    budget exception propagates. One observed embedded 48-byte owner admits a
+    40-byte counted slot only with its eight-byte prefix and 24-byte tail zero.
+    Those bytes' meanings remain unknown. No target row becomes an object.
     """
     if (not isinstance(data, bytes) or not 80 <= len(data) <= MAX_BYTES
             or data[16:20] != b'0DRP' or struct.unpack_from('<I', data, 20)[0] != 122):
@@ -95,10 +98,15 @@ def inspect(data, structures, blocks, *, consume, max_depth=16):
                 raise ValueError('world-link field shares or exceeds its owning slot')
             end = min([v for v in others if v > offset] + [owner['byte_size']])
             if code == 0x5c:
-                if auxiliary or end-offset != 16:
+                guarded_40 = (depth > 0 and owner['byte_size'] == 48 and offset == 8
+                    and end-offset == 40 and len(fields) == 2 and fi == 1 and di == 0)
+                if auxiliary or (end-offset != 16 and not guarded_40):
                     raise ValueError('unsupported world counted-record field slot')
-                operations.append(dict(kind='counted',field_index=fi,offset=offset,
-                    field_hash=name,target_hash=target['hash'],stride=target['byte_size'],owner_hash=owner['hash']))
+                operation = dict(kind='counted',field_index=fi,offset=offset,
+                    field_hash=name,target_hash=target['hash'],stride=target['byte_size'],owner_hash=owner['hash'])
+                if guarded_40:
+                    operation['layout_profile'] = GUARDED_40_PROFILE
+                operations.append(operation)
             else:
                 if not auxiliary or auxiliary * target['byte_size'] != end-offset:
                     raise ValueError('world fixed-array count does not exhaust its local field slot')
@@ -130,6 +138,12 @@ def inspect(data, structures, blocks, *, consume, max_depth=16):
                     visit(operation['child'],position+element*operation['stride'],block_index,
                         record_index,owner_hash,path+((fi,element),))
                 continue
+            if operation.get('layout_profile') == GUARDED_40_PROFILE:
+                # Check unknown bytes even for null headers and late owners.
+                # No nonzero variant is silently reinterpreted as padding.
+                if any(data[at:at+8]) or any(data[position+16:position+40]):
+                    raise ValueError('unsupported nonzero world embedded counted-slot guard bytes')
+                counts['guarded_40_headers'] = counts.get('guarded_40_headers', 0) + 1
             counts['counted_headers'] += 1
             count,other,word = struct.unpack_from('<IIQ',data,position)
             if (count,other,word) == (0,0,0):
@@ -156,6 +170,11 @@ def inspect(data, structures, blocks, *, consume, max_depth=16):
                                 for f,e in complete_path],
                     field_structure_hash=operation['owner_hash'],field_hash=f"0x{operation['field_hash']:08x}",
                     target_structure_hash=operation['target_hash'],target_stride=stride))
+                if 'layout_profile' in operation:
+                    charge(3)
+                    paths[-1].update(field_layout_profile=operation['layout_profile'],
+                        unknown_zero_guard_spans=[dict(owner_offset=0,byte_length=8),
+                                                 dict(owner_offset=24,byte_length=24)])
             charge()
             links.append(dict(source_block_index=block_index,source_record_index=record_index,
                 source_path_index=path_index[identity],source_data_offset=position,

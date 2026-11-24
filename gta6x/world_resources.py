@@ -79,7 +79,8 @@ def inspect_sources(paths, *, start=None, scan_bytes=8 * 1024 * 1024,
                     with_schemas=False, dictionary=None, structure_hash=None,
                     field_hash=None, type_word=None, with_links=False,
                     with_extent_diagnostics=False, with_primitive_layouts=False,
-                    with_reference_context=False, context_records=(), raw_resources=False):
+                    with_reference_context=False, context_records=(), raw_resources=False,
+                    with_value_words=False):
     """Return source-addressed schema/block relationships without a backend.
 
     Only exact existing PSIN page framing is joined. A 0DRP stream is never joined
@@ -91,6 +92,9 @@ def inspect_sources(paths, *, start=None, scan_bytes=8 * 1024 * 1024,
     """
     if type(raw_resources) is not bool:
         raise ValueError('native-world raw_resources must be boolean')
+    if type(with_value_words) is not bool:
+        raise ValueError('native-world with_value_words must be boolean')
+    with_links = with_links or with_value_words
     if raw_resources and start not in (None, 0):
         raise ValueError('native-world raw resource input requires a whole file at offset zero')
     for value, label, minimum, maximum in ((scan_bytes,'scan byte limit',1,MAX_SCAN_BYTES),
@@ -220,6 +224,8 @@ def inspect_sources(paths, *, start=None, scan_bytes=8 * 1024 * 1024,
         if with_links:
             if kind != '0drp':
                 views['local_links'] = dict(status='unsupported', reason='no native PSIN world body-reference profile established')
+                if with_value_words:
+                    views['value_words'] = dict(status='unsupported', reason='raw value-word inspection supports the bounded 0DRP profile only')
             else:
                 from . import world_links
                 try:
@@ -229,6 +235,37 @@ def inspect_sources(paths, *, start=None, scan_bytes=8 * 1024 * 1024,
                 except ValueError as exc:
                     views['local_links'] = dict(status='refused', reason=str(exc))
                     view_failures += 1
+                else:
+                    from . import world_containers
+                    try:
+                        views['local_containers'] = world_containers.inspect(
+                            data, definitions, blocks, links=views['local_links'], consume=consume)
+                    except WorldResourceLimitError:
+                        raise
+                    except ValueError as exc:
+                        views['local_containers'] = dict(status='refused', reason=str(exc))
+                        view_failures += 1
+                    else:
+                        from . import world_values
+                        try:
+                            views['local_value_sequences'] = world_values.inspect(
+                                data, definitions, blocks, links=views['local_links'], consume=consume)
+                        except WorldResourceLimitError:
+                            raise
+                        except ValueError as exc:
+                            views['local_value_sequences'] = dict(status='refused', reason=str(exc))
+                            view_failures += 1
+                        else:
+                            if with_value_words:
+                                from . import world_words
+                                try:
+                                    views['value_words'] = world_words.inspect(data, definitions, blocks,
+                                        links=views['local_links'], consume=consume, dictionary=dictionary)
+                                except WorldResourceLimitError:
+                                    raise
+                                except ValueError as exc:
+                                    views['value_words'] = dict(status='refused', reason=str(exc))
+                                    view_failures += 1
         if with_primitive_layouts:
             if kind != '0drp':
                 views['primitive_layouts'] = dict(status='unsupported',
@@ -421,6 +458,19 @@ def inspect_sources(paths, *, start=None, scan_bytes=8 * 1024 * 1024,
     if with_links:
         report['summary']['local_reference_ranges'] = sum(
             r['local_links'].get('summary', {}).get('reference_ranges', 0) for r in resources)
+        for source_key, output_key in (('containers','local_container_headers'),
+                ('entry_ranges','local_container_entry_ranges'),
+                ('entry_record_observations','local_container_entry_records')):
+            report['summary'][output_key] = sum(
+                r.get('local_containers', {}).get('summary', {}).get(source_key, 0) for r in resources)
+        for key in ('value_headers','null_headers','primitive_pool_ranges','primitive_pool_groups','unresolved_pools'):
+            output_key = 'local_value_headers' if key == 'value_headers' else 'local_value_' + key
+            report['summary'][output_key] = sum(
+                r.get('local_value_sequences', {}).get('summary', {}).get(key, 0) for r in resources)
+    if with_value_words:
+        for key in ('primitive_words','key_slots','preimage_words','preimage_candidates'):
+            report['summary']['raw_' + key] = sum(r.get('value_words', {}).get('summary', {}).get(key, 0)
+                                                for r in resources)
     if with_primitive_layouts:
         for key in ('primitive_pools', 'primitive_groups'):
             report['summary'][key] = sum(

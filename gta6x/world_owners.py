@@ -130,8 +130,20 @@ def inspect(data, structures, blocks, *, consume, links=None, queries=()):
                 element = uint(step.get('element_index'), auxiliary-1, 'inline element')
                 position += element*child['byte_size']; owner = child
             else:
-                if word & 0xffff != 0x5c or auxiliary or end-offset != 16 or 'element_index' in step:
+                guarded_40 = (depth > 0 and owner['byte_size'] == 48 and offset == 8
+                    and end-offset == 40 and len(owner['fields']) == 2 and fi == 1 and di == 0)
+                if (word & 0xffff != 0x5c or auxiliary or (end-offset != 16 and not guarded_40)
+                        or 'element_index' in step):
                     raise ValueError('reference-context terminal path is not a counted field')
+                if guarded_40:
+                    if (path.get('field_layout_profile') != world_links.GUARDED_40_PROFILE
+                            or path.get('unknown_zero_guard_spans') != [dict(owner_offset=0,byte_length=8),
+                                                                       dict(owner_offset=24,byte_length=24)]):
+                        raise ValueError('reference-context embedded counted-slot profile differs')
+                    if any(data[position-8:position]) or any(data[position+16:position+40]):
+                        raise ValueError('reference-context embedded counted-slot guard bytes are nonzero')
+                elif 'field_layout_profile' in path:
+                    raise ValueError('reference-context layout profile does not match a guarded field')
                 if (path.get('field_structure_hash') != owner['hash']
                         or path.get('field_hash') != f'0x{name:08x}'
                         or path.get('target_structure_hash') != child['hash']
@@ -201,10 +213,15 @@ def inspect(data, structures, blocks, *, consume, links=None, queries=()):
     def evidence(li):
         row = rows[li]; path = paths[row['source_path_index']]
         charge(1+len(path['field_path']))
-        return dict(row, reference_index=li, source_structure_hash=path['source_structure_hash'],
+        result = dict(row, reference_index=li, source_structure_hash=path['source_structure_hash'],
             field_structure_hash=path['field_structure_hash'],field_hash=path['field_hash'],
             field_path=[dict(step) for step in path['field_path']],
             target_structure_hash=path['target_structure_hash'],target_stride=path['target_stride'])
+        if 'field_layout_profile' in path:
+            charge(3)
+            result.update(field_layout_profile=path['field_layout_profile'],
+                          unknown_zero_guard_spans=[dict(span) for span in path['unknown_zero_guard_spans']])
+        return result
     for bi,ri,reason in normalized_queries:
         if reason is not None:
             charge(); contexts.append(dict(block_index=bi,record_index=ri,status='unresolved',reason=reason,ancestry=[]))

@@ -158,10 +158,12 @@ def inspect(manifest_path, *, max_nodes=100000, scan_bytes=8*1024*1024,
     _uint(max_inflated_bytes, MAX_BYTES, 'decoded byte limit', 1)
     # Reject unknown/unsafe options before manifest or source reads. The delegated
     # reader validates the remaining view-specific values before payload reads.
-    allowed = {'with_schemas','dictionary','structure_hash','field_hash','type_word','with_links',
+    allowed = {'with_schemas','dictionary','structure_hash','field_hash','type_word','with_links','with_value_words',
                'with_extent_diagnostics','with_primitive_layouts','with_reference_context','context_records'}
     if set(native_options)-allowed:
         raise ValueError('unsupported native manifest inspection option')
+    if type(native_options.get('with_value_words', False)) is not bool:
+        raise ValueError('native manifest with_value_words must be boolean')
     for key in ('structure_hash','field_hash','type_word'):
         if native_options.get(key) is not None:
             _uint(native_options[key],0xffffffff,key)

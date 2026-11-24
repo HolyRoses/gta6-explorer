@@ -12,12 +12,12 @@ and world exports, and supported audio-to-WAV conversion.
 
 | Area | What you can do |
 | --- | --- |
-| **Textures** | List streamed and embedded textures; export supported mip chains, arrays and cubemaps to DDS; generate PNG previews, including BC1–BC7. Select preview mips, slices and supported volume planes. |
+| **Textures** | List streamed and embedded textures; export supported mip chains, arrays and cubemaps to DDS; generate PNG previews, including BC1–BC7. Inspect supported DDS files and preview selected mips, slices and volume planes offline. |
 | **Audio and music** | Inspect AWC streams and music channels; extract native payloads; remux supported Opus to playable Ogg; export supported WAV audio with libopus. Browse audio-config records and TRACKID chapter metadata. |
 | **Video** | Find Bink2 movies, inspect dimensions and duration, and extract the original files. |
-| **Metadata** | Browse PSIN schemas, enums, supported instance values and record links; export JSON and recover complete XML/PSIN resources. |
-| **Shaders** | Extract DXBC shader binaries and inspect program, signature and feature metadata. |
-| **Animation** | List names and clips; inspect resource, component and packed-buffer layouts, plus MoVE and RBF metadata. |
+| **Metadata** | Browse PSIN schemas, enums, supported instance values and record links; compare extracted schema declarations; export JSON and recover complete XML/PSIN resources. |
+| **Shaders** | Extract DXBC binaries; inspect signatures and features; query logical resource bindings by stage, register, space and type. |
+| **Animation** | List names and clips; inspect native bone tables, packed buffers, binding keys and selected raw code rows; trace supported raw key-holder chains; browse MoVE and RBF metadata. |
 | **Native world inspection** | Browse level-resource schemas and blocks, inspect supported primitive storage, and trace checked local record references. |
 | **Asset browsing** | Build JSON or SQLite catalogs, generate a searchable HTML browser, retrieve individual assets and use an interactive terminal browser. |
 | **3D exports** | Export models to glTF/GLB and world data such as placements, collision, navmeshes and paths through the optional SixNG backend. |
@@ -85,6 +85,7 @@ markers and TRACKID chapters.
 python3 -m gta6x psin --archive levels --schema --out schemas.json
 python3 -m gta6x psin --archive levels --instances --record-graph --out instances.json
 python3 -m gta6x shaders --metadata --out ./exports/shaders
+python3 -m gta6x --json shaders --bindings --binding-type 3 --max 10
 python3 -m gta6x anim --resources --clips --out ./exports/animations
 python3 -m gta6x world --kind resources --schemas --extract-resources --out ./exports/world
 ```
@@ -102,13 +103,62 @@ adds candidate names without asset bindings. `--graph-dot FILE` exports checked 
 `--type5c-pool-context` compares candidate spans with existing reference-pool users.
 `psin --manifest FILE` queries verified exports; `--manifest-limit` selects a prefix.
 
-Native world inspection supports `--links`, `--primitive-layouts`,
-`--reference-context` and `--context-record BLOCK:RECORD`. Bound scans with
+Native world inspection traces supported direct and fixed-embedded references
+with `--links`, including supported container entries and counted-value pool
+references. Pool grouping requires complete coverage; keys and value meanings
+remain unknown. Use `--primitive-layouts`, `--reference-context`
+and `--context-record BLOCK:RECORD` for the supported storage views. Bound scans with
 `--start`, `--scan-mib` and `--max-nodes`; `--extent-diagnostics` reports gaps
 and missing declared bytes. `--extract-resources` exports complete checked PSIN
 files and skips unknown boundaries. To inspect an extracted file directly, use
 `--raw-resources --archive FILE`; raw inputs are never carved or joined.
 `--manifest FILE` verifies and inspects a batch from a native export manifest.
+Add `--value-words` to inspect raw primitive bits and full key slots; it implies
+`--links`. Use `--names FILE` for verified hash-preimage candidates whose native
+meanings remain unconfirmed.
+
+For animation research, `anim --binding-layout` traces raw binding keys to
+slot-directory entries and checks local animation-dictionary membership,
+identifier hashes and member buckets.
+`anim --sample-codes` exports conditional raw row codes
+and packed entry bits; use `--out DIR` to save JSON and `--max-nodes N` to set
+the output budget. Numeric samples, poses, timing and bone bindings remain
+unresolved.
+
+`anim --key-holders` inspects supported native key-holder and parent references
+and implies `--resources`. Use `--max-nodes` to set the inspection budget;
+bone and rig meanings remain unconfirmed.
+
+For a decompressed native pack stream, `anim --raw-skeleton FILE` inspects bone
+names, stored keys and parent/sibling/subtree relationships. Add `--out DIR` to
+save `skeleton.json`; poses and animation-to-skeleton ownership remain unknown.
+
+Inspect selected rows from an extracted packed buffer using its parent metadata's
+binding count:
+
+```bash
+python3 -m gta6x --json anim --raw-buffer packed.bin --binding-count 64 \
+  --sample-source 0 --sample-rows 0:4
+```
+
+Shader `--binding-stage`, `--binding-space`, `--binding-register` and
+`--binding-type` filter reported declarations. These describe logical registers;
+game texture and material identities remain unknown.
+
+### Work with extracted files
+
+Inspect assets without scanning the game archives:
+
+```bash
+python3 -m gta6x dds texture.dds --png preview.png
+python3 -m gta6x --json shaders --raw shader.cso --bindings
+python3 -m gta6x psin-diff before.psin after.psin --out comparison.json
+```
+
+DDS previews support `--mip`, `--slice` and `--z` for supported, tightly packed
+DX10 layouts. Raw shader mode accepts multiple files and writes inspection JSON
+with `--out DIR`. PSIN comparison preserves unknowns and ambiguous declarations;
+matching hashes do not establish semantic compatibility.
 
 ### Catalog and browse assets
 
