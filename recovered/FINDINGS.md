@@ -4412,3 +4412,497 @@ tests(twooptional skips),280selftests. No GPLsource, gamefixture, preferredbone
 map, name-dictionary change, staging, commit or push. Frozen roles and provisional
 labels preserved. Methods:`docs/packs_skeleton_team_provenance.md` and its three
 track records; private evidence:`work/packs_skeleton_team/`.
+
+
+## Alternate bone keys, keyed numeric arrays and skeleton compatibility (2026-11-24)
+
+Three discovery-only investigations extend the native table reader without
+selecting an animation owner or assigning pose semantics. Existing frozen roles,
+source exclusions, profiles and BCPack provisional labels remain unchanged.
+
+Alternate u16 keys have an independently derived arithmetic candidate: uppercase
+ASCII nibble-add/top-nibble-fold, then modulus65,167 plus368. Constants came from
+GCD relationships on203 fitting normalized names, among32 predeclared case/hash
+families. After arithmetic freeze,200/200nonzero name holdouts match; one stored
+zero stays unexplained. All1,383 discovery tables yield21,762nonzero matches and
+1,383unexplained zeros. No native key table, name exception or external code was
+used. Collisions remain source-scoped, not a preferred global bone identity.
+
+Header+56 references a16-byte-aligned disjoint N*64 parallel array. Every row+60
+contains the corresponding named record's complete stored u32 hash. Fitting used
+763tables/5,940records; frozen discovery-internal checking used620tables/17,205
+records. All pass. Remaining words are exposed as raw bits and explicit f32
+candidates, with the hash word excluded. Nonfinite patterns retain their bits
+and classification with null numeric values. Fitting examples were identity-like;
+variation in check data was not used to select rotation/translation/matrix or
+rest/bind/local/global meanings. Other header references stay untraversed.
+
+Root then reread the exact previous reserved cohort using frozen new helpers and
+tests. Of2,969stream observations,1,449discovery-content duplicates are quarantined
+before parsing;1,360of1,520eligible sources support both inspectors and160retain
+unsupported reasons. All20,833parallel key equalities pass. Alternate comparisons
+produce19,473nonzero matches,1,360unexplained zeros and0other mismatches. Reserved
+has627distinct normalized names, including298absent from discovery; all298match
+the arithmetic. No profile was changed from these results. Prior whole-archive
+and structural exposure is acknowledged; this is heldout-from-fitting evidence,
+not independent namespace, pose or owner ground truth.
+
+The metadata-only ownership comparator retains table alternatives per animation,
+raw kind and optional dictionary-union hypothesis. The original786animations have
+188whole-animation key scopes covered by six table alternatives each, spanning
+five key/forest profiles. The other598contain cohort-absent keys. All191optional
+dictionary unions contain missing keys; mixed namespaces, mixed targets and an
+incomplete table cohort prevent an ownership exclusion. No native skeleton or
+rig provider is selected. Source-order, exact/under-budget, wrong-word/endian and
+late malformed-record controls pass; original native producers stay pinned.
+
+New `--bone-keys` and `--pose-layout` flags require `anim --raw-skeleton FILE`.
+Default output is unchanged. Optional views share the total node budget, retain
+stored mismatches, and fail explicitly without exporting partial results when
+unsupported or exhausted. Two existing qualified discovery sources have exact
+CLI/stdout/export/API agreement. Forty-six new authored tests;2,443unit tests
+(two optional-data skips),280selftests. Details:docs/packs_followup_team_provenance.md,
+docs/packs_bone_keys_provenance.md,docs/packs_bone_poses_provenance.md and
+docs/anim_skeleton_candidates_provenance.md. No game fixtures, external source,
+stage, commit or push.
+
+
+## Skeleton pointer context, zero keys and fixed numeric relations (2026-11-24)
+
+The new source-local provider-context path is child+16(fullu64)→minimum32Bheader
+with two equal storedu16counts→Ncompleteu64slots→minimum8Brawtargetprefixes.
+Every slot and alias is retained; new spans are bounded/disjoint from checked
+named-table regions. Empty arrays leave their pointer untraversed. Neither raw
+literal words nor equal counts establish a type, capacity role, provider namespace,
+full target stride or resource boundary. All763fit and620post-freeze discovery
+check tables support the path; no animation-to-skeleton owner is selected.
+
+The name-independent zero diagnostic was frozen before native newfield replay.
+Discovery has1,383activezero-key lookup witnesses, all atordinal0andparentless,
+but703otherparentless rows across88multiroot tables have nonzero alternatekeys.
+Rawflags overlap, so neither parentlessness nor flags uniquely explainszero.
+Arbitrary zerochildren/multiplezero/nozero/nonzeroroot cases remain valid. No
+zero-name rule or arithmetic exception was fitted; the old nameholdout remains
+heldout and the existing candidateformula is unchanged.
+
+Pure-math relation diagnostics were frozen before native replay, including a
+pre-read extension for stride-four bases with final-three-word translation.
+All4layouts,8quaternion/scale cases perlayout andbothparentorders are retained;
+componentwise tolerances are fixed atabsolute1e-4+relative1e-4*maxmagnitude.
+Fitting windows0/2 remain identity-like, so they cannot choose a convention.
+Post-freeze check windows4/6 contain17,205records: allnamedquaternion norms are
+near1, allnamedtranslation triples matchparallel final3words, and the transposed
+stride-four basis matches directxyzw quaternion rotation; equivalently the raw
+basis matches the conjugated candidate. Wrong direct-on-untransposed convention
+contradicts8,539rows. Scale-side remains ambiguous; eachparentmodel retains over
+10,000contradictions. This establishes algebraic correspondences, not local/global,
+rest/bind, animation sample or provider semantics. No posemodel is selected.
+
+Root's sealed reserved replay uses exactly the prior2,969stream observations,
+quarantining1,449discovery-content duplicates before the new readers. All3new
+inspectors support1,360of1,520eligible sources and retain160unsupported reasons.
+The1,360pointer slots/targetprefixes pass, all1,360zero entries are active and
+ordinal0/parentless, and509otherparentless rows remain nonzero. All20,833keyed
+records satisfy unitnorm/tailtranslation/transpose-conjugate checks; wrong direct
+orientation contradicts5,448. Allparentmodels retain6,981–7,120contradictions
+outof18,964nonrootrows. Fullcounterexamples/alternatives remain in the private
+report; no code, profile, tolerance or algorithm was changed from the results.
+These sources were held out from newprofile fitting, not blind or independent
+semantic groundtruth; broad originaldiagnostic and structural exposure is explicit.
+
+New `--skeleton-context` requires `anim --raw-skeleton FILE`. The3views share the
+explicit totalbudget with every requested inspector; unsupported/latebudget cases
+write no partialexport. Larger tables can use `--max-nodes 1000000`. Twopreviously
+qualified discovery sources have exact CLI/stdout/export/API agreement. Thirty-six
+newauthoredtests;2,479unit tests(twooptional skips),280selftests. Frozen roles,
+sourceexclusions, oldreports/readers, name dictionary and BCPacklabels unchanged.
+See docs/packs_semantics_team_provenance.md,docs/packs_skeleton_providers_provenance.md,
+docs/packs_bone_zero_keys_provenance.md,docs/packs_bone_relations_provenance.md.
+No external implementation or gamefixtures added; no stage, commit or push.
+
+
+## Nested provider targets, compact name lookup and pose-space limits (2026-11-24)
+
+The bounded provider path now extends each checked target to a minimum88Bprefix.
+Its+72fullu64reference and+80/+82pairedu16counts support a narrow0/1profile:
+zero leaves the pointerraw; singleton points to a minimum8Brefslot then a
+minimum8Brawpayloadprefix. Countsabove1remainunsupported because entrystride is
+unestablished. Allsourcealiases/rawwords remain available; targettype, complete
+allocation/provider namespace and animation owner remain unknown. All763fit and
+620frozencheck tables support this secondhop;6,915malformedcontrols refuse.
+
+Header+72of the native boneheader is a separately bounded compact name lookup,
+not the initially tested plain index arrays. A count and storedbyteextent bound
+packed6Bnodeheaders and NULterminated ASCIIfragments. Relative sibling/child
+links, signedterminalvaluecursors, complete nodecoverage and a trailing N*u16
+ordinalpermutation reconcile every decodedname with its independently stored
+namedrecord/hash. Originalspellings survive casevariants; no name or hash winner
+is chosen. Discovery resolves23,145terminalnames over34,476nodes, preserving
+6casevariants. The compactlookup maps names to ordinals, not alternateu16keys;
+its normal mapping to ordinal0 does not explain alternatezero or makezero null.
+
+The newformat's prefreeze exposure is explicit: initial19nonzero literalchecks
+included7originalarithfit and12originalarithheldout names; those12are not fresh
+trieholdouts. Later literal-fitting used46distinctnames from the old203allowlist
+available in fittingwindows0/2. Zero-name comparison was deferred until final
+parser/testseal. The original arithmetic formula, split and results are unchanged;
+no zero-name or arithmeticexception was fitted. All-name validation and source
+checks are formatconsistency, not blind or independent semantic truth.
+
+Pose-coordinate investigation adds a tools-only bounded audit, not a runtime
+array decoder. Initial+48-before-+56endpointhypothesis failedall763fit sources;
++48 instead equals the checkedkeyedarrayEND, supplying no extent/count foritsown
+content. No perrowreference witness was found. All+48targetbytes remainunread.
+Fixedwhole-parent-chain direct/inverse cases retain both orientations andorders;
+identity-likefitdata agrees onall5940rows, while checkdata has10,767rows with
+nonidentityancestors and thousands of contradictions in everycase. No independently
+recordedroot-space target exists for a coordinateclaim; local/global/rest/bind
+meanings remainunknown. Failedhypotheses and checkassignments are preserved.
+
+Root's sealed replay reuses exactly2,969priorreserved streams, quarantining1,449
+exactdiscovery-content duplicates before anynewreader. All3inspectors support
+1,360of1,520eligible sources, with160explicitunsupported reasons. Reservedcompact
+lookup resolves29,701nodes/20,833exactname-to-ordinal terminals, including1,360
+ordinary mappings to alternatezero rows;1,360nestedtarget hops pass. The+48
+endpoint equality holds on1,360sources with0targetbytesread. There are7,133rows
+withnonidentityancestors; everychainalternative remainsreported. No code/profile
+changed fromthese observations. Priorbroadscan and structural exposure is
+acknowledged: reservedroles are heldoutfromnewprofilefitting, not independent
+semantic groundtruth.
+
+New `--provider-targets` and `--bone-names` require `anim --raw-skeleton FILE`.
+They combine with priorviews under oneexplicitnodebudget; malformedgraphs,
+unknownstrides and latebudget failures neverexport partialJSON. Twooriginal
+qualifieddiscovery sources have exact CLI/stdout/export/API agreement. Thirty-five
+newauthoredtests;2,514unit tests(twooptional skips),280selftests. Oldprofiles,
+reports/source roles/splits and BCPackprovisional labels unchanged. Details:
+docs/packs_space_team_provenance.md,docs/packs_provider_targets_provenance.md,
+docs/packs_bone_names_provenance.md,docs/packs_pose_spaces_provenance.md.
+No externalreferencecode or nativefixtures added; no stage, commit or push.
+
+
+## Provider payload context, alternate-key routing and pose fences (2026-11-24)
+
+Three clean-room investigations addtools/tests/provenance only. No runtime
+reader orCLIflag was added because no new payload/arrayextent or externalkey
+consumer was established. Allpriorruntime/sourceprofiles/splits/reports,
+arithmeticnamefitting and BCPackprovisional labels remainunchanged.
+
+The proposed fixed payload+256 reference/count closure is not universal:
+95/763fit,207/620fixedcheck and388/1,360reserved sources match. The unownedword
+atpayload+8 equals payload+80, and unownedknown-target−48 context matches the
+checkedproviderarrayref/count inall2,743supported sources. Neither equality
+establishes an ownedfield, recordsize, type, provider or animation owner. The
+bounded contextaudit retains differences/unavailablecontexts and follows none
+of the candidatewords to decode payloads.
+
+Storedmap placement supplies stronger internalkeyrouting evidence: full32key
+moduloSTOREDcapacity +circularlinearprobe reaches11,880fit,34,410fixedcheck and
+41,666reserved entries, total87,956, including25,539displaced entries. Four
+predeclared alternativefamilies retain thousands of unreachableentries; smallcap
+coincidences survive. This is a fitted routingcandidate, not proof of executed
+lookupcode, a globalhashnamespace or externalrequester. Syntheticcallerqueries
+0,65536andFFFFFFFF preserve activezero/full32distinctions/empty-marker semantics,
+retain duplicate-key alternatives, and bound fullcycles. No zeroexception fitted.
+Root+32/N−1 investigation found a firstNAMEHASH equality but no generalstride or
+extent:733/763fit sources fail eachtested arraystride;30singletoncases cannot
+identifystride. That lead was not made into a reader.
+
+Pose-array geometry remains unproved. Independent readers supply enumerated
+knownregionfences, not a complete allocationcatalog. A proposed N*64span at+48
+ends at a knownlookupstart in32fit+2fixedcheck+35reserved sources, total69;
+2,674others remainunresolvedgaps. All+48refs equalthe checkedkeyedarrayend, but
+that point has no independent arraycount/extent authority. No targetbytesread,
+normalization or pose meaning inferred. SourceEOF and exact-start coincidences
+are geometricconstraints only. Review added explicit region_catalog_complete=False
+beforecheckreads; originalv1seal/tool/tests/fitreport were preserved. No geometry
+rule changed from heldoutresults.
+
+Root's fixed oldreserved replay pins47dependencies/profiles/tests beforebytes,
+preserves1,449exactdiscoveryduplicate quarantines outof2,969streams, and completes
+all3audits on1,360of1,520eligible sources;160unsupported reasons stayexplicit.
+Allzero probes there are explicitcallerqueries, notnativegame requests. No new
+profile fitting followed evaluation. Priorbroadscan/structural/aggregate exposure
+is acknowledged; these are checks heldoutfromnewprofiles, not independent
+semanticgroundtruth. Twenty-four authoredtests;2,538unit tests(twooptional skips),
+280selftests. Prioruncommittedcode and runtime capabilities unchanged. Details:
+docs/packs_payload_team_provenance.md,docs/packs_provider_payloads_provenance.md,
+docs/packs_bone_consumers_provenance.md,docs/packs_pose_arrays_provenance.md.
+No external implementation/nativefixture added; no stage, commit or push.
+
+
+## Provider extent declarations, native requester widths and pose counts (2026-11-24)
+
+A focused three-agent follow-up doesnot establish new decoderauthority; no
+runtime/CLI or duplicate publicauditframework was added. Existinguncommitted
+code/sourceprofiles/splits/reports/arithmeticnameholdouts and BCPacklabels remain
+unchanged. Newprivate plans/scripts/seals and provenance retain exactfailures.
+
+Providerdescriptorbytes repeat one layout across763fit sources, not763independent
+declarations. Candidate packedranges endat252withinternalgap ratherthan the
+required256; all763fail the extenttest. A proposed55*8+8descriptor endpoint has
+4compact-name-start/278other-reference matches and481withoutwitness. Constant
+344, alignment and neighboringnames establish no size/type/instance authority.
+A briefnames.jsonformat/header inspection was stopped dueprotectedcommon origins;
+no descriptor-keycomparison/preimage entered fitting. No4/6/mainreservedreads.
+
+Requester metadata replays verify618originalanimation resourceobservations and
+strictRBF entries. None of28predeclaredID/Tag/Hash/Index/Skeleton/Rig-stylefield
+preimages matches218,458field observations (159distinctstructurehashes,
+855distinctfieldtuples). Lexicalabsence isnotproof ofglobalabsence. The726checked
+1024→40→32holder paths carry525nonzero keyslots and726nestedslots, allgreaterthan
+FFFFwhilefittingu32 inwholeu64slots.201keyzeros remainseparate. Thus those values
+cannotbe directexactnonzerou16alternate requests without an unproven transformation,
+independent ofpacktable choice. ActualRBFfieldinventory supplies no alternatekey
+field. Two separate pinnedprocessreplays agree; no newnativepayload/check/reserved
+read or namespace/provider/consumer interpretation.
+
+Pose-count fitting provides no discrimination: allsixu16words+108..118=N and
++120Q=0 onall763supported tables/5940rows. That cannotassign countpairing orreference
+ownership to+48. Its equalityto keyedarrayEND isalso compatiblewith an endpoint
+marker; anotherarraystart isnotestablished. No declaration/instance link or target
+byte was decoded, and no frozencheck variation was used to fit a correction.
+
+Twoauthoredcross-reader regressions protect the inferenceboundaries: matchinglow16
+bits cannotlink a wideholderslot to analternatekey; equalcounts and matrix-looking
+bytes donotauthorize an unownedarrayread (scalar-read instrumentation checks this).
+No nativeaggregatecount fixtures were added. All2,540unit tests pass(twooptional
+skips),280selftests pass. Existingruntime/CLI/README unchanged thisbatch. Details:
+docs/packs_authority_team_provenance.md,docs/packs_provider_metadata_provenance.md,
+docs/native_bone_requesters_provenance.md,docs/packs_pose_counts_provenance.md.
+No gamefixture, externalreferencecode, stage, commit or push.
+
+
+## Fresh source cohort and comparison-only requester evidence (2026-11-24)
+
+A metadata-first qualification extends the exclusions across 267 newer metadata
+files, retaining 62,067 protected hashes and 77,290 hashes from all prior roles.
+The old split, known streams, protected ranges and unresolved archive-less
+intervals are excluded. Three conflicting windows are unused. Twelve new 4-MiB
+windows fix 24 MiB discovery and 24 MiB reserved before payload reads; split SHA
+is a60795309b40749aa8ac82e367be59258a9efd0030aeab95d1e5984de13b7262.
+Of 373 wholly framed streams, 30 prior-content duplicates are quarantined before
+agent access. The cache has 343 observations / 341 distinct payloads / 41,245,504
+inflated bytes. Crossing, incomplete and oversized streams are not joined;
+this is not a complete logical-resource census.
+
+All fresh streams are unsupported by the unchanged skeleton/provider path:
+141 child-reference bounds failures and 202 root-prefix refusals. No accepted
+0DRP, PSIN or RBF0 marker supplies a direct metadata candidate. This does not
+exclude embedded resources or new families. A separate planned probe finds
+41 two-reference/+24-zero and 100 one-reference/+24-one root shapes, with 202
+other sources. All 182 bounded eight-byte target contexts are zero. No second
+hop, owned count, descriptor, extent or +48 target is decoded. No base is relaxed.
+
+Additional requester evidence is comparison-only. All 42 model-directory hashes
+are protected, and world-window qualification has unresolved conflicts; neither
+becomes fitting data. Code, 28 field-name preimages and inputs were frozen before
+screening. Model headers, raw field words, positions and membership revalidate
+798 declarations / 4,112 field observations (20 structure hashes / 102 field
+tuples), with zero hits. This is not semantic transfer or a consumer-absence
+claim. Resolved names, dictionary annotations and payload reads are excluded.
+
+The world summary has no raw declarations. A separate frozen registry selection
+finds none of the 21 exact archive/offset/hash identities, and no offset/hash
+pairs even when ignoring labels, among 697 schemas / 1,976 labels. No label
+normalization workaround applies; zero section bytes are decoded. The 21 world
+sources remain unavailable, not zero-hit field comparisons. Both comparisons
+reproduce in separate processes. Qualification artifacts and source roles stay
+unchanged, with no fitting from comparison results.
+
+Two authored regressions prevent pointer-offset fallback and cross-role stream
+joining. All 2,542 tests pass (two optional skips), plus 280 selftests. Reserved
+windows remain unread. No runtime reader, CLI flag or duplicate framework was
+added; prior code, reports, profiles, name holdouts and BCPack labels are intact.
+Prior broad diagnostic exposure remains acknowledged. Details are in
+docs/packs_new_evidence_team_provenance.md and the fresh provider, pose-count
+and requester records. No game fixture, external implementation, stage, commit
+or push was added or performed.
+
+
+## Separate fresh-root reference graph (2026-11-24)
+
+A new native API, `packs_root_layouts.inspect`, checks a narrow profile separate
+from the old skeleton path: a minimum 32-byte root with zero first/+24 words,
+root +8 to a 32-byte prefix, root +16 to a 64-byte prefix, and its +40 to an
+8-byte context. Complete u64 local references and all four disjoint minimum
+spans are checked. Late failures/overlaps/aliases outside this profile refuse
+atomically. Resource type, native counts, full extents and ownership stay unknown.
+Opaque fields, including a 0x60000000-like word, remain raw and are never rebased
+or used as graphics pointers. Source EOF is not an allocation boundary.
+
+All 343 fresh discovery observations are accounted for: 41 complete (40 distinct
+payloads), 100 unsupported +24-one roots and 202 other root-guard failures.
+After the new reader/tests/audit freeze, root opens the fresh reserved windows
+for the first time. Of 433 framed observations, 38 prior-content and five exact
+new-discovery duplicates are quarantined before parsing. The remaining 390 have
+86 complete / 304 unsupported outcomes, representing 54 / 300 distinct payloads;
+36 eligible repeats are separated. Combined complete coverage is 127 observations
+or 94 distinct payloads, not 127 independent validations. No rule is refit and
+old/fresh source roles remain fixed. Stream-size/window/no-join limits remain.
+
+The extent lane's bounded +64..127 context is explicitly unowned: 41 of 182
+observations have no tail, while 141 supply 9,024 bytes. No count/size/type or
+reference closure follows. The unchanged embedded-texture recognizer finds zero
+plausible descriptors across all 343 sources; the graphics-looking word alone
+therefore establishes no texture/provider type. No graphics read, join or export.
+Requester coverage remains unavailable: source/report membership is checked,
+but no declared key field/count/namespace exists, and no integer or low16 scan
+is used to manufacture a consumer.
+
+Eight new authored tests cover raw positions, full widths, external-domain
+separation, every truncation, late failure, aliases/cycles, opaque words,
+old-profile separation, EOF/suffix and exact bounds. Native discovery controls
+include 164 malformed refusals plus per-source budget/opaque checks. All 2,550
+tests pass (two optional skips), plus 280 selftests. Existing runtime/CLI/README,
+profiles, source assignments, prior reports and BCPack labels are unchanged;
+only a separate runtime inspector is added. Details: docs/new_roots_team_provenance.md,
+docs/packs_root_layouts_provenance.md, docs/packs_extent_metadata_provenance.md,
+docs/packs_new_requesters_provenance.md. No game fixture, stage, commit or push.
+
+
+## Member-record correlations and unowned leaf boundaries (2026-11-24)
+
+Further clean-room analysis of the 41 supported discovery root observations /
+40 distinct payloads establishes no new count/type/extent or consumer contract.
+First-member raw words are [0,0x101,0,0] throughout. Second-prefix scalar patterns
+include u16 +12=4, +14=8/9 paired with raw u32 +16=4992/5633, and zero +48/+56
+words. These are observed bit patterns, not declared native widths or units.
+
+All stored +40 references equal second-prefix end; first member begins leaf+32
+and reaches physical EOF after32 bytes. The 176/240 source-size difference is
+before the second prefix. None of those coincidences establishes allocation or
+count authority. Direct u32 +8/+12/+16 comparisons against physically adjacent
+stream compressed/inflated lengths fail in all39 applicable pairs; two cases
+are unavailable. No graphics read, resource join or encoded-size fix is inferred.
+
+The extent lane records82 unowned16B pre-member contexts (1,312 bytes), with only
+sparse whole-word equalities to minimum lengths/known points. No stored owner,
+count or end declaration follows. Corrected gap order is root→gap16/80→second64
+→leaf8→gap24→first32; pre-first observations overlap requester-tail context and
+are not independent extent witnesses.
+
+The leaf lane records123 disjoint unowned words at+8/+16/+24;164 further positions
+at+32..56 overlap the known first member and remain unavailable as leaf data.
+A repeated high-bit word is NOT a declared u64 key slot: observation width alone
+cannot support even a direct-u16 exclusion. No integer/low16/requester comparison
+or namespace claim is made. Separate-process observation replays agree, retaining
+separate executable hashes. Requester-field coverage remains unavailable.
+
+Two authored regressions preserve stored-reference relocation independently of
+native adjacency/EOF, and instrument scalar reads so pointer/key-looking unowned
+leaf-tail bytes cannot become fields or links. All2,552 tests pass(twooptional
+skips),280selftests pass. Existing runtime/CLI/README, frozen tests/profiles/source
+assignments, prior reports and BCPack labels remain intact; no reserved source
+was reopened or speculative reader added. Details: docs/root_members_team_provenance.md,
+docs/packs_root_members_provenance.md, docs/packs_root_extents_provenance.md,
+docs/packs_root_requesters_provenance.md. No game fixture, stage, commit or push.
+
+
+## Cross-family member markers, carrier bounds and enum requesters (2026-11-24)
+
+Three clean-room discovery investigations narrow specific hypotheses without
+adding speculative runtime decoding. In 141 bounded root+8 contexts, raw 0x101
+appears with both root+24-zero (41) and root+24-one (61); 39 further one-roots
+carry0x201. Thus 0x101 cannot independently identify the two-reference family.
+Seven decoded source lengths occur under both markers in the one-root family;
+this post-survey descriptive observation establishes no field width/count/type.
+
+All 343 authorized compressed spans fit the archive-level payload interval and
+start aligned to 16 bytes. The qualified 96-byte prefix includes the constant index block;
+no additional index range is read. Our RPF module has no decoded entry directory,
+so this containment cannot establish exact resource or provider extents. Stored
+carrier-to-resource identity and an owned provider endpoint/count remain missing.
+
+A different requester path compares retained native 0DRP enum member hashes/full
+u64 values against stored namehash/alternateu16 pairs from packs fitting windows 0/2 only.
+The 618 animation resources supply 11,305 enum declaration observations/42 distinct
+fingerprints and 399,769 member observations/1,022 distinct tuples. The 763 fitting
+packs tables supply 5,940 records/84 distinct pairs. There are zero member-namehash
+overlaps and therefore no complete pair matches. This excludes the direct named-
+enum bridge in these cohorts, not all requesters. No truncation, dictionary query,
+arithmetic name-holdout access or check-source promotion is used.
+
+Two authored regressions preserve early unsupported-root rejection before member
+reads and complete 64-bit enum aliases/unknowns/order/fingerprint identity when
+low 16 bits collide. All 2,554 unit tests pass (two optional skips), 280 selftests pass,
+and git diff --check passes. Prior runtime/CLI/README, tests, profiles, roles,
+reports and BCPack labels remain intact. No held-out source is reopened, and no
+new model or semantic confirmation is claimed. Methods and exact scoped limits:
+docs/member_evidence_team_provenance.md and its three track records. No game
+fixture, external implementation, stage, commit or push.
+
+
+## Native entry signatures, inbound member witnesses and named fields (2026-11-24)
+
+Three new clean-room evidence paths establish no new decoder contract. The
+all-offset supported-signature search finds zero 9FPR, 0DRP or PSIN byte hits in
+343 authorized discovery observations / 341 payload hashes (41,245,504 decoded
+observation bytes). No native candidate parser runs. Unknown/non-magic/external
+entry metadata remains unexamined by that test, rather than globally absent.
+
+An inbound-address test covers 215,502 aligned complete eight-byte words in 141
+root-family observations / 140 payloads. Every root+8 target address appears only
+in its existing serialized root+8 slot. Zero additional exact-address witnesses
+excludes that representation in this cohort; encoded, unaligned, indirect and
+external owners remain possible. A raw address coincidence would not prove type.
+
+The consumer lane compares complete structure field-name hashes with the 84 stored
+bone-name/alternate pairs in packs fitting windows 0/2. Across 618 animation
+resources, 27,089 structure observations / 183 complete fingerprints (159 hashes)
+supply 218,458 fields / 855 distinct tuples / 567 field-name hashes. Zero exact
+name overlaps rejects only this direct named-field bridge, not generic/indexed/
+indirect consumers. Earlier dictionary screening partly overlaps this hypothesis;
+repeated declarations are not independent validation samples.
+
+A separately pinned marker-byte/adjacent-stream count hypothesis has no usable
+cases: 135 nonadjacent/omitted metadata spans and six last-root window tails. All
+141 remain unavailable, with no changed criterion, joins, padding assumptions,
+page-count interpretation or resource ownership claim.
+
+Four new authored private entry-screen tests and five inbound-witness controls
+pass. All 2,554 unit tests pass (two optional skips), all 280 selftests pass, and
+whitespace validation passes. No runtime/public API or redundant production test
+is added for these negative findings. No check source is reopened or promoted;
+frozen profiles, prior tests/reports, arithmetic holdouts and BCPack labels stay
+intact. A public-format search's unsolicited source snippets were not used; that
+exposure is recorded. Details: docs/entry_ownership_team_provenance.md and its
+three track records. No game fixture, staging, commit or push.
+
+
+## Offline resource workflows and native world graph export (2026-11-24)
+
+Three parallel implementation tracks add practical inspection capabilities while
+leaving unresolved ownership and numeric semantics explicit. Offline animation
+inspection reparses exact supplied 0DRP bytes with shared node/byte budgets,
+optional per-file SHA-256 pins, input/output alias checks and changed-input
+checks. A bad later file refuses the whole query before reports are written.
+`anim --raw-resource FILE` is repeatable; --out writes anim-resources.json.
+The reader neither searches archives nor joins files, and supported metadata
+remains partial because no complete resource endpoint/checksum is declared.
+
+Native world --graph-dot renders checked source-local counted-reference ranges
+with one node per declared block and one compact edge per reference header.
+Source ordinal/hash keeps duplicate payloads separate. Exact target intervals,
+field paths and unknown/refused coverage remain visible; there is no target-record
+expansion, semantic owner, asset binding or complete-world claim. Parsing and
+rendering share --max-nodes; output aliases and byte/work failures refuse before
+DOT replacement. Existing native modes retain their behavior without the option.
+
+Offline DDS now accepts documented 128-byte legacy FourCC headers for DXT1,
+DXT3, DXT5, BC4U/BC4S, ATI2 and BC5S, with exact NPOT mip and complete cube layouts
+and existing typed/signed PNG previews. Public Microsoft specifications supply
+header/format facts; no external implementation is used. DX10 reports remain
+compatible. Unsupported premultiplied, ambiguous and conflicting layouts refuse.
+
+Validation includes 37 new authored unit tests, six new selftests and complete
+project checks: 2,591 unit tests pass (two optional skips), 286 selftests pass.
+Two original animation discovery resources are reconstructed only from their
+three already qualified segments (198,912 bytes), matching all retained
+field/enum metadata; the new offline reader itself joins nothing. A qualified
+3,801,088-byte world discovery cache reparses into seven blocks and 14,188 range
+edges (2,889,449 DOT bytes), using 158,613 combined work units. CLI checks repeat
+both workflows. These are exposed discovery consistency checks, not independent
+semantic accuracy or new fitting cohorts. Frozen checks and source roles remain
+unchanged. Details: docs/capability_team_provenance.md and the three track records.
+No game fixture, external implementation, stage, commit or push.

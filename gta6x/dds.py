@@ -1,4 +1,4 @@
-"""Bounded offline inspection of tightly packed DX10 DDS texture files.
+"""Bounded offline inspection of tightly packed DX10 and legacy BC DDS files.
 
 This reads serialized linear DDS subresources, not game tiling or allocations.
 Layouts are exact; unsupported headers, padding, formats and previews refuse.
@@ -14,11 +14,15 @@ from .bc import decode_rgba
 from .bc.bcn import preview_policy
 
 HEADER_BYTES = 148
+LEGACY_HEADER_BYTES = 128
 MAX_BYTES = 64 * 1024 * 1024 + HEADER_BYTES
 MAX_SUBRESOURCES = 65536
 MAX_PIXELS = 16 * 1024 * 1024
 _CUBE_FACES = ('positive_x', 'negative_x', 'positive_y', 'negative_y', 'positive_z', 'negative_z')
 _TYPELESS = {27, 48, 60, 70, 73, 76, 79, 82, 90, 94, 97}
+# Public Microsoft DDS format mappings; unsupported aliases are not guessed.
+_LEGACY_FORMATS = {b'DXT1': 71, b'DXT3': 74, b'DXT5': 77,
+                   b'BC4U': 80, b'BC4S': 81, b'ATI2': 83, b'BC5S': 84}
 
 
 def _limit(value, maximum, name):
@@ -42,11 +46,12 @@ def _read(path, max_bytes):
 
 
 def inspect(data, *, max_bytes=MAX_BYTES, max_subresources=MAX_SUBRESOURCES):
-    """Return a complete source-backed DX10 DDS layout, or raise ValueError.
+    """Return a complete source-backed DDS layout, or raise ValueError.
 
     The supported profile has tightly packed known-size formats, explicit mip
     counts, 2D arrays/cubemaps or uncompressed 3D textures, and no trailing bytes.
-    A volume mip is one subresource containing consecutive depth planes.
+    A volume mip is one subresource containing consecutive depth planes. Legacy
+    input supports only documented BC FourCCs, 2D textures and complete cubes.
     """
     _limit(max_bytes, MAX_BYTES, 'DDS input byte limit')
     _limit(max_subresources, MAX_SUBRESOURCES, 'DDS subresource limit')
@@ -55,14 +60,32 @@ def inspect(data, *, max_bytes=MAX_BYTES, max_subresources=MAX_SUBRESOURCES):
     if len(data) > max_bytes:
         raise ValueError('DDS source exceeds input byte limit')
     data = bytes(data)
-    if len(data) < HEADER_BYTES or data[:4] != b'DDS ':
-        raise ValueError('DDS source requires the complete DX10 header')
+    if len(data) < LEGACY_HEADER_BYTES or data[:4] != b'DDS ':
+        raise ValueError('DDS source requires the complete base header')
     h = struct.unpack_from('<31I', data, 4)
     if h[0] != 124 or h[18] != 32:
         raise ValueError('DDS header or pixel-format size is invalid')
-    if h[19] != 4 or data[84:88] != b'DX10' or any(h[21:26]):
-        raise ValueError('unsupported DDS pixel-format profile; only DX10 without legacy masks is supported')
-    fmt, dimension, misc, arrays, alpha = struct.unpack_from('<5I', data, 128)
+    if h[19] != 4 or any(h[21:26]):
+        raise ValueError('unsupported DDS pixel-format profile; FourCC without legacy masks is required')
+    fourcc = data[84:88]
+    legacy = fourcc != b'DX10'
+    if legacy:
+        if fourcc in (b'DXT2', b'DXT4'):
+            raise ValueError('unsupported DDS premultiplied-alpha FourCC; DXT2/DXT4 are not reinterpreted')
+        if fourcc not in _LEGACY_FORMATS:
+            raise ValueError('unsupported DDS legacy FourCC')
+        fmt = _LEGACY_FORMATS[fourcc]
+        dimension, misc, arrays, alpha = 3, (4 if h[27] & 0x200 else 0), 1, 0
+        header_bytes = LEGACY_HEADER_BYTES
+        dx10_words = None
+        # Legacy does not encode the DX10 alpha-mode extension. DXT3/5 are
+        # straight-alpha formats, but this absent field remains unspecified.
+    else:
+        if len(data) < HEADER_BYTES:
+            raise ValueError('DDS source requires the complete DX10 header')
+        fmt, dimension, misc, arrays, alpha = struct.unpack_from('<5I', data, 128)
+        header_bytes = HEADER_BYTES
+        dx10_words = [fmt, dimension, misc, arrays, alpha]
     name, element, block, compressed = texture.format_info(fmt)
     if not element:
         raise ValueError(f'unsupported DDS DXGI format {fmt}')
@@ -71,6 +94,12 @@ def inspect(data, *, max_bytes=MAX_BYTES, max_subresources=MAX_SUBRESOURCES):
     if misc & ~4 or alpha & ~7:
         raise ValueError('unsupported DDS extension flags')
     flags, height, width, pitch, raw_depth, mips = h[1:7]
+    if legacy and h[26] & ~0x401008:
+        raise ValueError('unsupported legacy DDS surface caps')
+    if legacy and mips == 0 and not flags & 0x20000 and not h[26] & 0x400000:
+        # The public legacy header leaves mipMapCount unused for one level.
+        # Do not repair zero when a mip chain is explicitly declared.
+        mips = 1
     if flags & ~0x8a100f:
         raise ValueError('unsupported DDS header flags')
     if width < 1 or height < 1 or mips < 1 or arrays < 1:
@@ -112,7 +141,7 @@ def inspect(data, *, max_bytes=MAX_BYTES, max_subresources=MAX_SUBRESOURCES):
     elif (flags & 0x80008) != 8 or pitch != row_pitch:
         raise ValueError('unsupported DDS row pitch; tightly packed uncompressed rows are required')
     rows = []
-    at = HEADER_BYTES
+    at = header_bytes
     for layer in range(slices):
         for mip in range(mips):
             w, ht = max(1, width >> mip), max(1, height >> mip)
@@ -130,17 +159,25 @@ def inspect(data, *, max_bytes=MAX_BYTES, max_subresources=MAX_SUBRESOURCES):
             rows.append(row)
             at += length
     if at != len(data):
-        raise ValueError('DDS payload has trailing bytes outside the declared exact layout')
-    return dict(format='gta6x-dds-inspection-v1', status='complete',
+        detail = '; only DX10 permits an extended header' if legacy else ''
+        raise ValueError('DDS payload has trailing bytes outside the declared exact layout' + detail)
+    report = dict(format='gta6x-dds-inspection-v1', status='complete',
         source=dict(byte_length=len(data), sha256=hashlib.sha256(data).hexdigest()),
         width=width, height=height, depth=depth, mip_count=mips, slice_count=slices,
         array_size=arrays, cube=cube, resource_dimension=dimension, dxgi_format=fmt,
         format_name=name, block_compressed=compressed, element_bytes=element,
         block_pixels=block, alpha_mode_code=alpha, header_words=list(h),
-        dx10_words=[fmt, dimension, misc, arrays, alpha], header_bytes=HEADER_BYTES,
-        payload_bytes=len(data)-HEADER_BYTES, subresource_count=len(rows), subresources=rows,
+        dx10_words=dx10_words, header_bytes=header_bytes,
+        payload_bytes=len(data)-header_bytes, subresource_count=len(rows), subresources=rows,
         preview_format_supported=fmt not in _TYPELESS and fmt != 65,
         interpretation='serialized linear DDS layout only; no game tiling, allocation, orientation or semantic ownership claim')
+    if legacy:
+        report.update(header_kind='legacy_fourcc', legacy_fourcc=fourcc.decode('ascii'),
+            raw_mip_count=h[6],
+            alpha_interpretation=('straight alpha' if fourcc in (b'DXT3', b'DXT5') else
+                                  'BC1 block alpha' if fourcc == b'DXT1' else 'no alpha channel'),
+            format_mapping='documented legacy FourCC to DXGI equivalent; no sRGB inference')
+    return report
 
 
 def inspect_file(path, *, max_bytes=MAX_BYTES, max_subresources=MAX_SUBRESOURCES):

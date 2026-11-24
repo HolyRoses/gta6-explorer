@@ -17,8 +17,8 @@ and world exports, and supported audio-to-WAV conversion.
 | **Video** | Find Bink2 movies, inspect dimensions and duration, and extract the original files. |
 | **Metadata** | Browse PSIN schemas, enums, supported instance values and record links; compare extracted schema declarations; export JSON and recover complete XML/PSIN resources. |
 | **Shaders** | Extract DXBC binaries; inspect signatures and features; query logical resource bindings by stage, register, space and type. |
-| **Animation** | List names and clips; inspect native bone tables, packed buffers, binding keys and selected raw code rows; trace supported raw key-holder chains; browse MoVE and RBF metadata. |
-| **Native world inspection** | Browse level-resource schemas and blocks, inspect supported primitive storage, and trace checked local record references. |
+| **Animation** | List names and clips; inspect extracted resource metadata, native bone tables, packed buffers, binding keys and raw code rows; trace supported key-holder chains; browse MoVE and RBF metadata. |
+| **Native world inspection** | Browse level-resource schemas and blocks, inspect supported primitive storage, trace checked local references and export their DOT graphs. |
 | **Asset browsing** | Build JSON or SQLite catalogs, generate a searchable HTML browser, retrieve individual assets and use an interactive terminal browser. |
 | **3D exports** | Export models to glTF/GLB and world data such as placements, collision, navmeshes and paths through the optional SixNG backend. |
 
@@ -116,6 +116,8 @@ files and skips unknown boundaries. To inspect an extracted file directly, use
 Add `--value-words` to inspect raw primitive bits and full key slots; it implies
 `--links`. Use `--names FILE` for verified hash-preimage candidates whose native
 meanings remain unconfirmed.
+`--graph-dot FILE` exports checked reference ranges as a source-scoped graph;
+it implies `--links`. Large graphs may need a higher `--max-nodes` budget.
 
 For animation research, `anim --binding-layout` traces raw binding keys to
 slot-directory entries and checks local animation-dictionary membership,
@@ -130,8 +132,16 @@ and implies `--resources`. Use `--max-nodes` to set the inspection budget;
 bone and rig meanings remain unconfirmed.
 
 For a decompressed native pack stream, `anim --raw-skeleton FILE` inspects bone
-names, stored keys and parent/sibling/subtree relationships. Add `--out DIR` to
-save `skeleton.json`; poses and animation-to-skeleton ownership remain unknown.
+names, stored keys and parent/sibling/subtree relationships. Add `--bone-keys`
+to compare alternate keys with the fitted name formula, or `--pose-layout` for
+checked parallel records and raw numeric word views. `--out DIR` saves
+`skeleton.json`. Unexplained keys, pose meanings and animation-to-skeleton
+ownership remain explicit.
+`--skeleton-context` adds local reference paths, active zero-key context and
+quaternion/matrix consistency checks. Bound the expanded inspection with
+`--max-nodes`; larger tables may need a higher budget.
+Use `--provider-targets` to trace supported nested references, or `--bone-names`
+to inspect the compact name-to-bone-index lookup.
 
 Inspect selected rows from an extracted packed buffer using its parent metadata's
 binding count:
@@ -153,10 +163,17 @@ Inspect assets without scanning the game archives:
 python3 -m gta6x dds texture.dds --png preview.png
 python3 -m gta6x --json shaders --raw shader.cso --bindings
 python3 -m gta6x psin-diff before.psin after.psin --out comparison.json
+python3 -m gta6x --json anim --raw-resource extracted.0drp --out ./exports/metadata
+python3 -m gta6x world --kind resources --raw-resources --archive level.bin \
+  --out ./exports/world --graph-dot ./exports/world/links.dot --max-nodes 300000
 ```
 
-DDS previews support `--mip`, `--slice` and `--z` for supported, tightly packed
-DX10 layouts. Raw shader mode accepts multiple files and writes inspection JSON
+DDS inspection supports tightly packed DX10 layouts and legacy DXT1/3/5 and
+supported BC4/BC5 FourCC formats. Preview selectors are `--mip`, `--slice` and `--z`
+where the layout permits them. Repeat `anim --raw-resource FILE` to inspect a
+batch; `--expected-sha256` pins each input in order. This reads bounded native
+0DRP metadata without scanning archives or joining files.
+Raw shader mode accepts multiple files and writes inspection JSON
 with `--out DIR`. PSIN comparison preserves unknowns and ambiguous declarations;
 matching hashes do not establish semantic compatibility.
 

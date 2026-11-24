@@ -337,6 +337,7 @@ def _cmd_anim_raw_buffer(args) -> int:
     from . import anim_selected_samples
 
     ignored = {"--archive", "--limit", "--full", "--max", "--clips", "--resources", "--key-holders", "--raw-skeleton",
+               "--bone-keys", "--pose-layout", "--skeleton-context", "--provider-targets", "--bone-names",
                "--clip-records", "--start", "--clip-components", "--packed-layout",
                "--channel-layout", "--storage-layout", "--prefix-layout", "--aux-checkpoints",
                "--checkpoint-candidates", "--binding-layout", "--sample-codes",
@@ -409,6 +410,36 @@ def _cmd_anim_raw_skeleton(args) -> int:
         if len(data) > packs_skeleton_bounds.MAX_BYTES:
             raise ValueError('raw skeleton input exceeds resource size limit')
         report = packs_bones.inspect(data, max_work=args.max_nodes)
+        if report['status'] == 'complete':
+            extensions = []
+            if args.bone_keys:
+                from . import packs_bone_keys
+                extensions.append(('bone_keys', packs_bone_keys.inspect))
+            if args.pose_layout:
+                from . import packs_bone_poses
+                extensions.append(('pose_layout', packs_bone_poses.inspect))
+            if args.skeleton_context:
+                from . import packs_skeleton_providers, packs_bone_zero_keys, packs_bone_relations
+                extensions.extend((('provider_context', packs_skeleton_providers.inspect),
+                                   ('zero_key_context', packs_bone_zero_keys.inspect),
+                                   ('numeric_relations', packs_bone_relations.inspect)))
+            if args.provider_targets:
+                from . import packs_provider_targets
+                extensions.append(('provider_targets', packs_provider_targets.inspect))
+            if args.bone_names:
+                from . import packs_bone_names
+                extensions.append(('bone_names', packs_bone_names.inspect))
+            for name, inspect in extensions:
+                remaining = args.max_nodes - report['work_units']
+                if remaining < 1:
+                    raise ValueError('raw skeleton work limit exceeded')
+                detail = inspect(data, max_work=remaining)
+                report['work_units'] += detail['work_units']
+                report[name] = detail
+                if detail['status'] != 'complete':
+                    report['status'] = 'unsupported'
+                    report['reason'] = f"{name}: {detail.get('reason', 'unsupported layout')}"
+                    break
     except (OSError, ValueError) as exc:
         eprint(f"raw skeleton inspection failed: {exc}")
         return 1
@@ -436,14 +467,76 @@ def _cmd_anim_raw_skeleton(args) -> int:
     return int(failed)
 
 
+def _cmd_anim_raw_resources(args) -> int:
+    """Inspect explicit native resource files without archive discovery."""
+    from . import anim_resource_inputs
+
+    allowed = {'--root', '--json', '--raw-resource', '--expected-sha256',
+               '--max-input-bytes', '--max-nodes', '--out'}
+    if args.files or getattr(args, '_supplied_options', set()) - allowed:
+        eprint('--raw-resource cannot combine with archive, skeleton or packed-buffer options')
+        return 1
+    if args.out is not None and (not args.out.strip() or '\0' in args.out):
+        eprint('--out must name a nonempty directory')
+        return 1
+    destination = os.path.join(args.out, 'anim-resources.json') if args.out else None
+    try:
+        report = anim_resource_inputs.inspect_files(args.raw_resource,
+            max_nodes=args.max_nodes, max_input_bytes=args.max_input_bytes,
+            expected_sha256=args.expected_sha256,
+            protected_outputs=[destination] if destination else ())
+        if destination:
+            import tempfile
+            os.makedirs(args.out, exist_ok=True)
+            temporary = None
+            try:
+                with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8',
+                        dir=args.out, delete=False) as handle:
+                    temporary = handle.name
+                    json.dump(report, handle, indent=2, allow_nan=False)
+                    handle.write('\n')
+                os.replace(temporary, destination)
+            finally:
+                if temporary and os.path.exists(temporary):
+                    os.unlink(temporary)
+    except (OSError, ValueError) as exc:
+        eprint(f'raw animation resource inspection failed: {exc}')
+        return 1
+    if args.json:
+        print(json.dumps(report, indent=2, allow_nan=False))
+    else:
+        summary = report['summary']
+        print(f"{summary['files']} native resource file(s), {summary['input_bytes']:,} input bytes")
+        print('Bounded metadata only; complete resource extents and animation semantics remain unknown.')
+        if not destination:
+            print(json.dumps(report, indent=2, allow_nan=False))
+    if destination:
+        eprint(f'manifest: {destination}')
+    return 0
+
+
 def cmd_anim(args) -> int:
     """Index animation archive streams and name tables (no clip decode)."""
     from . import anim as anim_mod
 
+    if getattr(args, 'raw_resource', None) is not None:
+        return _cmd_anim_raw_resources(args)
+    if getattr(args, '_supplied_options', set()) & {'--expected-sha256', '--max-input-bytes'}:
+        eprint('--expected-sha256 and --max-input-bytes require --raw-resource')
+        return 1
     if getattr(args, "raw_buffer", None) is not None:
         return _cmd_anim_raw_buffer(args)
     if getattr(args, "raw_skeleton", None) is not None:
         return _cmd_anim_raw_skeleton(args)
+    if args.bone_keys or args.pose_layout:
+        eprint("--bone-keys and --pose-layout require --raw-skeleton")
+        return 1
+    if args.skeleton_context:
+        eprint("--skeleton-context requires --raw-skeleton")
+        return 1
+    if args.provider_targets or args.bone_names:
+        eprint("--provider-targets and --bone-names require --raw-skeleton")
+        return 1
     if any(getattr(args, key, None) is not None for key in
            ("binding_count", "sample_source", "sample_rows")):
         eprint("--binding-count, --sample-source and --sample-rows require --raw-buffer")
@@ -3512,6 +3605,12 @@ def _cmd_world_resources(args) -> int:
     if not args.out.strip() or '\0' in args.out:
         eprint('--out must be a nonempty directory path without NUL bytes')
         return 1
+    graph_destination = getattr(args, 'graph_dot', None)
+    if graph_destination is not None:
+        if not graph_destination.strip() or '\0' in graph_destination:
+            eprint('--graph-dot must name a nonempty output file')
+            return 1
+        args.links = True
     unsupported = [flag for flag,value in (
         ('--name',args.name),('--exclude-name',args.exclude_name),('--min-size',args.min_size),
         ('--bbox',args.bbox),('--dump',args.dump),('--roads-only',args.roads_only),
@@ -3555,6 +3654,11 @@ def _cmd_world_resources(args) -> int:
             output_path=world_mod._path(args.out,'--out')
             if world_mod._contains(game_path,output_path) or world_mod._contains(output_path,game_path):
                 raise ValueError('--root and --out directories must not overlap')
+            if graph_destination and world_mod._contains(game_path, os.path.abspath(graph_destination)):
+                raise ValueError('native world DOT output must be outside the game root')
+        if graph_destination:
+            _check_output_paths(targets + ([args.names] if args.names else []),
+                                [destination, graph_destination])
         for source in targets:
             if os.path.realpath(destination)==os.path.realpath(source) or (
                     os.path.exists(destination) and os.path.samefile(destination,source)):
@@ -3570,7 +3674,8 @@ def _cmd_world_resources(args) -> int:
         if args.extract_resources:
             from . import world_export
             world_export.validate_output(export_destination, targets,
-                protected=[destination] + ([args.names] if args.names else []))
+                protected=[destination] + ([args.names] if args.names else [])
+                          + ([graph_destination] if graph_destination else []))
         inspect_options = dict(scan_bytes=args.scan_mib*1024*1024,max_nodes=args.max_nodes,max_resources=args.limit,
             with_schemas=args.schemas, dictionary=dictionary, structure_hash=args.schema_type,
             field_hash=args.schema_field, type_word=args.schema_code, with_links=args.links,
@@ -3581,10 +3686,23 @@ def _cmd_world_resources(args) -> int:
         if args.manifest:
             from . import world_manifest
             report = world_manifest.inspect(args.manifest,
-                protected_outputs=[destination] + ([args.names] if args.names else []), **inspect_options)
+                protected_outputs=[destination] + ([args.names] if args.names else [])
+                                  + ([graph_destination] if graph_destination else []), **inspect_options)
         else:
             report = world_resources.inspect_sources(targets, start=args.start,
                 raw_resources=args.raw_resources, **inspect_options)
+        if graph_destination:
+            from . import world_graph_dot
+            graph_nodes = 0
+            remaining = args.max_nodes - report['summary']['metadata_nodes']
+            def consume_graph(amount=1):
+                nonlocal graph_nodes
+                if type(amount) is not int or amount < 0 or amount > remaining - graph_nodes:
+                    raise world_resources.WorldResourceLimitError('world DOT exceeds shared node budget')
+                graph_nodes += amount
+            report['graph_dot'] = world_graph_dot.inspect(report, consume=consume_graph)
+            report['summary']['graph_dot_nodes'] = graph_nodes
+            report['summary']['metadata_nodes'] += graph_nodes
         os.makedirs(args.out,exist_ok=True)
         if args.extract_resources:
             export_nodes = 0
@@ -3604,6 +3722,20 @@ def _cmd_world_resources(args) -> int:
                 report['status'] = 'partial'
             report['summary']['resource_export_nodes'] = export_nodes
             report['summary']['metadata_nodes'] += export_nodes
+        if graph_destination:
+            import tempfile
+            graph_parent = os.path.dirname(os.path.abspath(graph_destination))
+            os.makedirs(graph_parent, exist_ok=True)
+            temporary = None
+            try:
+                with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8',
+                        dir=graph_parent, delete=False) as handle:
+                    temporary = handle.name
+                    handle.write(report['graph_dot']['dot'])
+                os.replace(temporary, graph_destination)
+            finally:
+                if temporary and os.path.exists(temporary):
+                    os.unlink(temporary)
         with open(destination,'w',encoding='utf-8') as handle:
             json.dump(report,handle,indent=2)
             handle.write('\n')
@@ -3648,6 +3780,8 @@ def _cmd_world_resources(args) -> int:
                 counts = view['summary']
                 print(f"native resource export: {counts['resources_exported']} complete PSIN containers; "
                       f"{counts['resources_skipped']} unsupported entries skipped; {export_destination}")
+        if graph_destination:
+            print(f'checked local reference graph: {graph_destination}; semantic ownership remains unknown')
         print(f'resource catalog: {destination}')
     return int(report['summary']['resources_refused']>0 or report['summary'].get('views_refused',0)>0
                or report.get('resource_export', {}).get('status') == 'refused')
@@ -3669,6 +3803,7 @@ def cmd_world(args) -> int:
         return 1
     if (args.schemas or args.names or args.links or args.value_words or args.extent_diagnostics or args.primitive_layouts or
             args.reference_context or args.context_records or args.extract_resources or args.raw_resources or args.manifest or
+            getattr(args, 'graph_dot', None) is not None or
             any(v is not None for v in (args.schema_type,args.schema_field,args.schema_code))):
         eprint('schema, link, primitive, context and extent options apply to native resource browsing')
         return 1
@@ -5819,6 +5954,58 @@ def cmd_selftest(args) -> int:
             shader_pin_refused = True
         check('offline shader inspection rejects mismatched source hashes', shader_pin_refused)
 
+    from . import anim_resource_inputs as _anim_inputs, world_graph_dot as _world_dot
+    with tempfile.TemporaryDirectory() as offline_animation:
+        raw_path = os.path.join(offline_animation, 'authored.0drp')
+        with open(raw_path, 'wb') as handle:
+            handle.write(directory_data)
+        raw_report = _anim_inputs.inspect_files([raw_path],
+            expected_sha256=[hashlib.sha256(directory_data).hexdigest()])
+        check('offline animation resources retain bounded native metadata without archive searches',
+              raw_report['files'][0]['metadata'] == _anim_resources.parse_resource(directory_data)
+              and not raw_report['archive_search_performed']
+              and raw_report['files'][0]['allocation_end'] is None)
+        try:
+            _anim_inputs.inspect_files([raw_path], expected_sha256=['0' * 64])
+            animation_pin_refused = False
+        except ValueError:
+            animation_pin_refused = True
+        check('offline animation resources reject mismatched file hashes', animation_pin_refused)
+        world_report = _world_resources.inspect_sources([raw_path], raw_resources=True, with_links=True)
+        world_dot = _world_dot.inspect(world_report, consume=lambda n=1: None)
+        check('native world DOT keeps source-local storage and unknown semantic ownership',
+              world_dot['summary']['block_nodes'] == len(world_report['resources'][0]['blocks'])
+              and world_dot['summary']['asset_bindings'] == 0
+              and not world_dot['complete_world_graph']
+              and 'semantic owners' in world_dot['dot'])
+        try:
+            _world_dot.inspect(world_report, consume=lambda n=1: None,
+                               max_bytes=world_dot['summary']['output_bytes'] - 1)
+            world_dot_limit_refused = False
+        except ValueError:
+            world_dot_limit_refused = True
+        check('native world DOT refuses a short byte budget without truncating', world_dot_limit_refused)
+
+    from . import dds as _dds
+    legacy_header = bytearray(128)
+    legacy_header[:4] = b'DDS '
+    for at, value in ((4, 124), (8, 0x81007), (12, 4), (16, 4),
+                      (20, 8), (28, 1), (76, 32), (80, 4), (108, 0x1000)):
+        _s.pack_into('<I', legacy_header, at, value)
+    legacy_header[84:88] = b'DXT1'
+    legacy_data = bytes(legacy_header) + _s.pack('<HHI', 0xf800, 0x07e0, 0)
+    legacy_view, legacy_png = _dds.preview(legacy_data)
+    check('legacy DDS previews use the exact base-header payload boundary',
+          legacy_view['header_bytes'] == 128 and legacy_view['dxgi_format'] == 71
+          and legacy_view['preview']['data_offset'] == 128
+          and legacy_png.startswith(b'\x89PNG\r\n\x1a\n'))
+    try:
+        _dds.inspect(legacy_data + b'\0')
+        legacy_suffix_refused = False
+    except ValueError:
+        legacy_suffix_refused = True
+    check('legacy DDS refuses bytes beyond its declared mip layout', legacy_suffix_refused)
+
     print(f"\n{len(failures)} failure(s)")
     return 0 if not failures else 1
 
@@ -5911,8 +6098,24 @@ def build_parser() -> argparse.ArgumentParser:
                    help="export conditional raw row codes and packed entry bits; implies --lookup-candidates; numeric samples and timing unconfirmed")
     p.add_argument("--raw-buffer", metavar="FILE",
                    help="inspect selected raw codes in one exact packed buffer without scanning archives")
+    p.add_argument('--raw-resource', metavar='FILE', action='append',
+                   help='inspect an extracted native 0DRP resource without archive scanning; repeat for multiple files')
+    p.add_argument('--expected-sha256', action='append', metavar='HASH',
+                   help='pin each --raw-resource input in order; repeat once per file')
+    p.add_argument('--max-input-bytes', type=int, default=64*1024*1024,
+                   help='aggregate --raw-resource byte limit (default 64 MiB)')
     p.add_argument("--raw-skeleton", metavar="FILE",
                    help="inspect supported named bone records in one decompressed native stream without scanning archives")
+    p.add_argument("--bone-keys", action="store_true",
+                   help="compare stored alternate bone keys with the independently fitted candidate; requires --raw-skeleton")
+    p.add_argument("--pose-layout", action="store_true",
+                   help="inspect supported numeric transform layouts without assigning pose semantics; requires --raw-skeleton")
+    p.add_argument("--skeleton-context", action="store_true",
+                   help="inspect local reference paths, zero-key topology and candidate numeric relations; requires --raw-skeleton")
+    p.add_argument("--provider-targets", action="store_true",
+                   help="inspect nested provider target references without assigning an owner; requires --raw-skeleton")
+    p.add_argument("--bone-names", action="store_true",
+                   help="inspect the compact name-to-bone-index lookup; requires --raw-skeleton")
     p.add_argument("--binding-count", type=lambda value: int(value, 0),
                    help="caller-supplied binding count for --raw-buffer")
     p.add_argument("--sample-source", action="append", type=lambda value: int(value, 0),
@@ -6147,6 +6350,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--schema-code',type=lambda value:int(value,0),help='annotate a raw field type-word query; implies --schemas')
     p.add_argument('--names',help='explicit read-only joaat dictionary for schema name candidates; implies --schemas')
     p.add_argument('--links',action='store_true',help='inspect bounded local 0DRP counted-record references')
+    p.add_argument('--graph-dot', metavar='FILE',
+                   help='export checked native local reference ranges as a DOT graph; implies --links')
     p.add_argument('--value-words',action='store_true',help='inspect checked raw primitive words and full key slots; --names adds verified preimage candidates; implies --links')
     p.add_argument('--manifest', help='inspect complete PSIN files pinned by a native export manifest; no archive scan')
     p.add_argument('--raw-resources', action='store_true',
