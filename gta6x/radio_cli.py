@@ -22,7 +22,7 @@ def configure(subparsers):
     p.add_argument('--archive', metavar='FILE', help='explicit audio.rpf path (default: package root/audio.rpf)')
     p.add_argument('--audio-dir', metavar='DIR', help='reuse extracted Opus files with source-address filenames; no game reads')
     p.add_argument('--include-imaging', action='store_true', help='also export station imaging/beds; talk stations are included by default')
-    p.add_argument('--include-unassigned', action='store_true', help='also export researched locators with unknown station, under Unassigned')
+    p.add_argument('--include-unassigned', action='store_true', help='also export remaining unclassified recordings under Unassigned')
     p.add_argument('--format', choices=tuple(radio_library.FORMATS), default='opus', help='Opus stream copy (default), or explicit conversion')
     p.add_argument('--premixed', choices=('split', 'continuous', 'both'), default='both', help='premixed playlist view; continuous suppresses split files; full banks retained (default both)')
     p.add_argument('--exact-chapters', action='store_true', help='re-encode Opus chapter splits for decoded-interval cuts instead of packet copy')
@@ -82,7 +82,9 @@ def run(args):
             if args.names_out:
                 radio_library._json(args.names_out, radio_catalog.name_dictionary(catalog))
         if args.list or args.list_tracks or args.dry_run:
-            rows = [dict(key=s['key'], name=s['name'], kind=s['kind'], recordings=len(s['recordings'])) for s in selected]
+            rows = [dict(key=s['key'], name=s['name'], kind=s['kind'],
+                         context_type=s.get('context_type', 'station'),
+                         recordings=len(s['recordings'])) for s in selected]
             report = dict(format='gta6x-radio-plan-v1', catalog_sha256=catalog['sha256'], stations=rows,
                 recordings=sum(r['recordings'] for r in rows), name_hashes=len(catalog['data']['names']),
                 membership_evidence=catalog['data']['provenance']['station_membership'])
@@ -91,7 +93,8 @@ def run(args):
             if args.json:
                 print(json.dumps(report, indent=2, ensure_ascii=False))
             else:
-                print(table([[r['name'], r['kind'], str(r['recordings']), r['key']] for r in rows],
+                print(table([[r['name'], r['kind'] if r['context_type'] == 'station'
+                              else r['context_type'].replace('_', ' '), str(r['recordings']), r['key']] for r in rows],
                             ['station', 'kind', 'recordings', 'key'], align='llrl'))
                 print(f"{len(rows)} stations; {report['recordings']} selections; {report['name_hashes']} name/hash entries")
                 print('Membership is supplied research; chapter TRACKIDs and unmatched credits remain explicit.')

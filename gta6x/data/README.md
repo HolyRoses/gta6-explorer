@@ -6,13 +6,14 @@ catalogued package; other packages need a compatible catalog. Hash, channel,
 duration and chapter-bound checks reject incompatible inputs.
 
 Sources: [Rockstar credits](https://www.rockstargames.com/VI/credits),
-[GameSpot](https://www.gamespot.com/articles/all-gta-6-radio-stations-and-songs/)
-and [VICE](https://www.vice.com/en/article/gta-6-radio-songs-list/).
+[GameSpot](https://www.gamespot.com/articles/all-gta-6-radio-stations-and-songs/),
+[VICE](https://www.vice.com/en/article/gta-6-radio-songs-list/) and
+[The Tab](https://thetab.com/2026/11/19/the-full-gta-6-radio-song-list-every-single-track-broken-down-by-station).
 
 | Field | Contents |
 | --- | --- |
-| `stations` | Station names, types and recording memberships. |
-| `recordings` | Archive locators, native identifiers and optional chapter credits. |
+| `stations` | Stations, public show/playlist groups and curated collections with recording memberships. |
+| `recordings` | Archive locators, native identifiers and source-bound recording/chapter credits. |
 | `names` | Stored spellings, checked 32-bit joaat/29-bit hashes, display aliases and credit alternatives. |
 | `public_tracks` | Unordered public credits, including songs without identified audio. |
 
@@ -21,6 +22,24 @@ graph. Alias labels remain provisional; composer/work aliases do not identify
 a performer. Explicit station preferences select display credits while retaining
 alternatives. Confirmation methods distinguish acoustic matches, reported
 identifications and supplied program labels; exact edits may remain unknown.
+Premixed stations can also include standalone recordings. Exports keep them in
+a separate folder and playlist from broadcast chapters. Acoustic recording
+credits remain provisional and require the exact source hash and channel.
+Bonus groups use `context_type` to distinguish public playlists from station
+groups. Backend credit disagreements remain explicit in recording alternatives.
+Config-hash identifications use a separate method and remain provisional;
+they are not acoustic confirmations of a performer or edit.
+Bonus Tracks is a curated `collection` of identified recordings with unknown
+station or usage, rather than a claimed native station.
+Public lists retain source-specific title and artist variants. Matching credits
+can carry `additional_sources`; a list entry alone does not identify audio.
+`acoustic_matches` supplies provisional listening samples for programs without
+native song boundaries. Each sample requires its exact source hash, channel and
+bounded audio window. Separate identified-excerpt files and playlists preserve
+the original program; these samples are not whole-track cuts or native chapters.
+Stored channel roles and the game's final mix may remain unknown.
+Identified-location playlists start at a matched sample and continue to the
+stored program's end; they do not claim the song's start or end.
 
 Chapter credits require the exact AWC SHA-256, stream/channel, occurrence,
 TRACKID and native frame bounds. Repeated IDs do not inherit names. Intervals

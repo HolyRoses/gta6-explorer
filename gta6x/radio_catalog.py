@@ -28,6 +28,23 @@ def _uint(value, label, maximum=2**63-1):
     return value
 
 
+def _context_alias(value):
+    return 'vcrr' if value == 'vice city rap radio' else value
+
+
+def _credit_alternatives(credit):
+    if type(credit.get('credit_conflicts', False)) is not bool:
+        raise ValueError('invalid radio credit conflict flag')
+    alternatives = credit.get('alternatives', [])
+    if not isinstance(alternatives, list) or len(alternatives) > 16:
+        raise ValueError('invalid radio credit alternatives')
+    for alternative in alternatives:
+        if not isinstance(alternative, dict):
+            raise ValueError('invalid radio credit alternative')
+        for key in ('title', 'artist', 'source', 'credit_context'):
+            _text(alternative.get(key), 'credit alternative ' + key, 2048)
+
+
 def parse(data):
     if not isinstance(data, dict) or data.get('format') != 'gta6x-radio-catalog-v1':
         raise ValueError('unsupported radio catalog format')
@@ -94,7 +111,55 @@ def parse(data):
                 _text(credit.get(key), 'chapter credit ' + key, 4096 if key == 'evidence' else 2048 if key == 'source' else 512)
             if not isinstance(credit.get('source_sha256'), str) or not re.fullmatch('[0-9a-f]{64}', credit['source_sha256']):
                 raise ValueError('invalid radio chapter credit source hash')
+            _credit_alternatives(credit)
+            if credit.get('reference_credit_method', 'audio_fingerprint') not in (
+                    'audio_fingerprint', 'native_config_hash', 'local_fingerprint', 'backend_fingerprint'):
+                raise ValueError('unsupported radio chapter reference credit method')
+        credit = row.get('recording_credit')
+        if credit is not None:
+            if (not isinstance(credit, dict) or credit.get('method') not in ('audio_fingerprint', 'native_config_hash')
+                    or credit.get('status') != 'provisional'):
+                raise ValueError('unsupported radio recording credit')
+            for key in ('stream_index', 'channel_index', 'channel_id'):
+                _uint(credit.get(key), 'recording credit ' + key, 0xffffffff)
+            for key in ('title', 'artist', 'source', 'evidence'):
+                _text(credit.get(key), 'recording credit ' + key,
+                      2048 if key in ('source', 'evidence') else 512)
+            if not isinstance(credit.get('source_sha256'), str) or not re.fullmatch('[0-9a-f]{64}', credit['source_sha256']):
+                raise ValueError('invalid radio recording credit source hash')
+            if credit['method'] == 'native_config_hash':
+                _uint(credit.get('config_id'), 'recording config ID', 0xffffffff)
+                duration_ms = _uint(credit.get('duration_ms'), 'recording config duration', 86400000)
+                if (not row.get('hash_b') or credit.get('config_hash32') != row['hash_b']
+                        or credit['channel_id'] != (int(row['hash_b'], 16) & 0x1fffffff)
+                        or hint is None or abs(hint-duration_ms/1000) > .05):
+                    raise ValueError('recording config hash/channel/duration lead is inconsistent')
+            _credit_alternatives(credit)
         by_offset[offset] = row
+        observations = row.get('acoustic_matches', [])
+        if not isinstance(observations, list) or len(observations) > 10000:
+            raise ValueError('invalid radio acoustic match list')
+        seen_observations = set()
+        for observation in observations:
+            if (not isinstance(observation, dict) or observation.get('status') != 'provisional'
+                    or observation.get('method') not in ('local_fingerprint', 'backend_fingerprint')):
+                raise ValueError('invalid radio acoustic match')
+            identity = tuple(_uint(observation.get(k), 'acoustic match '+k, 0xffffffff)
+                             for k in ('stream_index', 'channel_index', 'channel_id', 'start_frames', 'end_frames'))
+            if identity in seen_observations or not 0 < identity[-1]-identity[-2] <= 30*48000:
+                raise ValueError('invalid or duplicate radio acoustic sample bounds')
+            seen_observations.add(identity)
+            if (not isinstance(observation.get('source_sha256'), str)
+                    or not re.fullmatch('[0-9a-f]{64}', observation['source_sha256'])):
+                raise ValueError('invalid radio acoustic source hash')
+            for key in ('title', 'artist', 'source', 'evidence'):
+                _text(observation.get(key), 'acoustic match '+key, 2048 if key in ('source', 'evidence') else 512)
+            if 'track_id' in observation:
+                raise ValueError('acoustic windows cannot assign native TRACKIDs')
+            if credit and any(observation[key] != credit[key] for key in
+                    ('source_sha256', 'stream_index', 'channel_index', 'channel_id')):
+                raise ValueError('acoustic match differs from the selected recording source/channel')
+            _credit_alternatives(observation)
     keys, display_names = set(), set()
     for station in stations:
         if not isinstance(station, dict):
@@ -106,6 +171,8 @@ def parse(data):
         keys.add(key.casefold()); display_names.add(name.casefold())
         if station.get('kind') not in ('music', 'talk', 'premixed', 'unassigned'):
             raise ValueError('unsupported radio station kind')
+        if station.get('context_type', 'station') not in ('station', 'public_show', 'public_playlist', 'collection'):
+            raise ValueError('unsupported radio context type')
         members = station.get('members')
         if not isinstance(members, list) or len(members) > 20000:
             raise ValueError('invalid radio station member list')
@@ -115,6 +182,18 @@ def parse(data):
                 raise ValueError('radio station references missing recording')
         if len(set(members)) != len(members):
             raise ValueError('duplicate radio station member')
+    for row in recordings:
+        assignment = row.get('station_assignment')
+        if assignment is None:
+            continue
+        if (not isinstance(assignment, dict) or assignment.get('method') not in ('audio_fingerprint', 'public_tracklist')
+                or assignment.get('status') != 'provisional'):
+            raise ValueError('unsupported radio station assignment')
+        for field in ('station_key', 'source', 'evidence'):
+            _text(assignment.get(field), 'station assignment ' + field, 2048)
+        if not any(s['key'] == assignment['station_key'] and row['offset'] in s['members']
+                   for s in stations):
+            raise ValueError('radio station assignment differs from membership')
     credit_index, work_index, alias_index = {}, {}, {}
     for row in spellings:
         if not isinstance(row, dict):
@@ -169,6 +248,13 @@ def parse(data):
                   empty=key == 'artist' and row.get('artist_role') == 'performer unknown')
         if row.get('artist_role') not in ('credited artist', 'credited composer; performer unknown', 'performer unknown'):
             raise ValueError('invalid public radio artist role')
+        sources = row.get('additional_sources', [])
+        if not isinstance(sources, list) or len(sources) > 16:
+            raise ValueError('invalid public radio additional sources')
+        for source in sources:
+            _text(source, 'public track additional source', 2048)
+        if len(set(sources)) != len(sources) or row['source'] in sources:
+            raise ValueError('duplicate public radio source')
         if any(key in row for key in ('offset', 'track_id', 'hash_b')):
             raise ValueError('public radio lists cannot assign native identities')
     return dict(data=data, by_offset=by_offset, credit_index=credit_index,
@@ -240,7 +326,7 @@ def label(catalog, recording, station=None):
         artist = ('Various Artists' if recording['role'] == 'premixed' else
                   station if recording['role'] == 'non-song' and station else 'Unknown Artist')
         status = 'unmatched_credit'
-    return dict(title=title, artist=artist, native_name=raw_name,
+    result = dict(title=title, artist=artist, native_name=raw_name,
                 credit_status=status, credit_alternatives=bucket,
                 credit_conflicts=len({_artist_key(r['artist']) for r in bucket}) > 1,
                 title_selection=selection,
@@ -250,6 +336,18 @@ def label(catalog, recording, station=None):
                     if artist != 'Unknown Artist' else 'unidentified performer',
                 provisional=title_alias or bool(preferred) or len(artists)>1,
                 evidence='Research labels and complete name-hash equality; recording identity unconfirmed')
+    observation = recording.get('recording_credit')
+    if observation:
+        result.update(title=observation['title'], artist=observation['artist'],
+                      credit_status='audio_fingerprint_match' if observation['method']=='audio_fingerprint'
+                          else 'native_config_hash_match', provisional=True,
+                      selected_credit=observation, artist_role='supplied credit artist',
+                      title_selection='source-bound '+('acoustic observation' if observation['method']=='audio_fingerprint'
+                                                       else 'native config hash lead'),
+                      evidence=observation['evidence'])
+        result['credit_conflicts'] |= observation.get('credit_conflicts', False)
+        result['credit_alternatives'] = bucket + observation.get('alternatives', [])
+    return result
 
 
 def public_credits(catalog, contexts=(), songs=(), *, maximum=None, order='catalog'):
@@ -265,6 +363,7 @@ def public_credits(catalog, contexts=(), songs=(), *, maximum=None, order='catal
         for query in contexts:
             query = _text(query, 'public context filter', 512).strip().casefold()
             matches = {c for c in available if c.casefold() == query}
+            matches = matches or {c for c in available if _context_alias(c.casefold()) == _context_alias(query)}
             matches = matches or {c for c in available if query in c.casefold()}
             if not matches:
                 raise ValueError('no public radio context matches ' + repr(query))
@@ -322,6 +421,7 @@ def select(catalog, stations=(), *, include_imaging=False, include_unassigned=Fa
         for query in stations:
             query = _text(query, 'station filter', 256).strip().casefold()
             exact = [s for s in selected if query in (s['key'].casefold(), s['name'].casefold())]
+            exact = exact or [s for s in selected if _context_alias(s['name'].casefold()) == _context_alias(query)]
             matches = exact or [s for s in selected if query in s['key'].casefold() or query in s['name'].casefold()]
             if not matches:
                 raise ValueError('no radio station matches ' + repr(query))
@@ -332,14 +432,18 @@ def select(catalog, stations=(), *, include_imaging=False, include_unassigned=Fa
         items = []
         for offset in station['members']:
             row = catalog['by_offset'][offset]
-            if not include_imaging and station['kind'] == 'music' and row['role'] != 'music':
+            if not include_imaging and station['kind'] == 'music' and row['role'] not in ('music', 'premixed'):
                 continue
             items.append(dict(row, **label(catalog, row, station['name'])))
+            if station.get('context_type', 'station') != 'station':
+                items[-1]['provisional'] = True
         if song_queries:
             matching = []
             for row in items:
                 alternatives = [c for c in row['credit_alternatives']
-                    if row['credit_status'] == 'ambiguous_credits' or _artist_key(c['artist']) == _artist_key(row['artist'])]
+                    if row['credit_status'] == 'ambiguous_credits'
+                    or row.get('recording_credit') and row['credit_conflicts']
+                    or _artist_key(c['artist']) == _artist_key(row['artist'])]
                 text = ' '.join([row['title'], row['artist'], row['native_name'], row.get('hash_b', '')]
                     + [v for c in alternatives for v in (c['title'], c['artist'])]).casefold()
                 if any(q in text for q in song_queries):

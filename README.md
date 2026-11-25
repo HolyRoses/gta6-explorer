@@ -90,23 +90,32 @@ python3 -m gta6x radio --list
 python3 -m gta6x radio --list-credits --station "The Vault Radio"
 python3 -m gta6x radio --out ./exports/radio
 python3 -m gta6x radio --station "Flash FM" --out ./exports/flash-fm
+python3 -m gta6x radio --station "The Sniper of La Perle" --out ./exports/sniper
 python3 -m gta6x radio --list-tracks --station "Flash FM"
 python3 -m gta6x radio --names-out ./radio-names.json
 ```
 
 Open `playlists/All Stations.m3u8` or an individual station playlist in VLC.
 Default Opus exports preserve compressed audio; `--format flac`, `mp3`, `m4a`
-or `wav` converts explicitly. Premixed stations include full broadcasts, chapter
-files, embedded Opus chapters, CUE and native marker/seek metadata. Bundled
-acoustic and user-supplied credits name supported Vault, Worldwide and Radio
-On-U chapter occurrences, including artist tags and explicit `Song A → Song B (transition)` labels for
+or `wav` converts explicitly. Broadcasts include native marker/seek metadata;
+native intervals support chapter files, embedded Opus chapters and CUE. Shows
+without native song boundaries provide stored program audio and separately tagged
+identification excerpts. Identified-location playlists jump into the program
+and continue playback. Bundled
+standalone recordings for premixed stations have their own `standalone/` folder
+and `(standalone tracks)` playlist, separate from broadcast chapters. Bundled
+acoustic and user-supplied credits name supported Vault, Worldwide, Radio
+On-U and Sniper chapter occurrences, including artist tags and explicit `Song A → Song B (transition)` labels for
 audited overlaps. Unmatched intervals retain their TRACKIDs. Copy cuts follow
 packet boundaries;
 `--exact-chapters` re-encodes chapter cuts on the selected audio timeline.
 
 Talk stations are included; `--include-imaging` adds station beds and imaging.
-`--audio-dir DIR` reuses addressed Opus extractions; source-bound premixed
-credits require native archive input. Matching files and sidecar hashes permit
+Named bonus playlists are listed separately from station groups. Conflicting
+fingerprint credits remain available as alternatives to the selected display metadata.
+Bonus Tracks collects identified recordings whose original station or use is unknown.
+`--audio-dir DIR` reuses addressed Opus extractions; source-bound recording and
+chapter credits require native archive input. Matching files and sidecar hashes permit
 safe reruns; changed settings or conflicting files require
 `--overwrite`. The [bundled catalog](gta6x/data/README.md) preserves research
 provenance and conflicting credits; it needs no files from `exports/` or `work/`.

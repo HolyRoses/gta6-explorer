@@ -149,7 +149,37 @@ def credited_chapters(recording, source):
             credit_status=('audio_fingerprint_match' if credit['method'] == 'audio_fingerprint'
                            else credit['method']), credit_source=credit['source'],
             credit_evidence=credit['evidence'], provisional=True)
+        if 'credit_conflicts' in credit:
+            matches[0]['credit_conflicts'] = credit['credit_conflicts']
+        if 'alternatives' in credit:
+            matches[0]['credit_alternatives'] = [dict(row) for row in credit['alternatives']]
+        if 'reference_credit_method' in credit:
+            matches[0]['reference_credit_method'] = credit['reference_credit_method']
     return rows
+
+
+def check_recording_credit(recording, source):
+    """Recording observations apply only to their checked native source/channel."""
+    credit = recording.get('recording_credit')
+    if credit and (source.get('supplied_audio') or any(source.get(key) != credit[key]
+            for key in ('source_sha256', 'stream_index', 'channel_index', 'channel_id'))):
+        raise ValueError('recording credit requires its exact native source and channel')
+
+
+def acoustic_matches(recording, source):
+    """Listening samples never replace native chapters or imply song boundaries."""
+    matches = []
+    for row in recording.get('acoustic_matches', []):
+        if (row['stream_index'], row['channel_index']) != (source['stream_index'], source['channel_index']):
+            continue
+        if source.get('supplied_audio') or any(source.get(key) != row[key]
+                for key in ('source_sha256', 'channel_id')):
+            raise ValueError('acoustic match requires its exact native source and channel')
+        frames = source.get('native_timing', {}).get('output_frames')
+        if frames is None or not 0 <= row['start_frames'] < row['end_frames'] <= frames:
+            raise ValueError('acoustic sample exceeds the native audio timeline')
+        matches.append(dict(row))
+    return sorted(matches, key=lambda r: (r['start_frames'], r['end_frames']))
 
 
 def _clock(frames):
@@ -251,6 +281,12 @@ def _extract(archive, recording, directory, pre_skip, skip_policy, max_records):
             raise ValueError('research song hash conflicts with native music channel IDs at this locator')
     else:
         selected = channels
+    credit = recording.get('recording_credit')
+    if credit and channels:
+        selected = [(s, c) for s, c in selected
+                    if (s['index'], c['index']) == (credit['stream_index'], credit['channel_index'])]
+        if not selected:
+            raise ValueError('recording credit channel is absent from its native source')
     results = []
     if channels:
         for stream, channel in selected:
@@ -273,6 +309,8 @@ def _extract(archive, recording, directory, pre_skip, skip_policy, max_records):
                 native_timing=timing, awc_metadata=metadata, radio=radio, chapters=chapters, chapter_association=association))
     else:
         for stream in metadata['stream_list']:
+            if credit and (stream['index'] != credit['stream_index'] or credit['channel_index'] != 0):
+                continue
             if expected_id is not None and stream['id'] != expected_id:
                 continue
             if not stream.get('data_bytes'):
@@ -433,8 +471,13 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
             raise ValueError('radio station names collide after filename normalization')
         folders.add(folder)
         labels = [station['name']]
-        if station['kind'] == 'premixed':
+        if any(r.get('acoustic_matches') for r in station['recordings']):
+            labels.append(station['name'] + ' (identified excerpts)')
+            labels.append(station['name'] + ' (identified locations)')
+        if any(r['role'] == 'premixed' for r in station['recordings']):
             labels += [station['name'] + ' (continuous)', station['name'] + ' (chapter navigation)']
+        if station['kind'] == 'premixed' and any(r['role'] != 'premixed' for r in station['recordings']):
+            labels.append(station['name'] + ' (standalone tracks)')
         for label in labels:
             key = safe_name(label, 200).casefold()
             if key in playlist_names:
@@ -471,11 +514,18 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
     for station in selected:
         initial_failures = len(report['failures'])
         station_report = dict(key=station['key'], name=station['name'], kind=station['kind'],
+                              context_type=station.get('context_type', 'station'),
                               requested=len(station['recordings']), files=[], playlists=[])
         report['stations'].append(station_report)
-        playlist, continuous, virtual = [], [], []
+        playlist, continuous, virtual, standalone, identification_entries = [], [], [], [], []
+        identification_locations = []
+        standalone_ordinal = 0
         for ordinal, recording in enumerate(station['recordings'], 1):
             offset = recording['offset']
+            is_mix = recording['role'] == 'premixed'
+            is_standalone = station['kind'] == 'premixed' and not is_mix
+            if is_standalone:
+                standalone_ordinal += 1
             if progress:
                 progress(f"{station['name']}: {ordinal}/{len(station['recordings'])} @0x{offset:x}")
             try:
@@ -490,17 +540,26 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
                                 stage='channel', reason=source['error']))
                             continue
                         originals = protected + [source['path']]
+                        check_recording_credit(recording, source)
+                        observations = acoustic_matches(recording, source)
                         ident = f"audio_{offset:09x}_s{source['stream_index']}_c{source['channel_index']}"
-                        is_mix = station['kind'] == 'premixed'
-                        title = 'Continuous Broadcast' if is_mix else recording['title']
+                        title = ('Continuous Broadcast' if is_mix and not recording.get('recording_credit')
+                                 else recording['title'])
                         if recording['role'] == 'non-song':
                             title = f"Station segment {ordinal:03}"
                         artist = recording['artist']
                         stem = safe_name(station['name'] + ' - ' + (artist + ' - ' if artist else '') + title)
-                        relative = Path('stations') / safe_name(station['name']) / f'{stem} [{ident}].{FORMATS[format][0]}'
+                        directory = Path('stations') / safe_name(station['name'])
+                        if is_standalone:
+                            directory /= 'standalone'
+                        relative = directory / f'{stem} [{ident}].{FORMATS[format][0]}'
                         target = _target(root, relative, originals)
+                        track = (len(standalone) + 1 if is_standalone else
+                                 len(continuous) + 1 if is_mix and station['kind'] == 'premixed' else
+                                 len(playlist) + 1)
                         tags = dict(title=title, artist=artist, album=station['name'],
-                            album_artist=station['name'], genre='Radio', track=str(ordinal),
+                            album_artist=station['name'], genre='Radio',
+                            track=str(track),
                             comment=f"gta6x research labels; audio.rpf @0x{offset:x}; source {source['source_sha256']}",
                             GTA6X_CATALOG_SHA256=catalog['sha256'], GTA6X_SOURCE_SHA256=source['source_sha256'],
                             GTA6X_AWC_OFFSET=f'0x{offset:x}', GTA6X_STREAM=str(source['stream_index']),
@@ -509,6 +568,23 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
                             GTA6X_EXPORT_PROFILE='gta6x-radio-library-v1', GTA6X_OUTPUT_FORMAT=format,
                             GTA6X_PRE_SKIP='supplied audio timeline' if source.get('supplied_audio') else str(pre_skip),
                             GTA6X_SKIP_POLICY='supplied audio timeline' if source.get('supplied_audio') else skip_policy)
+                        if recording.get('provisional'):
+                            tags['GTA6X_CREDIT_PROVISIONAL'] = '1'
+                        if observations:
+                            tags['GTA6X_IDENTIFICATION_INDEX'] = 'fingerprint samples; not native song boundaries'
+                        if recording.get('credit_conflicts'):
+                            tags['GTA6X_CREDIT_CONFLICTS'] = '1'
+                        if station.get('context_type', 'station') != 'station':
+                            tags['GTA6X_CONTEXT_TYPE'] = station['context_type']
+                        if recording.get('recording_credit'):
+                            tags['GTA6X_CREDIT_SOURCE'] = recording['recording_credit']['source']
+                        if recording.get('station_assignment'):
+                            assignment = recording['station_assignment']
+                            tags.update(GTA6X_STATION_STATUS=assignment['status'],
+                                        GTA6X_STATION_METHOD=assignment['method'],
+                                        GTA6X_STATION_SOURCE=assignment['source'])
+                        if is_standalone:
+                            tags['GTA6X_LIBRARY_VIEW'] = 'standalone'
                         if recording['credit_status'] == 'research_work_alias':
                             tags.update(composer=artist, GTA6X_ARTIST_ROLE=recording['artist_role'])
                         chapters = credited_chapters(recording, source)
@@ -520,6 +596,12 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
                             ffprobe=ffprobe, timeout=timeout, overwrite=overwrite)
                         entry = dict(path=str(target), station=station['name'], title=title, artist=artist,
                                      duration_s=info['duration_s'])
+                        for observation in observations:
+                            end = source['native_timing']['output_frames']
+                            identification_locations.append(dict(entry,
+                                title='Listen from: '+observation['title']+' (identified location)',
+                                artist=observation['artist'], start_frames=observation['start_frames'],
+                                end_frames=end, duration_s=(end-observation['start_frames'])/RATE))
                         detail = dict(recording, export_identity=tags,
                                       source={k: v for k, v in source.items() if k != 'path'},
                                       output=dict(path=relative.as_posix(), **info))
@@ -540,21 +622,57 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
                             _atomic(str(target) + '.ffmetadata', _ffmetadata(chapters).encode('utf-8'))
                             _atomic(str(target) + '.chapters.txt', awc_radio.chapter_text(
                                 [c for c in chapters if c.get('track_id') is not None]).encode('utf-8'))
+                        if observations and premixed != 'continuous':
+                            for observation in observations:
+                                number = len(identification_entries) + 1
+                                excerpt_title = observation['title'] + ' (identified excerpt)'
+                                excerpt_stem = safe_name(f"{number:03} - {station['name']} - {observation['artist']} - {excerpt_title}")
+                                excerpt_rel = relative.parent / 'identified excerpts' / f'{excerpt_stem} [{ident}].{FORMATS[format][0]}'
+                                excerpt_target = _target(root, excerpt_rel, originals)
+                                excerpt_tags = dict(tags, title=excerpt_title, artist=observation['artist'], track=str(number),
+                                    GTA6X_LABEL_STATUS=observation['method'], GTA6X_CREDIT_SOURCE=observation['source'],
+                                    GTA6X_CREDIT_PROVISIONAL='1', GTA6X_LIBRARY_VIEW='identification_excerpt',
+                                    GTA6X_INTERVAL=f"{observation['start_frames']}:{observation['end_frames']}",
+                                    GTA6X_CUT_MODE='packet-copy' if format == 'opus' and not exact_chapters else 'decoded',
+                                    GTA6X_BOUNDARY_SOURCE='fingerprint sample; not native song boundaries')
+                                for key in ('GTA6X_ARTIST_ROLE', 'GTA6X_TRACKID', 'GTA6X_CREDIT_CONFLICTS'):
+                                    excerpt_tags.pop(key, None)
+                                if observation.get('credit_conflicts'):
+                                    excerpt_tags['GTA6X_CREDIT_CONFLICTS'] = '1'
+                                _target(root, str(excerpt_rel)+'.json', originals)
+                                excerpt = _render(source['path'], excerpt_target, excerpt_tags, [], format=format,
+                                    ffmpeg=ffmpeg, ffprobe=ffprobe, timeout=timeout, overwrite=overwrite,
+                                    start=observation['start_frames'], end=observation['end_frames'], exact_chapters=exact_chapters)
+                                excerpt_detail = dict(observation, title=excerpt_title, export_identity=excerpt_tags,
+                                    provisional=True, credit_status=observation['method']+'_excerpt',
+                                    boundary_source='fingerprint_sample', output=dict(path=excerpt_rel.as_posix(), **excerpt),
+                                    timing_precision='packet-boundary copy' if format == 'opus' and not exact_chapters else 'decoded interval',
+                                    requested_duration_s=(observation['end_frames']-observation['start_frames'])/RATE,
+                                    duration_delta_s=excerpt['duration_s']-(observation['end_frames']-observation['start_frames'])/RATE)
+                                _json(str(excerpt_target)+'.json', excerpt_detail)
+                                detail.setdefault('identification_outputs', []).append(excerpt_detail)
+                                identification_entries.append(dict(path=str(excerpt_target), station=station['name'],
+                                    title=excerpt_title, artist=observation['artist'], duration_s=excerpt['duration_s']))
+                            _json(str(target)+'.json', detail)
                         if not is_mix:
-                            playlist.append(entry)
+                            (standalone if is_standalone else playlist).append(entry)
+                            _json(str(target) + '.json', detail)
                             continue
                         continuous.append(entry)
                         if not chapters:
                             playlist.append(entry)
-                            report['failures'].append(dict(station=station['name'], offset=offset,
-                                stage='chapters', reason=source['chapter_association'], continuous_exported=True))
+                            if observations:
+                                detail['native_chapter_status'] = 'unavailable; identification samples are separate'
+                            else:
+                                report['failures'].append(dict(station=station['name'], offset=offset,
+                                    stage='chapters', reason=source['chapter_association'], continuous_exported=True))
                         for i, chapter in enumerate(chapters, 1):
                             start, end = chapter['start_frames'], chapter['end_frames']
                             if end <= start:
                                 report['failures'].append(dict(station=station['name'], offset=offset,
                                     stage='chapter', chapter=i, reason='zero-length marker interval'))
                                 continue
-                            label = f'{i:02} - ' + chapter_title(chapter)
+                            label = chapter_title(chapter)
                             chapter_artist = chapter.get('artist', artist)
                             virtual.append(dict(entry, title=label, artist=chapter_artist, start_frames=start, end_frames=end,
                                                 duration_s=(end-start)/RATE))
@@ -562,14 +680,19 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
                                 continue
                             chapter_rel = relative.parent / 'chapters' / f"{safe_name(f'{i:03} - '+station['name']+' - '+chapter_display(chapter))} [{ident}].{FORMATS[format][0]}"
                             chapter_target = _target(root, chapter_rel, originals)
-                            chapter_tags = dict(tags, title=label, artist=chapter_artist, track=str(i), GTA6X_INTERVAL=f'{start}:{end}',
+                            chapter_tags = dict(tags, title=label, artist=chapter_artist, track=str(len(playlist) + 1), GTA6X_INTERVAL=f'{start}:{end}',
                                 GTA6X_TRACKID=str(chapter.get('track_id', 'unknown')),
                                 GTA6X_CUT_MODE='packet-copy' if format == 'opus' and not exact_chapters else 'decoded')
                             if chapter.get('credit_status'):
                                 # A broadcast program credit does not describe a named track.
                                 chapter_tags.pop('GTA6X_ARTIST_ROLE', None)
+                                chapter_tags.pop('GTA6X_CREDIT_CONFLICTS', None)
                                 chapter_tags.update(GTA6X_LABEL_STATUS=chapter['credit_status'],
                                     GTA6X_CREDIT_SOURCE=chapter['credit_source'], GTA6X_CREDIT_PROVISIONAL='1')
+                            if chapter.get('credit_conflicts'):
+                                chapter_tags['GTA6X_CREDIT_CONFLICTS'] = '1'
+                            if chapter.get('reference_credit_method'):
+                                chapter_tags['GTA6X_REFERENCE_CREDIT_METHOD'] = chapter['reference_credit_method']
                             _target(root, str(chapter_rel)+'.json', originals)
                             try:
                                 cut = _render(source['path'], chapter_target, chapter_tags, [], format=format,
@@ -596,10 +719,16 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
         if station['kind'] == 'premixed' and premixed == 'continuous':
             playlist = continuous
         groups = [(station['name'], playlist)]
-        if station['kind'] == 'premixed':
-            if premixed == 'both':
-                groups.append((station['name'] + ' (continuous)', continuous))
+        if identification_entries:
+            groups.append((station['name'] + ' (identified excerpts)', identification_entries))
+        if identification_locations:
+            groups.append((station['name'] + ' (identified locations)', identification_locations))
+        if continuous and premixed == 'both':
+            groups.append((station['name'] + ' (continuous)', continuous))
+        if virtual:
             groups.append((station['name'] + ' (chapter navigation)', virtual))
+        if standalone_ordinal:
+            groups.append((station['name'] + ' (standalone tracks)', standalone))
         for label, entries in groups:
             for extension in ('.m3u8', '.m3u'):
                 relative = Path('playlists') / (safe_name(label, 200) + extension)
@@ -608,15 +737,19 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
                         failed=len(report['failures']) > initial_failures)
                 station_report['playlists'].append(relative.as_posix())
         master.extend(playlist)
+        master.extend(standalone)
     for extension in ('.m3u8', '.m3u'):
         path = _target(root, 'playlists/All Stations' + extension, protected)
         publish(path, playlist_text('All Stations', master, path.parent).encode('utf-8'), failed=bool(report['failures']))
     files = [f for s in report['stations'] for f in s['files']]
     cuts = [c for f in files for c in f.get('chapter_outputs', [])]
+    excerpts = [c for f in files for c in f.get('identification_outputs', [])]
     report['summary'] = dict(stations=len(selected), recordings=sum(s['requested'] for s in report['stations']),
-        recording_exports=len(files), chapter_exports=len(cuts), exported_files=len(files)+len(cuts),
-        reused_files=sum(f['output']['status'] == 'reused' for f in files+cuts),
+        recording_exports=len(files), chapter_exports=len(cuts), exported_files=len(files)+len(cuts)+len(excerpts),
+        reused_files=sum(f['output']['status'] == 'reused' for f in files+cuts+excerpts),
         playlist_entries=len(master), failures=len(report['failures']))
+    if excerpts:
+        report['summary']['identification_exports'] = len(excerpts)
     report['status'] = 'partial' if report['failures'] else 'complete'
     metadata_outputs = {'radio-catalog.json': catalog['data'],
         'radio-names.json': radio_catalog.name_dictionary(catalog),
