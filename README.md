@@ -100,15 +100,17 @@ Default Opus exports preserve compressed audio; `--format flac`, `mp3`, `m4a`
 or `wav` converts explicitly. Broadcasts include native marker/seek metadata;
 native intervals support chapter files, embedded Opus chapters and CUE. Shows
 without native song boundaries provide stored program audio and separately tagged
-identification excerpts. Identified-location playlists jump into the program
-and continue playback. Bundled
+identification excerpts. Mapped broadcast song cuts provide longer song sections
+in the main station and All Stations playlists, as well as separate song-cut
+playlists, retaining DJ transitions and provisional boundary labels.
+Identified-location playlists jump into the program and continue playback. Bundled
 standalone recordings for premixed stations have their own `standalone/` folder
 and `(standalone tracks)` playlist, separate from broadcast chapters. Bundled
 acoustic and user-supplied credits name supported Vault, Worldwide, Radio
 On-U and Sniper chapter occurrences, including artist tags and explicit `Song A → Song B (transition)` labels for
 audited overlaps. Unmatched intervals retain their TRACKIDs. Copy cuts follow
 packet boundaries;
-`--exact-chapters` re-encodes chapter cuts on the selected audio timeline.
+`--exact-chapters` re-encodes interval cuts on the selected audio timeline.
 
 Talk stations are included; `--include-imaging` adds station beds and imaging.
 Named bonus playlists are listed separately from station groups. Conflicting

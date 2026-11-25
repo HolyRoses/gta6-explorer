@@ -160,6 +160,40 @@ def parse(data):
                     ('source_sha256', 'stream_index', 'channel_index', 'channel_id')):
                 raise ValueError('acoustic match differs from the selected recording source/channel')
             _credit_alternatives(observation)
+        cuts = row.get('broadcast_cuts', [])
+        if (not isinstance(cuts, list) or len(cuts) > 10000
+                or cuts and row['role'] != 'premixed'):
+            raise ValueError('invalid radio broadcast cuts')
+        seen_cuts = set()
+        for cut in cuts:
+            if (not isinstance(cut, dict) or cut.get('status') != 'provisional'
+                    or cut.get('method') != 'fingerprint_interval' or 'track_id' in cut):
+                raise ValueError('invalid radio broadcast cut provenance')
+            identity = tuple(_uint(cut.get(k), 'broadcast cut '+k, 0xffffffff)
+                             for k in ('stream_index', 'channel_index', 'channel_id', 'start_frames', 'end_frames'))
+            if identity in seen_cuts or not 0 < identity[-1]-identity[-2] <= 1800*48000:
+                raise ValueError('invalid or duplicate radio broadcast cut bounds')
+            seen_cuts.add(identity)
+            if not isinstance(cut.get('source_sha256'), str) or not re.fullmatch('[0-9a-f]{64}', cut['source_sha256']):
+                raise ValueError('invalid radio broadcast cut source hash')
+            for key in ('title', 'artist', 'source', 'evidence'):
+                _text(cut.get(key), 'broadcast cut '+key, 2048 if key in ('source', 'evidence') else 512)
+            ranges = []
+            for key in ('start_range_frames', 'end_range_frames'):
+                value = cut.get(key)
+                if not isinstance(value, list) or len(value) != 2:
+                    raise ValueError('invalid radio broadcast boundary range')
+                ranges.extend(_uint(n, 'broadcast boundary range', 0xffffffff) for n in value)
+            start_lo, start_hi, end_lo, end_hi = ranges
+            if not start_lo <= cut['start_frames'] <= start_hi < end_lo <= cut['end_frames'] <= end_hi:
+                raise ValueError('inconsistent radio broadcast boundary ranges')
+            keys = ('source_sha256', 'stream_index', 'channel_index', 'channel_id')
+            if credit and any(cut[k] != credit[k] for k in keys):
+                raise ValueError('broadcast cut differs from the selected recording source/channel')
+            if not any(all(o[k] == cut[k] for k in keys + ('title', 'artist'))
+                       and start_hi <= o['start_frames'] < o['end_frames'] <= end_lo for o in observations):
+                raise ValueError('broadcast cut requires an enclosed source-bound acoustic sample')
+            _credit_alternatives(cut)
     keys, display_names = set(), set()
     for station in stations:
         if not isinstance(station, dict):
@@ -445,7 +479,8 @@ def select(catalog, stations=(), *, include_imaging=False, include_unassigned=Fa
                     or row.get('recording_credit') and row['credit_conflicts']
                     or _artist_key(c['artist']) == _artist_key(row['artist'])]
                 text = ' '.join([row['title'], row['artist'], row['native_name'], row.get('hash_b', '')]
-                    + [v for c in alternatives for v in (c['title'], c['artist'])]).casefold()
+                    + [v for c in alternatives for v in (c['title'], c['artist'])]
+                    + [v for c in row.get('broadcast_cuts', []) for v in (c['title'], c['artist'])]).casefold()
                 if any(q in text for q in song_queries):
                     matching.append(row)
             items = matching

@@ -2957,8 +2957,6 @@
         9817899008,
         9824419840,
         9830113280,
-        9832923136,
-        9835085824,
         9837981696,
         9846484992,
         9650245632,
@@ -3520,7 +3518,10 @@
         9586610176,
         9743409152,
         5205917696,
-        5275791360
+        5275791360,
+        5907828736,
+        9832923136,
+        9835085824
       ]
     }
   ],
@@ -17058,11 +17059,20 @@
           "start_frames": 141558730,
           "end_frames": 157188331,
           "source_sha256": "d89585b7587bbafb725247978d95deb771e75c5bc905521dbafeec39acec640b",
-          "title": "Brighter Days (Marco Lys Remix)",
-          "artist": "Cajmere ft. Dajae",
+          "title": "Brighter Days (Marco Lys Remix) → Damn (transition)",
+          "artist": "Cajmere ft. Dajae / Dom Dolla & Solomun",
           "method": "audio_fingerprint",
-          "source": "https://music.apple.com/us/album/brighter-days-marco-lys-remix/1650248630?i=1650248631&uo=4",
-          "evidence": "Official preview match."
+          "source": "https://www.youtube.com/watch?v=J8pfCmHmjUU",
+          "evidence": "Official preview evidence retains the neighbouring song; two live references support provisional Damn within this unchanged native interval.",
+          "alternatives": [
+            {
+              "title": "Brighter Days (Marco Lys Remix)",
+              "artist": "Cajmere ft. Dajae",
+              "source": "https://music.apple.com/us/album/brighter-days-marco-lys-remix/1650248630?i=1650248631&uo=4",
+              "credit_context": "The Vault Radio"
+            }
+          ],
+          "reference_credit_method": "local_fingerprint"
         },
         {
           "stream_index": 0,
@@ -17072,11 +17082,20 @@
           "start_frames": 157188331,
           "end_frames": 170297286,
           "source_sha256": "d89585b7587bbafb725247978d95deb771e75c5bc905521dbafeec39acec640b",
-          "title": "Different Side",
-          "artist": "Michael Bibi & KinAhau ft. Audio Bullys",
+          "title": "Damn → Different Side (transition)",
+          "artist": "Dom Dolla & Solomun / Michael Bibi & KinAhau ft. Audio Bullys",
           "method": "audio_fingerprint",
-          "source": "https://music.apple.com/us/album/different-side-feat-audio-bullys/1673189255?i=1673189256&uo=4",
-          "evidence": "Official preview match."
+          "source": "https://www.youtube.com/watch?v=J8pfCmHmjUU",
+          "evidence": "Official preview evidence retains the neighbouring song; two live references support provisional Damn within this unchanged native interval.",
+          "alternatives": [
+            {
+              "title": "Different Side",
+              "artist": "Michael Bibi & KinAhau ft. Audio Bullys",
+              "source": "https://music.apple.com/us/album/different-side-feat-audio-bullys/1673189255?i=1673189256&uo=4",
+              "credit_context": "The Vault Radio"
+            }
+          ],
+          "reference_credit_method": "local_fingerprint"
         },
         {
           "stream_index": 0,
@@ -17175,6 +17194,46 @@
           "method": "audio_fingerprint",
           "source": "https://music.apple.com/us/album/west-coast-solomun-remix/1729652849?i=1729653365&uo=4",
           "evidence": "Official preview match."
+        }
+      ],
+      "acoustic_matches": [
+        {
+          "source_sha256": "d89585b7587bbafb725247978d95deb771e75c5bc905521dbafeec39acec640b",
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 162787876,
+          "start_frames": 150000000,
+          "end_frames": 150480000,
+          "title": "Damn",
+          "artist": "Dom Dolla & Solomun",
+          "source": "https://www.youtube.com/watch?v=J8pfCmHmjUU",
+          "method": "local_fingerprint",
+          "status": "provisional",
+          "evidence": "Two official live recordings match disjoint windows; tracklist title attribution and edit remain provisional."
+        }
+      ],
+      "broadcast_cuts": [
+        {
+          "source_sha256": "d89585b7587bbafb725247978d95deb771e75c5bc905521dbafeec39acec640b",
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 162787876,
+          "start_frames": 143321172,
+          "end_frames": 158652198,
+          "title": "Damn",
+          "artist": "Dom Dolla & Solomun",
+          "source": "https://www.youtube.com/watch?v=J8pfCmHmjUU",
+          "method": "fingerprint_interval",
+          "status": "provisional",
+          "evidence": "Fingerprint-guided broadcast section with transition margins; boundaries and exact edition remain provisional.",
+          "start_range_frames": [
+            143321172,
+            144240000
+          ],
+          "end_range_frames": [
+            157188331,
+            158652198
+          ]
         }
       ]
     },
@@ -20132,16 +20191,74 @@
     {
       "archive": "audio.rpf",
       "offset": 9832923136,
-      "role": "non-song",
+      "role": "music",
       "native_name": "",
-      "duration_hint_s": 126.48
+      "duration_hint_s": 126.423625,
+      "recording_credit": {
+        "source_sha256": "11ed55e98cae9bb03948409b32fa87c7474d26767462bd5774f25aeb3a9334cf",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 457953711,
+        "title": "FTH",
+        "artist": "Real Dimez",
+        "source": "https://www.youtube.com/watch?v=4j9zQcuC9ps",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "evidence": "Two public references match disjoint windows; original FTH family, exact edition and use unconfirmed."
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "11ed55e98cae9bb03948409b32fa87c7474d26767462bd5774f25aeb3a9334cf",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 1510,
+          "start_frames": 0,
+          "end_frames": 6068334,
+          "title": "FTH",
+          "artist": "Real Dimez",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "local_fingerprint",
+          "source": "https://www.youtube.com/watch?v=4j9zQcuC9ps",
+          "evidence": "Same source-bound FTH match; native TRACKID and bounds retained; exact edit provisional."
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
       "offset": 9835085824,
-      "role": "non-song",
+      "role": "music",
       "native_name": "",
-      "duration_hint_s": 126.4
+      "duration_hint_s": 126.34995833333333,
+      "recording_credit": {
+        "source_sha256": "111d2dc35b16a8f7f9eb0d4405c5c04b49779605627b75f41fc3912debe97ddb",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 217505288,
+        "title": "FTH (alternate recording)",
+        "artist": "Real Dimez",
+        "source": "https://www.youtube.com/watch?v=4j9zQcuC9ps",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "evidence": "Two public references match disjoint windows; original FTH family, exact edition and use unconfirmed."
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "111d2dc35b16a8f7f9eb0d4405c5c04b49779605627b75f41fc3912debe97ddb",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 1510,
+          "start_frames": 0,
+          "end_frames": 6064798,
+          "title": "FTH (alternate recording)",
+          "artist": "Real Dimez",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "local_fingerprint",
+          "source": "https://www.youtube.com/watch?v=4j9zQcuC9ps",
+          "evidence": "Same source-bound FTH match; native TRACKID and bounds retained; exact edit provisional."
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -21980,7 +22097,14 @@
           "artist": "Digable Planets",
           "method": "audio_fingerprint",
           "source": "https://music.apple.com/us/album/rebirth-of-slick-cool-like-dat/725211790?i=725211798&uo=4",
-          "evidence": "Official preview match."
+          "evidence": "Official preview match.",
+          "user_confirmation": {
+            "method": "user_reported_listening_comparison",
+            "title": "Rebirth of Slick (Cool Like Dat)",
+            "source": "Listening review",
+            "evidence": "Same song across four occurrences; intros and vocals differ.",
+            "scope": "Song identity only; exact remix and performer credits unconfirmed."
+          }
         },
         {
           "stream_index": 0,
@@ -21994,7 +22118,14 @@
           "artist": "Kassa Overall",
           "method": "audio_fingerprint",
           "source": "https://music.apple.com/us/album/rebirth-of-slick-cool-like-dat/1817426158?i=1817426164&uo=4",
-          "evidence": "Preview favors Kassa Overall over the earlier local credit."
+          "evidence": "Preview favors Kassa Overall over the earlier local credit.",
+          "user_confirmation": {
+            "method": "user_reported_listening_comparison",
+            "title": "Rebirth of Slick (Cool Like Dat)",
+            "source": "Listening review",
+            "evidence": "Same song across four occurrences; intros and vocals differ.",
+            "scope": "Song identity only; exact remix and performer credits unconfirmed."
+          }
         },
         {
           "stream_index": 0,
@@ -23489,6 +23620,13 @@
         "status": "provisional",
         "source": "https://www.vice.com/en/article/gta-6-radio-songs-list/",
         "evidence": "Public station credit and source-bound acoustic observation; native ownership unverified."
+      },
+      "user_confirmation": {
+        "method": "user_reported_listening_comparison",
+        "title": "Rebirth of Slick (Cool Like Dat)",
+        "source": "Listening review",
+        "evidence": "User identifies all four occurrences as this song with differing intros/vocal arrangements.",
+        "scope": "Song identity only; individual remix names and performer credits unconfirmed."
       }
     },
     {
@@ -25436,6 +25574,13 @@
         "status": "provisional",
         "source": "https://www.vice.com/en/article/gta-6-radio-songs-list/",
         "evidence": "Public station/show/playlist credit; native ownership remains unverified."
+      },
+      "user_confirmation": {
+        "method": "user_reported_listening_comparison",
+        "title": "Rebirth of Slick (Cool Like Dat)",
+        "source": "Listening review",
+        "evidence": "User identifies all four occurrences as this song with differing intros/vocal arrangements.",
+        "scope": "Song identity only; individual remix names and performer credits unconfirmed."
       }
     },
     {
@@ -26222,6 +26367,35 @@
           "channel_index": 0,
           "channel_id": 522427453,
           "source_sha256": "a58d1130bf8d14d4ccafd221d9f995f837fa132febdd94ca3fb389568931558f",
+          "start_frames": 13392000,
+          "end_frames": 13838400,
+          "title": "O Let’s Do It",
+          "artist": "Waka Flocka Flame ft. Cap",
+          "source": "https://music.apple.com/us/album/o-lets-do-it-feat-cap/393797951?i=393797961&uo=4",
+          "method": "local_fingerprint",
+          "status": "provisional",
+          "evidence": "Disjoint tempo-normalized fingerprints have coherent reference offsets; sample only, exact edition unconfirmed.",
+          "alternatives": [
+            {
+              "title": "O Let's Do It (feat. Diddy, Rick Ross & Gucci Mane) [Remix]",
+              "artist": "Waka Flocka Flame",
+              "source": "https://music.apple.com/us/album/o-lets-do-it-feat-diddy-rick-ross-gucci-mane-remix/359082300?i=359082302&uo=4",
+              "credit_context": "Bodega the DJ"
+            },
+            {
+              "title": "O Let's Do It (feat. Cap)",
+              "artist": "Waka Flocka Flame",
+              "source": "https://music.apple.com/us/album/o-lets-do-it-feat-cap/393797951?i=393797961&uo=4",
+              "credit_context": "Bodega the DJ"
+            }
+          ],
+          "credit_conflicts": true
+        },
+        {
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 522427453,
+          "source_sha256": "a58d1130bf8d14d4ccafd221d9f995f837fa132febdd94ca3fb389568931558f",
           "start_frames": 16800000,
           "end_frames": 17280000,
           "title": "712PM",
@@ -26244,6 +26418,34 @@
           "method": "local_fingerprint",
           "status": "provisional",
           "evidence": "Two disjoint local windows have coherent reference offsets; this is an identified sample, not a whole-song boundary."
+        },
+        {
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 522427453,
+          "source_sha256": "a58d1130bf8d14d4ccafd221d9f995f837fa132febdd94ca3fb389568931558f",
+          "start_frames": 33480000,
+          "end_frames": 33926400,
+          "title": "Nonstop",
+          "artist": "Drake",
+          "source": "https://www.vice.com/en/article/gta-6-radio-songs-list/",
+          "method": "local_fingerprint",
+          "status": "provisional",
+          "evidence": "Disjoint tempo-normalized fingerprints have coherent reference offsets; sample only, exact edition unconfirmed."
+        },
+        {
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 522427453,
+          "source_sha256": "a58d1130bf8d14d4ccafd221d9f995f837fa132febdd94ca3fb389568931558f",
+          "start_frames": 37051200,
+          "end_frames": 37497600,
+          "title": "Rake It Up",
+          "artist": "Yo Gotti, Nicki Minaj",
+          "source": "https://www.vice.com/en/article/gta-6-radio-songs-list/",
+          "method": "local_fingerprint",
+          "status": "provisional",
+          "evidence": "Disjoint tempo-normalized fingerprints have coherent reference offsets; sample only, exact edition unconfirmed."
         },
         {
           "stream_index": 0,
@@ -26286,6 +26488,35 @@
           "method": "local_fingerprint",
           "status": "provisional",
           "evidence": "Two disjoint local windows have coherent reference offsets; this is an identified sample, not a whole-song boundary."
+        },
+        {
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 522427453,
+          "source_sha256": "a58d1130bf8d14d4ccafd221d9f995f837fa132febdd94ca3fb389568931558f",
+          "start_frames": 84816000,
+          "end_frames": 85262400,
+          "title": "Wipe Me Down (Remix)",
+          "artist": "Boosie Badazz ft. Foxx, Webbie & Lil Boosie",
+          "source": "https://music.apple.com/us/album/wipe-me-down-feat-foxx-webbie-boosie-badazz-remix/1722389954?i=1722390029&uo=4",
+          "method": "local_fingerprint",
+          "status": "provisional",
+          "evidence": "Disjoint tempo-normalized fingerprints have coherent reference offsets; sample only, exact edition unconfirmed.",
+          "alternatives": [
+            {
+              "title": "Wipe Me Down (feat. Foxx, Webbie & Boosie Badazz) [Remix]",
+              "artist": "Trill Family",
+              "source": "https://music.apple.com/us/album/wipe-me-down-feat-foxx-webbie-boosie-badazz-remix/1722389954?i=1722390029&uo=4",
+              "credit_context": "Bodega the DJ"
+            },
+            {
+              "title": "Wipe Me Down (feat. Foxx)",
+              "artist": "Trill Family, Boosie Badazz & Webbie",
+              "source": "https://music.apple.com/us/album/wipe-me-down-feat-foxx/1722389954?i=1722390017&uo=4",
+              "credit_context": "Bodega the DJ"
+            }
+          ],
+          "credit_conflicts": true
         },
         {
           "stream_index": 0,
@@ -26342,6 +26573,20 @@
           "method": "local_fingerprint",
           "status": "provisional",
           "evidence": "Two disjoint local windows have coherent reference offsets; this is an identified sample, not a whole-song boundary."
+        },
+        {
+          "source_sha256": "a58d1130bf8d14d4ccafd221d9f995f837fa132febdd94ca3fb389568931558f",
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 522427453,
+          "start_frames": 120304800,
+          "end_frames": 120751200,
+          "title": "My Neck, My Back (Lick It)",
+          "artist": "Khia",
+          "source": "https://music.apple.com/us/album/my-neck-my-back-lick-it/778212040?i=778212043&uo=4",
+          "method": "local_fingerprint",
+          "status": "provisional",
+          "evidence": "Disjoint official-preview fingerprints and repeated backend queries agree; exact edition remains provisional."
         },
         {
           "stream_index": 0,
@@ -26582,7 +26827,175 @@
         "status": "provisional",
         "source": "https://www.vice.com/en/article/gta-6-radio-songs-list/",
         "evidence": "Public show collection linked by multiple source-bound audio matches; native ownership unverified."
-      }
+      },
+      "broadcast_cuts": [
+        {
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 522427453,
+          "source_sha256": "a58d1130bf8d14d4ccafd221d9f995f837fa132febdd94ca3fb389568931558f",
+          "start_frames": 10728000,
+          "end_frames": 17365959,
+          "title": "O Let’s Do It",
+          "artist": "Waka Flocka Flame ft. Cap",
+          "source": "https://music.apple.com/us/album/o-lets-do-it-feat-cap/393797951?i=393797961&uo=4",
+          "method": "fingerprint_interval",
+          "status": "provisional",
+          "evidence": "Fingerprint-guided broadcast interval retaining transition overlaps; boundaries and exact edition remain provisional.",
+          "alternatives": [
+            {
+              "title": "O Let's Do It (feat. Diddy, Rick Ross & Gucci Mane) [Remix]",
+              "artist": "Waka Flocka Flame",
+              "source": "https://music.apple.com/us/album/o-lets-do-it-feat-diddy-rick-ross-gucci-mane-remix/359082300?i=359082302&uo=4",
+              "credit_context": "Bodega the DJ"
+            },
+            {
+              "title": "O Let's Do It (feat. Cap)",
+              "artist": "Waka Flocka Flame",
+              "source": "https://music.apple.com/us/album/o-lets-do-it-feat-cap/393797951?i=393797961&uo=4",
+              "credit_context": "Bodega the DJ"
+            }
+          ],
+          "credit_conflicts": true,
+          "start_range_frames": [
+            10728000,
+            11760000
+          ],
+          "end_range_frames": [
+            16102886,
+            17365959
+          ]
+        },
+        {
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 522427453,
+          "source_sha256": "a58d1130bf8d14d4ccafd221d9f995f837fa132febdd94ca3fb389568931558f",
+          "start_frames": 82240067,
+          "end_frames": 89410354,
+          "title": "Wipe Me Down (Remix)",
+          "artist": "Boosie Badazz ft. Foxx, Webbie & Lil Boosie",
+          "source": "https://music.apple.com/us/album/wipe-me-down-feat-foxx-webbie-boosie-badazz-remix/1722389954?i=1722390029&uo=4",
+          "method": "fingerprint_interval",
+          "status": "provisional",
+          "evidence": "Fingerprint-guided broadcast interval retaining transition overlaps; boundaries and exact edition remain provisional.",
+          "alternatives": [
+            {
+              "title": "Wipe Me Down (feat. Foxx, Webbie & Boosie Badazz) [Remix]",
+              "artist": "Trill Family",
+              "source": "https://music.apple.com/us/album/wipe-me-down-feat-foxx-webbie-boosie-badazz-remix/1722389954?i=1722390029&uo=4",
+              "credit_context": "Bodega the DJ"
+            },
+            {
+              "title": "Wipe Me Down (feat. Foxx)",
+              "artist": "Trill Family, Boosie Badazz & Webbie",
+              "source": "https://music.apple.com/us/album/wipe-me-down-feat-foxx/1722389954?i=1722390017&uo=4",
+              "credit_context": "Bodega the DJ"
+            }
+          ],
+          "credit_conflicts": true,
+          "start_range_frames": [
+            82240067,
+            82800000
+          ],
+          "end_range_frames": [
+            88794594,
+            89410354
+          ]
+        },
+        {
+          "source_sha256": "a58d1130bf8d14d4ccafd221d9f995f837fa132febdd94ca3fb389568931558f",
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 522427453,
+          "start_frames": 119070429,
+          "end_frames": 127441251,
+          "title": "My Neck, My Back (Lick It)",
+          "artist": "Khia",
+          "source": "https://music.apple.com/us/album/my-neck-my-back-lick-it/778212040?i=778212043&uo=4",
+          "method": "fingerprint_interval",
+          "status": "provisional",
+          "evidence": "Fingerprint-guided broadcast section with transition margins; boundaries and exact edition remain provisional.",
+          "start_range_frames": [
+            119070429,
+            120000000
+          ],
+          "end_range_frames": [
+            125821142,
+            127441251
+          ],
+          "alternatives": [
+            {
+              "title": "My Neck, My Back (Lick It) [Street/Club Version]",
+              "artist": "Khia",
+              "source": "https://www.shazam.com/track/11191372/my-neck-my-back-lick-it-street-club-version",
+              "credit_context": "Bodega the DJ"
+            }
+          ]
+        },
+        {
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 522427453,
+          "source_sha256": "a58d1130bf8d14d4ccafd221d9f995f837fa132febdd94ca3fb389568931558f",
+          "start_frames": 147179433,
+          "end_frames": 155485723,
+          "title": "B.M.F. (Blowin’ Money Fast)",
+          "artist": "Rick Ross ft. Styles P",
+          "source": "https://www.shazam.com/track/255811530/blowing-money-fast",
+          "method": "fingerprint_interval",
+          "status": "provisional",
+          "evidence": "Fingerprint-guided broadcast section retaining transition margins; boundaries and exact edition remain provisional.",
+          "alternatives": [
+            {
+              "title": "Blowing Money Fast",
+              "artist": "Rick Ross",
+              "source": "https://www.shazam.com/track/255811530/blowing-money-fast",
+              "credit_context": "Bodega the DJ"
+            }
+          ],
+          "credit_conflicts": false,
+          "start_range_frames": [
+            147179433,
+            148320000
+          ],
+          "end_range_frames": [
+            154585949,
+            155485723
+          ]
+        },
+        {
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 522427453,
+          "source_sha256": "a58d1130bf8d14d4ccafd221d9f995f837fa132febdd94ca3fb389568931558f",
+          "start_frames": 235776000,
+          "end_frames": 244619211,
+          "title": "Can’t Fuck wit Me",
+          "artist": "Trick Daddy",
+          "source": "https://www.shazam.com/track/10301996/cant-f-k-wit-me",
+          "method": "fingerprint_interval",
+          "status": "provisional",
+          "evidence": "Fingerprint-guided broadcast section retaining transition margins; boundaries and exact edition remain provisional.",
+          "alternatives": [
+            {
+              "title": "Can't F**k Wit Me",
+              "artist": "Trick Daddy",
+              "source": "https://www.shazam.com/track/10301996/cant-f-k-wit-me",
+              "credit_context": "Bodega the DJ"
+            }
+          ],
+          "credit_conflicts": false,
+          "start_range_frames": [
+            235776000,
+            236640000
+          ],
+          "end_range_frames": [
+            243736980,
+            244619211
+          ]
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -26608,6 +27021,20 @@
           "channel_index": 0,
           "channel_id": 92463020,
           "source_sha256": "1310b58e3d287b6bd35548246e6427891f258d4c9a9974f3f4cdbd792cd93e99",
+          "start_frames": 4240800,
+          "end_frames": 4687200,
+          "title": "Faneto",
+          "artist": "Chief Keef",
+          "source": "https://music.apple.com/us/album/faneto/930701525?i=930701578&uo=4",
+          "method": "local_fingerprint",
+          "status": "provisional",
+          "evidence": "Disjoint tempo-normalized fingerprints have coherent reference offsets; sample only, exact edition unconfirmed."
+        },
+        {
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 92463020,
+          "source_sha256": "1310b58e3d287b6bd35548246e6427891f258d4c9a9974f3f4cdbd792cd93e99",
           "start_frames": 11760000,
           "end_frames": 12240000,
           "title": "I’m A Monster",
@@ -26616,6 +27043,20 @@
           "method": "local_fingerprint",
           "status": "provisional",
           "evidence": "Two disjoint local windows have coherent reference offsets; this is an identified sample, not a whole-song boundary."
+        },
+        {
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 92463020,
+          "source_sha256": "1310b58e3d287b6bd35548246e6427891f258d4c9a9974f3f4cdbd792cd93e99",
+          "start_frames": 14954400,
+          "end_frames": 15400800,
+          "title": "Hustlin’",
+          "artist": "Rick Ross",
+          "source": "https://www.vice.com/en/article/gta-6-radio-songs-list/",
+          "method": "local_fingerprint",
+          "status": "provisional",
+          "evidence": "Disjoint tempo-normalized fingerprints have coherent reference offsets; sample only, exact edition unconfirmed."
         },
         {
           "stream_index": 0,
@@ -26645,6 +27086,20 @@
           "channel_index": 0,
           "channel_id": 92463020,
           "source_sha256": "1310b58e3d287b6bd35548246e6427891f258d4c9a9974f3f4cdbd792cd93e99",
+          "start_frames": 29462400,
+          "end_frames": 29908800,
+          "title": "Dum, Dumb, and Dumber",
+          "artist": "Lil Baby, Young Thug, Future",
+          "source": "https://www.vice.com/en/article/gta-6-radio-songs-list/",
+          "method": "local_fingerprint",
+          "status": "provisional",
+          "evidence": "Disjoint tempo-normalized fingerprints have coherent reference offsets; sample only, exact edition unconfirmed."
+        },
+        {
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 92463020,
+          "source_sha256": "1310b58e3d287b6bd35548246e6427891f258d4c9a9974f3f4cdbd792cd93e99",
           "start_frames": 36000000,
           "end_frames": 36480000,
           "title": "Up",
@@ -26661,7 +27116,68 @@
         "status": "provisional",
         "source": "https://www.vice.com/en/article/gta-6-radio-songs-list/",
         "evidence": "Public show collection linked by multiple source-bound audio matches; native ownership unverified."
-      }
+      },
+      "broadcast_cuts": [
+        {
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 92463020,
+          "source_sha256": "1310b58e3d287b6bd35548246e6427891f258d4c9a9974f3f4cdbd792cd93e99",
+          "start_frames": 2779241,
+          "end_frames": 8772048,
+          "title": "Faneto",
+          "artist": "Chief Keef",
+          "source": "https://music.apple.com/us/album/faneto/930701525?i=930701578&uo=4",
+          "method": "fingerprint_interval",
+          "status": "provisional",
+          "evidence": "Fingerprint-guided broadcast interval retaining transition overlaps; boundaries and exact edition remain provisional.",
+          "start_range_frames": [
+            2779241,
+            3600000
+          ],
+          "end_range_frames": [
+            8328672,
+            8772048
+          ]
+        },
+        {
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 92463020,
+          "source_sha256": "1310b58e3d287b6bd35548246e6427891f258d4c9a9974f3f4cdbd792cd93e99",
+          "start_frames": 23487908,
+          "end_frames": 29499735,
+          "title": "Love Me",
+          "artist": "Lil Wayne, Drake, Future",
+          "source": "https://www.shazam.com/track/77360816/love-me-feat-drake-future",
+          "method": "fingerprint_interval",
+          "status": "provisional",
+          "evidence": "Fingerprint-guided broadcast section retaining transition margins; boundaries and exact edition remain provisional.",
+          "alternatives": [
+            {
+              "title": "Love Me (feat. Drake & Future)",
+              "artist": "Lil Wayne",
+              "source": "https://www.shazam.com/track/77360816/love-me-feat-drake-future",
+              "credit_context": "DJ Stevie J"
+            },
+            {
+              "title": "Good Kush & Alcohol (feat. Lil Wayne) [Remix]",
+              "artist": "Kiggz",
+              "source": "https://www.shazam.com/track/311305254/good-kush-alcohol-feat-lil-wayne-remix",
+              "credit_context": "DJ Stevie J"
+            }
+          ],
+          "credit_conflicts": true,
+          "start_range_frames": [
+            23487908,
+            24000000
+          ],
+          "end_range_frames": [
+            28328491,
+            29499735
+          ]
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -26709,6 +27225,20 @@
           "method": "local_fingerprint",
           "status": "provisional",
           "evidence": "Two disjoint local windows have coherent reference offsets; this is an identified sample, not a whole-song boundary."
+        },
+        {
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 380839552,
+          "source_sha256": "119f13092e1374c848c7963dde8d842c641df1ecadd1002379872a1fca5e3379",
+          "start_frames": 6919200,
+          "end_frames": 7365600,
+          "title": "Roll in Peace",
+          "artist": "Kodak Black, XXXTENTACION",
+          "source": "https://www.vice.com/en/article/gta-6-radio-songs-list/",
+          "method": "local_fingerprint",
+          "status": "provisional",
+          "evidence": "Disjoint tempo-normalized fingerprints have coherent reference offsets; sample only, exact edition unconfirmed."
         },
         {
           "stream_index": 0,
@@ -26829,7 +27359,31 @@
         "status": "provisional",
         "source": "https://www.vice.com/en/article/gta-6-radio-songs-list/",
         "evidence": "Public show collection linked by multiple source-bound audio matches; native ownership unverified."
-      }
+      },
+      "broadcast_cuts": [
+        {
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 380839552,
+          "source_sha256": "119f13092e1374c848c7963dde8d842c641df1ecadd1002379872a1fca5e3379",
+          "start_frames": 47401460,
+          "end_frames": 58089663,
+          "title": "Dreams and Nightmares",
+          "artist": "Meek Mill",
+          "source": "https://www.shazam.com/track/72090477/dreams-and-nightmares",
+          "method": "fingerprint_interval",
+          "status": "provisional",
+          "evidence": "Fingerprint-guided broadcast section through the declared program end; complete commercial ending and exact edition unconfirmed.",
+          "start_range_frames": [
+            47401460,
+            48000000
+          ],
+          "end_range_frames": [
+            57755330,
+            58089663
+          ]
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -26898,6 +27452,36 @@
         "config_id": 48697,
         "config_hash32": "0x707ed18f",
         "duration_ms": 127255
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 5907828736,
+      "role": "music",
+      "native_name": "",
+      "duration_hint_s": 186.19733333333335,
+      "recording_credit": {
+        "source_sha256": "a7f36dbf8538d382e7a2de2245d9c88a8ce121378e8ea5edcba9151817855383",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 228301233,
+        "title": "Sleek-and-Smooth",
+        "artist": "Manuel Ochoa",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "source": "https://www.shazam.com/track/402052879/sleek-and-smooth",
+        "evidence": "Recognition candidate accepted by user listening; exact edition and original use unconfirmed."
+      },
+      "user_confirmation": {
+        "method": "user_reported_listening_comparison",
+        "title": "Sleek-and-Smooth",
+        "artist": "Manuel Ochoa",
+        "source": "Listening review",
+        "evidence": "User accepted candidate 122.",
+        "source_sha256": "a7f36dbf8538d382e7a2de2245d9c88a8ce121378e8ea5edcba9151817855383",
+        "stream_index": 0,
+        "channel_index": 0,
+        "scope": "Title/artist accepted; exact edition and original use unconfirmed."
       }
     }
   ],
@@ -42495,7 +43079,6 @@
     5902864384,
     5904121856,
     5906055168,
-    5907828736,
     5911035904,
     5985357824,
     5985550336,
@@ -48462,7 +49045,10 @@
       "artist": "Dom Dolla & Solomun",
       "source": "https://www.vice.com/en/article/gta-6-radio-songs-list/",
       "status": "public_list_only",
-      "artist_role": "credited artist"
+      "artist_role": "credited artist",
+      "additional_sources": [
+        "https://www.rockstargames.com/VI/credits"
+      ]
     },
     {
       "context": "The Vault Radio",
@@ -48494,7 +49080,10 @@
       "artist": "Real Dimez",
       "source": "https://www.vice.com/en/article/gta-6-radio-songs-list/",
       "status": "public_list_only",
-      "artist_role": "credited artist"
+      "artist_role": "credited artist",
+      "additional_sources": [
+        "https://www.rockstargames.com/VI/credits"
+      ]
     },
     {
       "context": "The Vault Radio",
@@ -51082,7 +51671,10 @@
       "artist": "Khia",
       "source": "https://www.vice.com/en/article/gta-6-radio-songs-list/",
       "status": "public_list_only",
-      "artist_role": "credited artist"
+      "artist_role": "credited artist",
+      "additional_sources": [
+        "https://www.rockstargames.com/VI/credits"
+      ]
     },
     {
       "context": "Bodega the DJ",
@@ -53032,6 +53624,14 @@
       "context": "ADDITIONAL MUSIC",
       "title": "Politik",
       "artist": "DWNPLY",
+      "source": "https://www.rockstargames.com/VI/credits",
+      "status": "public_list_only",
+      "artist_role": "credited artist"
+    },
+    {
+      "context": "ADDITIONAL MUSIC",
+      "title": "FTH",
+      "artist": "Real Dimez",
       "source": "https://www.rockstargames.com/VI/credits",
       "status": "public_list_only",
       "artist_role": "credited artist"

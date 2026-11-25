@@ -41,6 +41,13 @@ Stored channel roles and the game's final mix may remain unknown.
 Identified-location playlists start at a matched sample and continue to the
 stored program's end; they do not claim the song's start or end.
 
+`broadcast_cuts` supplies longer, fingerprint-guided broadcast sections. Each
+requires an enclosed acoustic sample, the exact source/channel, provisional
+status and `start_range_frames` / `end_range_frames` uncertainty bounds.
+Song cuts appear in the main station and All Stations playlists and retain their
+separate song-cut playlists, original-speed audio and DJ transitions.
+These estimates never become native chapters, TRACKIDs or studio-master claims.
+
 Chapter credits require the exact AWC SHA-256, stream/channel, occurrence,
 TRACKID and native frame bounds. Repeated IDs do not inherit names. Intervals
 can contain overlapping songs or DJ speech. Raw marker/seek tables and original
