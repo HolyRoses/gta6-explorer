@@ -91,6 +91,7 @@ python3 -m gta6x radio --list-credits --station "The Vault Radio"
 python3 -m gta6x radio --out ./exports/radio
 python3 -m gta6x radio --station "Flash FM" --out ./exports/flash-fm
 python3 -m gta6x radio --station "The Sniper of La Perle" --out ./exports/sniper
+python3 -m gta6x radio --station "Weazel News" --out ./exports/weazel-news
 python3 -m gta6x radio --list-tracks --station "Flash FM"
 python3 -m gta6x radio --names-out ./radio-names.json
 ```
@@ -113,6 +114,8 @@ packet boundaries;
 `--exact-chapters` re-encodes interval cuts on the selected audio timeline.
 
 Talk stations are included; `--include-imaging` adds station beds and imaging.
+Weazel News exports numbered news segments as a separate collection with tags,
+playlists and available native chapter metadata.
 Named bonus playlists are listed separately from station groups. Conflicting
 fingerprint credits remain available as alternatives to the selected display metadata.
 Matched classical recordings can carry separate performer and composer tags;
@@ -120,8 +123,8 @@ Matched classical recordings can carry separate performer and composer tags;
 Liquid City performances recovered from spoken show segments export as provisional
 broadcast cuts, with the original show segments in a separate playlist.
 Bonus Tracks collects identified recordings whose original station or use is unknown.
-`--audio-dir DIR` reuses addressed Opus extractions; source-bound recording and
-chapter credits require native archive input. Matching files and sidecar hashes permit
+`--audio-dir DIR` reuses addressed Opus extractions; source-bound credits require
+native archive input. Matching files and sidecar hashes permit
 safe reruns; changed settings or conflicting files require
 `--overwrite`. The [bundled catalog](gta6x/data/README.md) preserves research
 provenance and conflicting credits; it needs no files from `exports/` or `work/`.

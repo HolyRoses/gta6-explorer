@@ -35,6 +35,12 @@ Config-hash identifications use a separate method and remain provisional;
 they are not acoustic confirmations of a performer or edit.
 Bonus Tracks is a curated `collection` of identified recordings with unknown
 station or usage, rather than a claimed native station.
+Weazel News is a talk `collection` of locally recognized news recordings.
+Its `program_credit` labels require the exact source hash, stream/channel and
+a bounded self-identification window on the decoded output timeline. Segment
+numbers are generated collection labels, not native episode IDs or broadcast
+order. Program credits do not identify speakers. Normal exports use the bundled
+labels and need no transcription model or speech-recognition service.
 Public lists retain source-specific title and artist variants. Matching credits
 can carry `additional_sources`; a list entry alone does not identify audio.
 `acoustic_matches` supplies provisional listening samples for programs without

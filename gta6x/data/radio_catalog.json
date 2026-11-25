@@ -3523,6 +3523,51 @@
         6464028672,
         7569670144
       ]
+    },
+    {
+      "key": "weazel_news",
+      "name": "Weazel News",
+      "kind": "talk",
+      "context_type": "collection",
+      "members": [
+        7619358720,
+        7623122944,
+        7624871936,
+        7626645504,
+        7630204928,
+        7637041152,
+        7638933504,
+        7640780800,
+        7642406912,
+        7644434432,
+        7646253056,
+        7650308096,
+        7652556800,
+        7654203392,
+        7655849984,
+        7657623552,
+        7659384832,
+        7661395968,
+        7664656384,
+        7666368512,
+        7668559872,
+        7671013376,
+        7675244544,
+        7677505536,
+        7679356928,
+        7682891776,
+        7685988352,
+        7687720960,
+        7693201408,
+        7695794176,
+        7697756160,
+        7700668416,
+        7789064192,
+        7791132672,
+        7795376128,
+        7797444608,
+        7799070720
+      ]
     }
   ],
   "recordings": [
@@ -28604,6 +28649,931 @@
         "evidence": "User reports immediate phone recognition match.",
         "scope": "Title/artist recognition corroborated; exact edition and native station ownership remain unconfirmed."
       }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7619358720,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 218.60883333333334,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 001",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "074d26fdb284871a85fe8ee0ed0c9f68b50b76fa22cfd5fe2b488a0dcb8d03c0",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 468217174,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 126720
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7623122944,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 101.38072916666667,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 002",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "594909999e503aa03d3c282a615792e25623ac848370618707628cd62ae278da",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 104137200,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 76800
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7624871936,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 102.93654166666667,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 003",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "e1321f76ae1329a5256cdd191f894d677a7ef862d890ec00a85c8a30fba64342",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 526267455,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 76800
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7626645504,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 117.28547916666666,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 004",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "7fdf58f5a37233d8aaaed45b386d9c299390ab85316a75ac1f5a9c82bc5749d7",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 162842863,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 48000
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7630204928,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 131.4329375,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 005",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "118ac1b15b8a4c686ffa439b1a3256ba92d4624514edf1081f457e44824b0b98",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 252810150,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 57600
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7637041152,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 109.77802083333333,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 006",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "a7285b385aa27d218a473a8c2a7613c9bd5bf556bf5caaefc4a66db33e3a18bb",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 19994630,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 48000
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7638933504,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 107.01172916666667,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 007",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "f0f8759ea52955f3f206db9db49516bfe340965913dd4109919d2e57818ad4af",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 317963147,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 48000
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7640780800,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 94.3143125,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 008",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "4a71b54e7ffb2f18d5ba49f77c8fedf9e445dfee7081537e1619e367ef481418",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 215134022,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 144000
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7642406912,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 117.9,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 009",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "8cabe067e269bc440fc47ad4ef7737aca17df6d133b6543d5564eb0cec097869",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 380060402,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 48000
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7644434432,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 105.51758333333333,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 010",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "e1c98f7d858d0f397c247bbcb41688307254908925b598e2b2def834b352b0b8",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 447122160,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 4809600,
+          "end_frames": 4968000
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7646253056,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 103.32960416666667,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 011",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "faa85ce048fc59b7e2606e9f2f7a855d62a18cd171e78ec5082f89d6935d0cb0",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 208481917,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 48000
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7650308096,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 130.43333333333334,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 012",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "a77b3a840da4d8e2e5581d0a019e4bb930253a8ea947aaf5e9ed308f506e956e",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 406586828,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 6007680,
+          "end_frames": 6151680
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7652556800,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 95.4,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 013",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "86856f5278f92b7fe176d9efd5ef4aec56e30cdaaa819b3a64a7b7e1c08a1f40",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 313539036,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 96000
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7654203392,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 95.5884375,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 014",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "e0127dc8609a484f28c238db543a92755aee4f6b94f2bb43f0ef24e14a83c5b4",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 7230808,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 96000
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7655849984,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 103.05245833333333,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 015",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "975f13653b28309d0b0d757c976cfc376dfd4c4c1cf1e20e5cac6c3e1181ad42",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 262894546,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 160320
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7657623552,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 102.23035416666667,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 016",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "5ba526dc507eaf39a7fb159b9670445569fd0320f2ea5eaf416a1557c08a5bb5",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 40442182,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 96000
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7659384832,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 116.85,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 017",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "67715e6f013b1b1d1b791c66f1b17a22f9f4844d7593ac9d89c1e9a3a44cee76",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 321567433,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 96000
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7661395968,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 104.0,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 018",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "20817e2fb539b4f1ee132c0e3e8be7c2ea663a5e03959fd90ee76cc59b25aa51",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 17094269,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 61440
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7664656384,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 99.31975,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 019",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "0390727b7d5eb7f42a72f016ffb8b4225c604886c46c85cb02e14b4751cb64b7",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 190884660,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 96000
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7666368512,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 127.06666666666666,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 020",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "f086bf44422f8d64e7a4e1c833a783451d84044e9d0c66de9973f496a0df8dd3",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 534860864,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 5829120,
+          "end_frames": 5996160
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7668559872,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 142.66108333333332,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 021",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "b277858e1b6a2dd05ec77e1d17814e0650fe987b6ad50db237c327d984e43b03",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 99508303,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 3467520,
+          "end_frames": 3617280
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7671013376,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 117.20833333333333,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 022",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "3c60b46182161c7e81452c61df17acc070de5cf44778723b8317ac5958c36a23",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 225997442,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 48000
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7675244544,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 131.05747916666667,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 023",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "1e930e7015a9a9a003036cb1163f95398b303d1f6d98ce151a1ff2c32b109317",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 365658921,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 61440
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7677505536,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 107.26514583333334,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 024",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "2be39b287308c15d6e76ec35af28161c675c64de3f9e4a701edc518565846fe2",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 135129004,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 61440
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7679356928,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 120.01479166666667,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 025",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "2ef3e0ce61e4546e87ed8f55e714b034d9acb799b25bcb7036740026d8dccdda",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 392152695,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 57600
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7682891776,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 94.51866666666666,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 026",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "552c1447c0189cdd14407b964bfcf5cc5ba22a95efbc5400f224c80af2cf766c",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 218001843,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 61440
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7685988352,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 100.60564583333333,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 027",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "c066134a38f65ed23c301c4d9eb2a6139755e99c427cfd53f37818002d246982",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 139438166,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 4532160,
+          "end_frames": 4724160
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7687720960,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 106.53233333333333,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 028",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "6c221f608ce838e03f6db433db5c87ca9570dc6f75da745df99864c9ea7b1813",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 236270307,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 48000
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7693201408,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 100.6423125,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 029",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "04cbf4d4c9ea06e4791dac2d00874c2978d9ac0eeb8a6336dc0b3a36f5e1809a",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 395216345,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 145920
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7695794176,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 113.799875,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 030",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "067abe9eb5fc229af95a08331fba045225729ab63b0c0895dec3a6516c328b66",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 451103874,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 96000
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7697756160,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 94.1355,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 031",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "969821fc91dfe84abd134ed2fce0bb6be9acf4f83e97403eb3199bcf15902850",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 81862774,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 48000
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7700668416,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 119.71666666666667,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 032",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "063e14c81b7f6fa93ad17da4b5565f69cf52b3052f2d74c9372ce40095ebd131",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 173730665,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 48000
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7789064192,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 120.26666666666667,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 033",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "41e5c759b5e2ab0109a6aeb65a5fd38a84655826f831496bed0f0d3834ff633b",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 385799808,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 48000
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7791132672,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 105.69627083333333,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 034",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "f2a05cc65309add6391f6a953dada0336537c7d1afb3214751db59fe55375441",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 72364323,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 48000
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7795376128,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 120.0,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 035",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "814640844b38a04be5943ca428fde7164328df6485a37958c1adbcb3a94a8684",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 238830870,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 48000
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7797444608,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 94.1355,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 036",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "93a4157b098cd73707c9bd05bf809715c405df9b7728634376ec3c800cc19d9e",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 473407757,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 48000
+        }
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7799070720,
+      "role": "non-song",
+      "native_name": "",
+      "duration_hint_s": 105.87083333333334,
+      "program_credit": {
+        "program_name": "Weazel News",
+        "title": "Weazel News Segment 037",
+        "content_type": "news",
+        "method": "local_transcription",
+        "status": "provisional",
+        "source": "Local unprompted transcription",
+        "evidence": "Explicit program self-identification in a speech-led recording.",
+        "source_sha256": "0dc16884f7c8b5acc9a1764530256c931a704a00ca3c5d8a5f42aa2a53c393b2",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 403119150,
+        "timebase": "decoded_output_frames_48000",
+        "transcription_window": {
+          "start_frames": 0,
+          "end_frames": 57600
+        }
+      }
     }
   ],
   "names": [
@@ -44390,55 +45360,23 @@
     7612502016,
     7614865408,
     7617003520,
-    7619358720,
-    7623122944,
-    7624871936,
-    7626645504,
     7628664832,
-    7630204928,
     7632470016,
     7633723392,
     7634948096,
     7635943424,
-    7637041152,
-    7638933504,
-    7640780800,
-    7642406912,
-    7644434432,
-    7646253056,
     7648034816,
     7649136640,
-    7650308096,
-    7652556800,
-    7654203392,
-    7655849984,
-    7657623552,
-    7659384832,
-    7661395968,
     7663190016,
-    7664656384,
-    7666368512,
-    7668559872,
-    7671013376,
     7673032704,
     7674105856,
-    7675244544,
-    7677505536,
-    7679356928,
     7681425408,
-    7682891776,
     7684521984,
-    7685988352,
-    7687720960,
     7689560064,
     7690764288,
     7691997184,
-    7693201408,
     7694938112,
-    7695794176,
-    7697756160,
     7699382272,
-    7700668416,
     7702728704,
     7703961600,
     7705104384,
@@ -44513,13 +45451,8 @@
     7786008576,
     7787110400,
     7788093440,
-    7789064192,
-    7791132672,
     7792955392,
     7794491392,
-    7795376128,
-    7797444608,
-    7799070720,
     7806963712,
     7819075584,
     7829557248,

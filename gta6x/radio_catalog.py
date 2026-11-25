@@ -137,6 +137,28 @@ def parse(data):
                         or hint is None or abs(hint-duration_ms/1000) > .05):
                     raise ValueError('recording config hash/channel/duration lead is inconsistent')
             _credit_alternatives(credit)
+        program = row.get('program_credit')
+        if program is not None:
+            if (not isinstance(program, dict) or program.get('method') != 'local_transcription'
+                    or program.get('status') != 'provisional' or credit is not None
+                    or row['role'] != 'non-song' or 'track_id' in program
+                    or program.get('content_type') != 'news'):
+                raise ValueError('unsupported radio program credit')
+            for key in ('stream_index', 'channel_index', 'channel_id'):
+                _uint(program.get(key), 'program credit ' + key, 0xffffffff)
+            for key in ('program_name', 'title', 'source', 'evidence'):
+                _text(program.get(key), 'program credit ' + key, 2048 if key in ('source', 'evidence') else 512)
+            if (not isinstance(program.get('source_sha256'), str)
+                    or not re.fullmatch('[0-9a-f]{64}', program['source_sha256'])
+                    or program.get('timebase') != 'decoded_output_frames_48000'):
+                raise ValueError('invalid radio program source or timebase')
+            window = program.get('transcription_window')
+            if not isinstance(window, dict) or set(window) != {'start_frames', 'end_frames'}:
+                raise ValueError('invalid radio program transcription window')
+            start, end = (_uint(window.get(k), 'program evidence ' + k, 0xffffffff)
+                          for k in ('start_frames', 'end_frames'))
+            if not 0 < end-start <= 30*48000:
+                raise ValueError('radio program evidence exceeds its bounded window')
         by_offset[offset] = row
         observations = row.get('acoustic_matches', [])
         if not isinstance(observations, list) or len(observations) > 10000:
@@ -244,6 +266,12 @@ def parse(data):
                 raise ValueError('radio station references missing recording')
         if len(set(members)) != len(members):
             raise ValueError('duplicate radio station member')
+    for row in recordings:
+        if row.get('program_credit') and not any(
+                s.get('context_type') == 'collection' and s['kind'] == 'talk'
+                and row['offset'] in s['members']
+                and s['name'] == row['program_credit']['program_name'] for s in stations):
+            raise ValueError('radio program credit requires its named talk collection')
     for row in recordings:
         assignment = row.get('station_assignment')
         if assignment is None:
@@ -411,6 +439,12 @@ def label(catalog, recording, station=None):
         result['credit_alternatives'] = bucket + observation.get('alternatives', [])
         if 'composer' in observation:
             result.update(composer=observation['composer'], artist_role='credited performer')
+    program = recording.get('program_credit')
+    if program:
+        result.update(title=program['title'], artist=program['program_name'],
+            credit_status='local_transcription_program', provisional=True,
+            selected_credit=program, artist_role='program credit; speaker unconfirmed',
+            title_selection='generated program segment label', evidence=program['evidence'])
     return result
 
 

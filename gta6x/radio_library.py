@@ -160,10 +160,13 @@ def credited_chapters(recording, source):
 
 def check_recording_credit(recording, source):
     """Recording observations apply only to their checked native source/channel."""
-    credit = recording.get('recording_credit')
+    credit = recording.get('recording_credit') or recording.get('program_credit')
     if credit and (source.get('supplied_audio') or any(source.get(key) != credit[key]
             for key in ('source_sha256', 'stream_index', 'channel_index', 'channel_id'))):
         raise ValueError('recording credit requires its exact native source and channel')
+    program = recording.get('program_credit')
+    if program and program['transcription_window']['end_frames'] > round(source['duration_s']*RATE):
+        raise ValueError('program transcription window exceeds the decoded output')
 
 
 def acoustic_matches(recording, source):
@@ -298,7 +301,7 @@ def _extract(archive, recording, directory, pre_skip, skip_policy, max_records):
             raise ValueError('research song hash conflicts with native music channel IDs at this locator')
     else:
         selected = channels
-    credit = recording.get('recording_credit')
+    credit = recording.get('recording_credit') or recording.get('program_credit')
     if credit and channels:
         selected = [(s, c) for s, c in selected
                     if (s['index'], c['index']) == (credit['stream_index'], credit['channel_index'])]
@@ -572,10 +575,11 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
                         ident = f"audio_{offset:09x}_s{source['stream_index']}_c{source['channel_index']}"
                         title = ('Continuous Broadcast' if is_mix and not recording.get('recording_credit')
                                  else recording['title'])
-                        if recording['role'] == 'non-song':
+                        if recording['role'] == 'non-song' and not recording.get('program_credit'):
                             title = f"Station segment {ordinal:03}"
                         artist = recording['artist']
-                        stem = safe_name(station['name'] + ' - ' + (artist + ' - ' if artist else '') + title)
+                        stem = safe_name(title if recording.get('program_credit') else
+                                         station['name'] + ' - ' + (artist + ' - ' if artist else '') + title)
                         directory = Path('stations') / safe_name(station['name'])
                         if is_standalone:
                             directory /= 'standalone'
@@ -607,6 +611,11 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
                             tags['GTA6X_CONTEXT_TYPE'] = station['context_type']
                         if recording.get('recording_credit'):
                             tags['GTA6X_CREDIT_SOURCE'] = recording['recording_credit']['source']
+                        if recording.get('program_credit'):
+                            program = recording['program_credit']
+                            tags.update(genre='News', GTA6X_PROGRAM_NAME=program['program_name'],
+                                GTA6X_CREDIT_SOURCE=program['source'], GTA6X_CONTENT_TYPE=program['content_type'],
+                                GTA6X_TITLE_ORIGIN='generated segment label')
                         if recording.get('station_assignment'):
                             assignment = recording['station_assignment']
                             tags.update(GTA6X_STATION_STATUS=assignment['status'],
@@ -623,7 +632,8 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
                             _target(root, str(relative) + ext, originals)
                         info = _render(source['path'], target, tags, chapters, format=format, ffmpeg=ffmpeg,
                             ffprobe=ffprobe, timeout=timeout, overwrite=overwrite)
-                        entry = dict(path=str(target), station=station['name'], title=title, artist=artist,
+                        entry = dict(path=str(target), station=station['name'], title=title,
+                                     artist='' if recording.get('program_credit') else artist,
                                      duration_s=info['duration_s'])
                         for observation in observations:
                             end = source['native_timing']['output_frames']
