@@ -27,6 +27,8 @@ a separate folder and playlist from broadcast chapters. Acoustic recording
 credits remain provisional and require the exact source hash and channel.
 An optional recording-credit `composer` keeps composer metadata separate from
 the matched performer and is included in tags and song searches.
+Transcription-led show cuts keep bounded title evidence and estimated boundaries
+separate from fingerprints and native TRACKIDs. Program credits do not name performers.
 Bonus groups use `context_type` to distinguish public playlists from station
 groups. Backend credit disagreements remain explicit in recording alternatives.
 Config-hash identifications use a separate method and remain provisional;
@@ -43,9 +45,12 @@ Stored channel roles and the game's final mix may remain unknown.
 Identified-location playlists start at a matched sample and continue to the
 stored program's end; they do not claim the song's start or end.
 
-`broadcast_cuts` supplies longer, fingerprint-guided broadcast sections. Each
-requires an enclosed acoustic sample, the exact source/channel, provisional
-status and `start_range_frames` / `end_range_frames` uncertainty bounds.
+`broadcast_cuts` supplies estimated broadcast sections. Each requires the exact
+source/channel, provisional status and `start_range_frames` / `end_range_frames`
+uncertainty bounds. Fingerprint intervals require an enclosed acoustic sample;
+transcription intervals require bounded title evidence. Listening intervals require
+a title-specific user confirmation. Listening confirms song identity, not performer
+credits, native song IDs or exact boundaries.
 Song cuts appear in the main station and All Stations playlists and retain their
 separate song-cut playlists, original-speed audio and DJ transitions.
 These estimates never become native chapters, TRACKIDs or studio-master claims.

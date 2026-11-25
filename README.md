@@ -117,6 +117,8 @@ Named bonus playlists are listed separately from station groups. Conflicting
 fingerprint credits remain available as alternatives to the selected display metadata.
 Matched classical recordings can carry separate performer and composer tags;
 `--song` also searches those composer credits.
+Liquid City performances recovered from spoken show segments export as provisional
+broadcast cuts, with the original show segments in a separate playlist.
 Bonus Tracks collects identified recordings whose original station or use is unknown.
 `--audio-dir DIR` reuses addressed Opus extractions; source-bound recording and
 chapter credits require native archive input. Matching files and sidecar hashes permit

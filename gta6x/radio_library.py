@@ -542,7 +542,11 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
         identification_locations = []
         broadcast_entries = []
         standalone_ordinal = 0
-        for ordinal, recording in enumerate(station['recordings'], 1):
+        # Named cuts join the playlist after ordinary tracks, irrespective of
+        # requested source order. Process their spoken parents last so tags agree.
+        recordings = sorted(station['recordings'], key=lambda r:
+            r['role'] == 'non-song' and bool(r.get('broadcast_cuts')))
+        for ordinal, recording in enumerate(recordings, 1):
             offset = recording['offset']
             is_mix = recording['role'] == 'premixed'
             is_standalone = station['kind'] == 'premixed' and not is_mix
@@ -682,21 +686,32 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
                         if song_cuts and premixed != 'continuous':
                             for song in song_cuts:
                                 number = len(broadcast_entries) + 1
+                                if recording['role'] == 'non-song':
+                                    number += len(playlist)
+                                boundary_source = ('transcription-guided estimate; not native song boundaries'
+                                    if song['method'] == 'transcription_interval' else
+                                    'listening-reviewed estimate; not native song boundaries'
+                                    if song['method'] == 'listening_interval' else
+                                    'fingerprint-guided estimate; not native song boundaries')
                                 label = song['title'] + ' (broadcast cut)'
                                 stem = safe_name(f"{number:03} - {station['name']} - {song['artist']} - {label}")
                                 rel = relative.parent / 'broadcast song cuts' / f'{stem} [{ident}].{FORMATS[format][0]}'
                                 cut_target = _target(root, rel, originals)
                                 cut_tags = dict(tags, title=label, artist=song['artist'], track=str(number),
-                                    GTA6X_LABEL_STATUS='fingerprint_interval', GTA6X_CREDIT_SOURCE=song['source'],
+                                    GTA6X_LABEL_STATUS=song['method'], GTA6X_CREDIT_SOURCE=song['source'],
                                     GTA6X_CREDIT_PROVISIONAL='1', GTA6X_LIBRARY_VIEW='broadcast_song_cut',
                                     GTA6X_INTERVAL=f"{song['start_frames']}:{song['end_frames']}",
-                                    GTA6X_BOUNDARY_SOURCE='fingerprint-guided estimate; not native song boundaries',
+                                    GTA6X_BOUNDARY_SOURCE=boundary_source,
                                     GTA6X_BOUNDARY_STATUS='provisional',
                                     GTA6X_START_RANGE=':'.join(map(str, song['start_range_frames'])),
                                     GTA6X_END_RANGE=':'.join(map(str, song['end_range_frames'])),
                                     GTA6X_CUT_MODE='packet-copy' if format == 'opus' and not exact_chapters else 'decoded')
                                 for key in ('GTA6X_ARTIST_ROLE', 'GTA6X_TRACKID', 'GTA6X_CREDIT_CONFLICTS'):
                                     cut_tags.pop(key, None)
+                                if song.get('artist_role'):
+                                    cut_tags['GTA6X_ARTIST_ROLE'] = song['artist_role']
+                                if song.get('user_confirmation'):
+                                    cut_tags['GTA6X_LISTENING_CONFIRMATION'] = 'song_identity'
                                 if song.get('credit_conflicts'):
                                     cut_tags['GTA6X_CREDIT_CONFLICTS'] = '1'
                                 _target(root, str(rel)+'.json', originals)
@@ -704,7 +719,7 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
                                     ffmpeg=ffmpeg, ffprobe=ffprobe, timeout=timeout, overwrite=overwrite,
                                     start=song['start_frames'], end=song['end_frames'], exact_chapters=exact_chapters)
                                 cut_detail = dict(song, title=label, export_identity=cut_tags, provisional=True,
-                                    credit_status='fingerprint_interval', boundary_source='fingerprint_interval',
+                                    credit_status=song['method'], boundary_source=song['method'],
                                     output=dict(path=rel.as_posix(), **cut_info),
                                     requested_duration_s=(song['end_frames']-song['start_frames'])/RATE,
                                     duration_delta_s=cut_info['duration_s']-(song['end_frames']-song['start_frames'])/RATE,
@@ -714,6 +729,12 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
                                 broadcast_entries.append(dict(path=str(cut_target), station=station['name'], title=label,
                                     artist=song['artist'], duration_s=cut_info['duration_s']))
                             _json(str(target)+'.json', detail)
+                        if recording['role'] == 'non-song' and recording.get('broadcast_cuts'):
+                            # The original spoken program remains available separately.
+                            # Only its named cuts join the normal listening playlist.
+                            continuous.append(entry)
+                            _json(str(target)+'.json', detail)
+                            continue
                         if not is_mix:
                             (standalone if is_standalone else playlist).append(entry)
                             _json(str(target) + '.json', detail)
@@ -786,7 +807,7 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
             groups.append((station['name'] + ' (broadcast song cuts)', broadcast_entries))
         if identification_locations:
             groups.append((station['name'] + ' (identified locations)', identification_locations))
-        if continuous and premixed == 'both':
+        if continuous and (premixed == 'both' or premixed == 'continuous' and station['kind'] != 'premixed'):
             groups.append((station['name'] + ' (continuous)', continuous))
         if virtual:
             groups.append((station['name'] + ' (chapter navigation)', virtual))

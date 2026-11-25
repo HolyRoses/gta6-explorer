@@ -6541,9 +6541,10 @@ def cmd_selftest(args) -> int:
           any(text == one_name['text'] for text, source in
               _names.lookup(radio_dictionary, one_name['hash32'])))
     radio_selection = _radio_catalog.select(radio_labels)
-    check('radio selection keeps talk and mixed music while excluding optional music-station imaging',
+    check('radio selection keeps talk, music and named program cuts while excluding optional imaging',
           any(s['kind'] == 'talk' and s['recordings'] for s in radio_selection)
-          and all(r['role'] in ('music', 'premixed') for s in radio_selection if s['kind'] == 'music'
+          and all(r['role'] in ('music', 'premixed') or r.get('broadcast_cuts')
+                  for s in radio_selection if s['kind'] == 'music'
                   for r in s['recordings']))
     radio_navigation = _radio_library.playlist_text('Authored station', [dict(
         path='/authored/library/stations/song.opus', station='Authored station', title='TRACKID 77',

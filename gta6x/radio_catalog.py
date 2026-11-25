@@ -164,12 +164,13 @@ def parse(data):
             _credit_alternatives(observation)
         cuts = row.get('broadcast_cuts', [])
         if (not isinstance(cuts, list) or len(cuts) > 10000
-                or cuts and row['role'] != 'premixed'):
+                or cuts and row['role'] not in ('premixed', 'non-song')):
             raise ValueError('invalid radio broadcast cuts')
         seen_cuts = set()
         for cut in cuts:
             if (not isinstance(cut, dict) or cut.get('status') != 'provisional'
-                    or cut.get('method') != 'fingerprint_interval' or 'track_id' in cut):
+                    or cut.get('method') not in ('fingerprint_interval', 'transcription_interval', 'listening_interval')
+                    or 'track_id' in cut):
                 raise ValueError('invalid radio broadcast cut provenance')
             identity = tuple(_uint(cut.get(k), 'broadcast cut '+k, 0xffffffff)
                              for k in ('stream_index', 'channel_index', 'channel_id', 'start_frames', 'end_frames'))
@@ -180,6 +181,8 @@ def parse(data):
                 raise ValueError('invalid radio broadcast cut source hash')
             for key in ('title', 'artist', 'source', 'evidence'):
                 _text(cut.get(key), 'broadcast cut '+key, 2048 if key in ('source', 'evidence') else 512)
+            if 'artist_role' in cut:
+                _text(cut['artist_role'], 'broadcast cut artist role', 512)
             ranges = []
             for key in ('start_range_frames', 'end_range_frames'):
                 value = cut.get(key)
@@ -192,9 +195,32 @@ def parse(data):
             keys = ('source_sha256', 'stream_index', 'channel_index', 'channel_id')
             if credit and any(cut[k] != credit[k] for k in keys):
                 raise ValueError('broadcast cut differs from the selected recording source/channel')
-            if not any(all(o[k] == cut[k] for k in keys + ('title', 'artist'))
-                       and start_hi <= o['start_frames'] < o['end_frames'] <= end_lo for o in observations):
-                raise ValueError('broadcast cut requires an enclosed source-bound acoustic sample')
+            confirmation = cut.get('user_confirmation')
+            if confirmation is not None:
+                if (not isinstance(confirmation, dict)
+                        or confirmation.get('method') != 'user_reported_listening_comparison'
+                        or confirmation.get('scope') != 'song_identity'
+                        or confirmation.get('title') != cut['title']):
+                    raise ValueError('invalid broadcast song listening confirmation')
+                _text(confirmation.get('evidence'), 'listening confirmation evidence', 2048)
+            if cut['method'] == 'fingerprint_interval':
+                if not any(all(o[k] == cut[k] for k in keys + ('title', 'artist'))
+                           and start_hi <= o['start_frames'] < o['end_frames'] <= end_lo for o in observations):
+                    raise ValueError('broadcast cut requires an enclosed source-bound acoustic sample')
+            elif cut['method'] == 'listening_interval':
+                if confirmation is None:
+                    raise ValueError('listening interval requires a song identity confirmation')
+            else:
+                evidence = cut.get('title_evidence')
+                if (not isinstance(evidence, dict) or evidence.get('method') != 'local_transcription'
+                        or set(evidence) != {'method', 'phrase_role', 'start_frames', 'end_frames', 'matched_phrase'}
+                        or evidence.get('phrase_role') not in ('sung_title', 'spoken_introduction', 'spoken_segment_title')):
+                    raise ValueError('broadcast cut requires local title transcription evidence')
+                a, b = (_uint(evidence.get(k), 'title evidence '+k, 0xffffffff)
+                        for k in ('start_frames', 'end_frames'))
+                if not start_hi <= a < b <= end_lo or b-a > 30*48000:
+                    raise ValueError('broadcast title evidence exceeds the enclosed interval')
+                _text(evidence.get('matched_phrase'), 'transcribed title phrase', 128)
             _credit_alternatives(cut)
     keys, display_names = set(), set()
     for station in stations:
@@ -470,7 +496,8 @@ def select(catalog, stations=(), *, include_imaging=False, include_unassigned=Fa
         items = []
         for offset in station['members']:
             row = catalog['by_offset'][offset]
-            if not include_imaging and station['kind'] == 'music' and row['role'] not in ('music', 'premixed'):
+            if (not include_imaging and station['kind'] == 'music'
+                    and row['role'] not in ('music', 'premixed') and not row.get('broadcast_cuts')):
                 continue
             items.append(dict(row, **label(catalog, row, station['name'])))
             if station.get('context_type', 'station') != 'station':

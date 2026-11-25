@@ -1468,7 +1468,6 @@
         6932983808,
         6934020096,
         6935531520,
-        6941884416,
         6949629952,
         6950690816,
         6952456192,
@@ -1479,16 +1478,9 @@
         6955220992,
         6955704320,
         6956187648,
-        6960095232,
         6965075968,
-        6966571008,
-        6969544704,
         6972592128,
         6974480384,
-        6976749568,
-        6981476352,
-        6985080832,
-        6988263424,
         6992261120,
         6994137088,
         6996492288,
@@ -1589,7 +1581,15 @@
         6764036096,
         6828204032,
         6843064320,
-        7040626688
+        7040626688,
+        6941884416,
+        6981476352,
+        6988263424,
+        6966571008,
+        6985080832,
+        6969544704,
+        6976749568,
+        6960095232
       ]
     },
     {
@@ -1817,8 +1817,6 @@
         5575290880,
         5597253632,
         5611110400,
-        7511674880,
-        7515987968,
         8787660800,
         8813543424,
         8829059072,
@@ -1829,7 +1827,9 @@
         8858468352,
         8866652160,
         8878911488,
-        8881549312
+        8881549312,
+        7511674880,
+        7515987968
       ]
     },
     {
@@ -3519,7 +3519,9 @@
         5907828736,
         9832923136,
         9835085824,
-        7045079040
+        7045079040,
+        6464028672,
+        7569670144
       ]
     }
   ],
@@ -11062,7 +11064,45 @@
       "offset": 6941884416,
       "role": "non-song",
       "native_name": "",
-      "duration_hint_s": 450.04
+      "duration_hint_s": 450.04,
+      "broadcast_cuts": [
+        {
+          "source_sha256": "d8656250b87417c8c88cbdf7025bc4a76ae153ec759a19389bed98c4f3b0dfa5",
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 125000886,
+          "title": "Come In Liquid City (Theme Song)",
+          "artist": "Liquid City",
+          "artist_role": "program credit; performer unconfirmed",
+          "method": "transcription_interval",
+          "status": "provisional",
+          "start_frames": 9408000,
+          "end_frames": 12864000,
+          "start_range_frames": [
+            9216000,
+            9696000
+          ],
+          "end_range_frames": [
+            12720000,
+            13104000
+          ],
+          "title_evidence": {
+            "method": "local_transcription",
+            "phrase_role": "sung_title",
+            "matched_phrase": "Come in Liquid City",
+            "start_frames": 10080000,
+            "end_frames": 10656000
+          },
+          "source": "https://www.rockstargames.com/VI/credits",
+          "evidence": "Unprompted local speech/song-title observations agree with the public show credit; program attribution and estimated boundaries remain provisional.",
+          "user_confirmation": {
+            "method": "user_reported_listening_comparison",
+            "scope": "song_identity",
+            "title": "Come In Liquid City (Theme Song)",
+            "evidence": "User reviewed both Liquid City playlists and accepted all eight song labels."
+          }
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -11139,7 +11179,38 @@
       "offset": 6960095232,
       "role": "non-song",
       "native_name": "",
-      "duration_hint_s": 289.3
+      "duration_hint_s": 289.3,
+      "broadcast_cuts": [
+        {
+          "source_sha256": "8b81dc0a140d66e2e1c345d7b5be7a2bb454e1716ce333de69c69245dafd1863",
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 352842670,
+          "title": "Sexification",
+          "artist": "Liquid City",
+          "artist_role": "program credit; performer unconfirmed",
+          "method": "listening_interval",
+          "status": "provisional",
+          "start_frames": 7584000,
+          "end_frames": 10944000,
+          "start_range_frames": [
+            7440000,
+            7920000
+          ],
+          "end_range_frames": [
+            10800000,
+            11136000
+          ],
+          "source": "https://www.rockstargames.com/VI/credits",
+          "evidence": "Title association accepted by user listening review; exact boundaries and performers remain provisional.",
+          "user_confirmation": {
+            "method": "user_reported_listening_comparison",
+            "scope": "song_identity",
+            "title": "Sexification",
+            "evidence": "User reviewed both Liquid City playlists and accepted all eight song labels."
+          }
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -11153,14 +11224,90 @@
       "offset": 6966571008,
       "role": "non-song",
       "native_name": "",
-      "duration_hint_s": 172.68
+      "duration_hint_s": 172.68,
+      "broadcast_cuts": [
+        {
+          "source_sha256": "b0287bd65ce109833dcad5dea41234840b0102ed94c8501083942b2771280ef9",
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 293842087,
+          "title": "Liquids Words of Wisdom",
+          "artist": "Liquid City",
+          "artist_role": "program credit; performer unconfirmed",
+          "method": "transcription_interval",
+          "status": "provisional",
+          "start_frames": 768000,
+          "end_frames": 2112000,
+          "start_range_frames": [
+            720000,
+            864000
+          ],
+          "end_range_frames": [
+            2016000,
+            2208000
+          ],
+          "title_evidence": {
+            "method": "local_transcription",
+            "phrase_role": "spoken_segment_title",
+            "matched_phrase": "words of wisdom",
+            "start_frames": 864000,
+            "end_frames": 1056000
+          },
+          "source": "https://www.rockstargames.com/VI/credits",
+          "evidence": "Unprompted local speech/song-title observations agree with the public show credit; program attribution and estimated boundaries remain provisional.",
+          "user_confirmation": {
+            "method": "user_reported_listening_comparison",
+            "scope": "song_identity",
+            "title": "Liquids Words of Wisdom",
+            "evidence": "User reviewed both Liquid City playlists and accepted all eight song labels."
+          }
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
       "offset": 6969544704,
       "role": "non-song",
       "native_name": "",
-      "duration_hint_s": 176.96
+      "duration_hint_s": 176.96,
+      "broadcast_cuts": [
+        {
+          "source_sha256": "3be725a7bfa0f0c05323096e3c244e590339f72bda1e42ee3fdd7d4b6597ac2a",
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 131307846,
+          "title": "Titties For Liquid",
+          "artist": "Liquid City",
+          "artist_role": "program credit; performer unconfirmed",
+          "method": "transcription_interval",
+          "status": "provisional",
+          "start_frames": 960000,
+          "end_frames": 2064000,
+          "start_range_frames": [
+            864000,
+            1056000
+          ],
+          "end_range_frames": [
+            2016000,
+            2160000
+          ],
+          "title_evidence": {
+            "method": "local_transcription",
+            "phrase_role": "spoken_introduction",
+            "matched_phrase": "Titties For Liquid",
+            "start_frames": 1056000,
+            "end_frames": 1248000
+          },
+          "source": "https://www.rockstargames.com/VI/credits",
+          "evidence": "Unprompted local speech/song-title observations agree with the public show credit; program attribution and estimated boundaries remain provisional.",
+          "user_confirmation": {
+            "method": "user_reported_listening_comparison",
+            "scope": "song_identity",
+            "title": "Titties For Liquid",
+            "evidence": "User reviewed both Liquid City playlists and accepted all eight song labels."
+          }
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -11181,28 +11328,173 @@
       "offset": 6976749568,
       "role": "non-song",
       "native_name": "",
-      "duration_hint_s": 274.38
+      "duration_hint_s": 274.38,
+      "broadcast_cuts": [
+        {
+          "source_sha256": "a12e7329fd79544fcdce2162b33390f53231e548742d006ffc6df43e89dc7995",
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 250377425,
+          "title": "Sex Specs",
+          "artist": "Liquid City",
+          "artist_role": "program credit; performer unconfirmed",
+          "method": "listening_interval",
+          "status": "provisional",
+          "start_frames": 8544000,
+          "end_frames": 12624000,
+          "start_range_frames": [
+            7968000,
+            9600000
+          ],
+          "end_range_frames": [
+            12480000,
+            12768000
+          ],
+          "source": "https://www.rockstargames.com/VI/credits",
+          "evidence": "Title association accepted by user listening review; exact boundaries and performers remain provisional.",
+          "user_confirmation": {
+            "method": "user_reported_listening_comparison",
+            "scope": "song_identity",
+            "title": "Sex Specs",
+            "evidence": "User reviewed both Liquid City playlists and accepted all eight song labels."
+          }
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
       "offset": 6981476352,
       "role": "non-song",
       "native_name": "",
-      "duration_hint_s": 209.52
+      "duration_hint_s": 209.52,
+      "broadcast_cuts": [
+        {
+          "source_sha256": "0e379ede75780a2ad3b0c43e880128759fc1b8bb0db3fcc30740aec0e19359d9",
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 358760894,
+          "title": "Finger Bang My Heart",
+          "artist": "Liquid City",
+          "artist_role": "program credit; performer unconfirmed",
+          "method": "transcription_interval",
+          "status": "provisional",
+          "start_frames": 3456000,
+          "end_frames": 7872000,
+          "start_range_frames": [
+            3360000,
+            3504000
+          ],
+          "end_range_frames": [
+            7680000,
+            7968000
+          ],
+          "title_evidence": {
+            "method": "local_transcription",
+            "phrase_role": "spoken_introduction",
+            "matched_phrase": "Finger Bang My Heart",
+            "start_frames": 3552000,
+            "end_frames": 3744000
+          },
+          "source": "https://www.rockstargames.com/VI/credits",
+          "evidence": "Unprompted local speech/song-title observations agree with the public show credit; program attribution and estimated boundaries remain provisional.",
+          "user_confirmation": {
+            "method": "user_reported_listening_comparison",
+            "scope": "song_identity",
+            "title": "Finger Bang My Heart",
+            "evidence": "User reviewed both Liquid City playlists and accepted all eight song labels."
+          }
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
       "offset": 6985080832,
       "role": "non-song",
       "native_name": "",
-      "duration_hint_s": 184.64
+      "duration_hint_s": 184.64,
+      "broadcast_cuts": [
+        {
+          "source_sha256": "a5b269f2279e7e4f91eb36988b0f97506746d11c33e7095457870987848598cb",
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 328220186,
+          "title": "Oochie Coochie Man",
+          "artist": "Liquid City",
+          "artist_role": "program credit; performer unconfirmed",
+          "method": "transcription_interval",
+          "status": "provisional",
+          "start_frames": 4368000,
+          "end_frames": 8400000,
+          "start_range_frames": [
+            4272000,
+            4512000
+          ],
+          "end_range_frames": [
+            8256000,
+            8496000
+          ],
+          "title_evidence": {
+            "method": "local_transcription",
+            "phrase_role": "sung_title",
+            "matched_phrase": "Oochie Coochie Man",
+            "start_frames": 4560000,
+            "end_frames": 5376000
+          },
+          "source": "https://www.rockstargames.com/VI/credits",
+          "evidence": "Unprompted local speech/song-title observations agree with the public show credit; program attribution and estimated boundaries remain provisional.",
+          "user_confirmation": {
+            "method": "user_reported_listening_comparison",
+            "scope": "song_identity",
+            "title": "Oochie Coochie Man",
+            "evidence": "User reviewed both Liquid City playlists and accepted all eight song labels."
+          }
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
       "offset": 6988263424,
       "role": "non-song",
       "native_name": "",
-      "duration_hint_s": 232.16
+      "duration_hint_s": 232.16,
+      "broadcast_cuts": [
+        {
+          "source_sha256": "580354bd1a5ea38ec46dbf8a1177233857558e1d400acaedd338bbcbd7fb9a7f",
+          "stream_index": 0,
+          "channel_index": 0,
+          "channel_id": 127297064,
+          "title": "Girl In Gloriana",
+          "artist": "Liquid City",
+          "artist_role": "program credit; performer unconfirmed",
+          "method": "transcription_interval",
+          "status": "provisional",
+          "start_frames": 6288000,
+          "end_frames": 11141632,
+          "start_range_frames": [
+            6192000,
+            6336000
+          ],
+          "end_range_frames": [
+            10992000,
+            11141632
+          ],
+          "title_evidence": {
+            "method": "local_transcription",
+            "phrase_role": "spoken_introduction",
+            "matched_phrase": "girl down in Gloriana",
+            "start_frames": 6384000,
+            "end_frames": 6720000
+          },
+          "source": "https://www.rockstargames.com/VI/credits",
+          "evidence": "Unprompted local speech/song-title observations agree with the public show credit; program attribution and estimated boundaries remain provisional.",
+          "user_confirmation": {
+            "method": "user_reported_listening_comparison",
+            "scope": "song_identity",
+            "title": "Girl In Gloriana",
+            "evidence": "User reviewed both Liquid City playlists and accepted all eight song labels."
+          }
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -12666,16 +12958,104 @@
     {
       "archive": "audio.rpf",
       "offset": 7511674880,
-      "role": "non-song",
-      "native_name": "",
-      "duration_hint_s": 251.18
+      "role": "music",
+      "native_name": "freak_on_a_leash",
+      "duration_hint_s": 251.13304166666666,
+      "hash_b": "0xdbe0a0e8",
+      "recording_credit": {
+        "source_sha256": "62d881da3d293aa46b0283fbfe829fc106fc1592ac35b9f8fc3baa73d3fde4e9",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 467706088,
+        "title": "Freak On a Leash",
+        "artist": "Korn",
+        "method": "native_config_hash",
+        "status": "provisional",
+        "config_id": 47631,
+        "config_hash32": "0xdbe0a0e8",
+        "duration_ms": 251133,
+        "source": "https://www.shazam.com/track/219867/freak-on-a-leash",
+        "evidence": "Full config hash/channel/duration agree; two disjoint Apple fingerprints support the title and artist; exact edition provisional."
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "62d881da3d293aa46b0283fbfe829fc106fc1592ac35b9f8fc3baa73d3fde4e9",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 1450,
+          "start_frames": 0,
+          "end_frames": 12054386,
+          "title": "Freak On a Leash",
+          "artist": "Korn",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "backend_fingerprint",
+          "source": "https://www.shazam.com/track/219867/freak-on-a-leash",
+          "evidence": "Recording credit supported by disjoint fingerprints and native config identity; native chapter bounds retained."
+        }
+      ],
+      "user_confirmation": {
+        "title": "Freak On a Leash",
+        "artist": "Korn",
+        "source_sha256": "62d881da3d293aa46b0283fbfe829fc106fc1592ac35b9f8fc3baa73d3fde4e9",
+        "stream_index": 0,
+        "channel_index": 0,
+        "method": "user_reported_fingerprint",
+        "source": "Phone Shazam",
+        "evidence": "User reports immediate phone recognition match.",
+        "scope": "Title/artist recognition corroborated; exact edition and native station ownership remain unconfirmed."
+      }
     },
     {
       "archive": "audio.rpf",
       "offset": 7515987968,
-      "role": "non-song",
-      "native_name": "",
-      "duration_hint_s": 200.62
+      "role": "music",
+      "native_name": "in_the_end",
+      "duration_hint_s": 200.56564583333332,
+      "hash_b": "0x5bf08bb7",
+      "recording_credit": {
+        "source_sha256": "45e2bb2b2bf91767c0a19f7c75bf4108617a24dcfe0422dc8b1df9be62a300b6",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 468749239,
+        "title": "In the End",
+        "artist": "Linkin Park",
+        "method": "native_config_hash",
+        "status": "provisional",
+        "config_id": 47632,
+        "config_hash32": "0x5bf08bb7",
+        "duration_ms": 200565,
+        "source": "https://www.shazam.com/track/215678/in-the-end",
+        "evidence": "Full config hash/channel/duration agree; two disjoint Apple fingerprints support the title and artist; exact edition provisional."
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "45e2bb2b2bf91767c0a19f7c75bf4108617a24dcfe0422dc8b1df9be62a300b6",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 1451,
+          "start_frames": 0,
+          "end_frames": 9627151,
+          "title": "In the End",
+          "artist": "Linkin Park",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "backend_fingerprint",
+          "source": "https://www.shazam.com/track/215678/in-the-end",
+          "evidence": "Recording credit supported by disjoint fingerprints and native config identity; native chapter bounds retained."
+        }
+      ],
+      "user_confirmation": {
+        "title": "In the End",
+        "artist": "Linkin Park",
+        "source_sha256": "45e2bb2b2bf91767c0a19f7c75bf4108617a24dcfe0422dc8b1df9be62a300b6",
+        "stream_index": 0,
+        "channel_index": 0,
+        "method": "user_reported_fingerprint",
+        "source": "Phone Shazam",
+        "evidence": "User reports immediate phone recognition match.",
+        "scope": "Title/artist recognition corroborated; exact edition and native station ownership remain unconfirmed."
+      }
     },
     {
       "archive": "audio.rpf",
@@ -22650,11 +23030,11 @@
           "start_frames": 0,
           "end_frames": 624000,
           "source_sha256": "36d093300def5e401fbf4ed22567f099726b8e966a5512aec3a90e9ad0319a32",
-          "title": "Worldwide Intro",
-          "artist": "Worldwide FM",
+          "title": "Yu Done Know (Jingle)",
+          "artist": "Klash & Brown",
           "method": "user_supplied_label",
-          "source": "Supplied label",
-          "evidence": "Intro label."
+          "source": "https://www.vice.com/en/article/gta-6-radio-songs-list/",
+          "evidence": "Provisional attribution of the existing station intro requested by the user; no independent audio match."
         },
         {
           "stream_index": 0,
@@ -28067,6 +28447,70 @@
         "stream_index": 0,
         "channel_index": 0,
         "scope": "Title/artist accepted; exact edition and original use unconfirmed."
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 6464028672,
+      "role": "music",
+      "native_name": "sensemilla",
+      "hash_b": "0x4f92e7a0",
+      "duration_hint_s": 226.45295833333333,
+      "recording_credit": {
+        "source_sha256": "eae6bb01b4f1162a7d22645bd0e52ba801ee5053911b578271c8ea06d413c4d5",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 261285792,
+        "title": "Sensimilla",
+        "artist": "100 gecs",
+        "method": "native_config_hash",
+        "status": "provisional",
+        "config_id": 47054,
+        "config_hash32": "0x4f92e7a0",
+        "duration_ms": 226452,
+        "source": "https://www.shazam.com/track/911883098/sensimilla-from-gtavi-the-album",
+        "evidence": "Full config hash/channel/duration agree; two disjoint Apple fingerprints support the title and artist; exact edition provisional."
+      },
+      "user_confirmation": {
+        "title": "Sensimilla",
+        "artist": "100 gecs",
+        "source_sha256": "eae6bb01b4f1162a7d22645bd0e52ba801ee5053911b578271c8ea06d413c4d5",
+        "stream_index": 0,
+        "channel_index": 0,
+        "method": "user_reported_fingerprint",
+        "source": "Phone Shazam",
+        "evidence": "User reports immediate phone recognition match.",
+        "scope": "Title/artist recognition corroborated; exact edition and native station ownership remain unconfirmed."
+      }
+    },
+    {
+      "archive": "audio.rpf",
+      "offset": 7569670144,
+      "role": "music",
+      "native_name": "",
+      "duration_hint_s": 238.0666875,
+      "recording_credit": {
+        "source_sha256": "8c3367eaa19c5d99c96533d3173f5f6c88562a85a2535d645c13bc5c4d0799ae",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 511010176,
+        "title": "Kickin' Back",
+        "artist": "Sababaman",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "source": "https://www.shazam.com/track/248580005/kickin-back",
+        "evidence": "Two disjoint Apple fingerprint matches have coherent reference offsets; exact edition remains provisional."
+      },
+      "user_confirmation": {
+        "title": "Kickin' Back",
+        "artist": "Sababaman",
+        "source_sha256": "8c3367eaa19c5d99c96533d3173f5f6c88562a85a2535d645c13bc5c4d0799ae",
+        "stream_index": 0,
+        "channel_index": 0,
+        "method": "user_reported_fingerprint",
+        "source": "Phone Shazam",
+        "evidence": "User reports immediate phone recognition match.",
+        "scope": "Title/artist recognition corroborated; exact edition and native station ownership remain unconfirmed."
       }
     }
   ],
@@ -43554,6 +43998,42 @@
         "DJ Stevie J"
       ],
       "selection_evidence": "Public show credit; native membership and exact edit remain provisional."
+    },
+    {
+      "text": "sensemilla",
+      "hash32": "0x4f92e7a0",
+      "hash29": "0x0f92e7a0",
+      "kind": "research_title_alias",
+      "title": "Sensimilla",
+      "artist": "100 gecs",
+      "credit_context": "Bonus Tracks",
+      "source": "https://www.shazam.com/track/911883098/sensimilla-from-gtavi-the-album",
+      "status": "provisional",
+      "evidence": "Independently tested title spelling matches full config hash, native channel and duration."
+    },
+    {
+      "text": "freak_on_a_leash",
+      "hash32": "0xdbe0a0e8",
+      "hash29": "0x1be0a0e8",
+      "kind": "research_title_alias",
+      "title": "Freak On a Leash",
+      "artist": "Korn",
+      "credit_context": "Mud Club",
+      "source": "https://www.shazam.com/track/219867/freak-on-a-leash",
+      "status": "provisional",
+      "evidence": "Independently tested title spelling matches full config hash, native channel and duration."
+    },
+    {
+      "text": "in_the_end",
+      "hash32": "0x5bf08bb7",
+      "hash29": "0x1bf08bb7",
+      "kind": "research_title_alias",
+      "title": "In the End",
+      "artist": "Linkin Park",
+      "credit_context": "Mud Club",
+      "source": "https://www.shazam.com/track/215678/in-the-end",
+      "status": "provisional",
+      "evidence": "Independently tested title spelling matches full config hash, native channel and duration."
     }
   ],
   "unassigned_offsets": [
@@ -43682,7 +44162,6 @@
     6231740416,
     6234779648,
     6457507840,
-    6464028672,
     6516871168,
     6516969472,
     6517051392,
@@ -43788,7 +44267,6 @@
     7552237568,
     7562244096,
     7565991936,
-    7569670144,
     7573770240,
     7574806528,
     7576936448,
