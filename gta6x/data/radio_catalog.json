@@ -7863,7 +7863,34 @@
       "role": "music",
       "native_name": "HARD_TO_SAY_IM_SORRY",
       "duration_hint_s": 303.86,
-      "hash_b": "0x520bcc41"
+      "hash_b": "0x520bcc41",
+      "user_confirmation": {
+        "method": "user_reported_listening_comparison",
+        "title": "Hard to Say I'm Sorry / Get Away",
+        "artist": "Chicago",
+        "source": "Phone Shazam and listening",
+        "evidence": "User heard and identified the upbeat Get Away outro.",
+        "scope": "Song/medley identity; exact mastering unverified.",
+        "source_sha256": "ac2e3cfe0e3e9e88be44af85c30c65f94f01d41e0e10f5595c8e70f1aa8c9f39",
+        "stream_index": 0,
+        "channel_index": 0
+      },
+      "chapter_credits": [
+        {
+          "title": "Hard to Say I'm Sorry / Get Away",
+          "artist": "Chicago",
+          "method": "user_supplied_label",
+          "source": "User listening",
+          "evidence": "User identified both parts of the stored medley; native marker bounds retained.",
+          "source_sha256": "ac2e3cfe0e3e9e88be44af85c30c65f94f01d41e0e10f5595c8e70f1aa8c9f39",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 6010,
+          "start_frames": 0,
+          "end_frames": 14582606
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -12262,7 +12289,44 @@
       "role": "music",
       "native_name": "OLA_AUTA_POU_FOVAMAI",
       "duration_hint_s": 236.74,
-      "hash_b": "0xc7a76294"
+      "hash_b": "0xc7a76294",
+      "recording_credit": {
+        "source_sha256": "9f3a2a9e1c087d2ea37b7af36f0d33a1deca63c10e950ba1408cc5fd5a9e4ed4",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 128410260,
+        "title": "Ola Afta Pou Fovamai",
+        "artist": "Alkistis Protopsalti",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "source": "https://music.apple.com/us/album/ola-afta-pou-fovamai/1607657410?i=1607657413&uo=4",
+        "evidence": "Disjoint official-preview fingerprints follow the native recording timeline; exact edition remains provisional.",
+        "alternatives": [
+          {
+            "title": "How You Remind Me",
+            "artist": "Alkistis Protopsalti",
+            "credit_context": "Kaleidoscope FM",
+            "source": "https://alkistisprotopsalti.gr/disco.php?id=9&kind=personal&lang=en"
+          }
+        ]
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "9f3a2a9e1c087d2ea37b7af36f0d33a1deca63c10e950ba1408cc5fd5a9e4ed4",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 1118,
+          "start_frames": 0,
+          "end_frames": 11361268,
+          "title": "Ola Afta Pou Fovamai",
+          "artist": "Alkistis Protopsalti",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "local_fingerprint",
+          "source": "https://music.apple.com/us/album/ola-afta-pou-fovamai/1607657410?i=1607657413&uo=4",
+          "evidence": "The recognized stored recording has this single checked native marker interval; original bounds retained."
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -26918,7 +26982,21 @@
               "status": "backend_reported_credit"
             }
           ],
-          "credit_conflicts": true
+          "credit_conflicts": true,
+          "user_confirmation": {
+            "method": "user_reported_fingerprint",
+            "title": "Fresh From Head To Toe",
+            "source": "Phone Shazam and lyric listening",
+            "evidence": "User reports matching phone recognition and the title in the lyrics.",
+            "scope": "Song title; performer credits and exact edit unverified.",
+            "source_sha256": "57c0dd39a0432a81c6c0503b46155e0f8daba6394326331558c2ce6c8c5fca5c",
+            "stream_index": 0,
+            "channel_index": 0,
+            "index": 1,
+            "track_id": 2401,
+            "start_frames": 5280491,
+            "end_frames": 9940367
+          }
         },
         {
           "stream_index": 0,
@@ -27211,7 +27289,21 @@
               "credit_context": "The Sniper of La Perle"
             }
           ],
-          "credit_conflicts": true
+          "credit_conflicts": true,
+          "user_confirmation": {
+            "method": "user_reported_fingerprint",
+            "title": "Haitian Scarface",
+            "source": "Phone Shazam and lyric listening",
+            "evidence": "User reports matching phone recognition and the title in the lyrics.",
+            "scope": "Song title; performer credits and exact edit unverified.",
+            "source_sha256": "57c0dd39a0432a81c6c0503b46155e0f8daba6394326331558c2ce6c8c5fca5c",
+            "stream_index": 0,
+            "channel_index": 0,
+            "index": 16,
+            "track_id": 2419,
+            "start_frames": 85589609,
+            "end_frames": 90273618
+          }
         },
         {
           "stream_index": 0,
@@ -44034,6 +44126,20 @@
       "source": "https://www.shazam.com/track/215678/in-the-end",
       "status": "provisional",
       "evidence": "Independently tested title spelling matches full config hash, native channel and duration."
+    },
+    {
+      "text": "hard_to_say_im_sorry",
+      "hash32": "0x520bcc41",
+      "hash29": "0x120bcc41",
+      "kind": "credit_song_name",
+      "title": "Hard to Say I'm Sorry / Get Away",
+      "artist": "Chicago",
+      "credit_context": "Emotion 98.3",
+      "source": "https://www.vice.com/en/article/gta-6-radio-songs-list/",
+      "preferred_for": [
+        "Emotion 98.3"
+      ],
+      "selection_evidence": "User listening confirms the Get Away outro."
     }
   ],
   "unassigned_offsets": [
