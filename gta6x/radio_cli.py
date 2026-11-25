@@ -15,7 +15,7 @@ def configure(subparsers):
     p.add_argument('--list-credits', action='store_true', help='list public station/show song credits, including titles with no identified audio')
     p.add_argument('--out', metavar='DIR', help='output library directory')
     p.add_argument('--station', action='append', default=[], metavar='NAME', help='station name/key/fragment; repeat to select several')
-    p.add_argument('--song', action='append', default=[], metavar='TEXT', help='filter title/native name, mapped broadcast cut, artist or full name hash; repeated filters are alternatives')
+    p.add_argument('--song', action='append', default=[], metavar='TEXT', help='filter title/native name, mapped broadcast cut, artist/composer or full name hash; repeated filters are alternatives')
     p.add_argument('--catalog', metavar='JSON', help='use an explicit radio catalog instead of the bundled research')
     p.add_argument('--catalog-out', metavar='JSON', help='write the complete portable name/hash/station catalog')
     p.add_argument('--names-out', metavar='JSON', help='write a names-command-compatible hash dictionary without extracting audio')

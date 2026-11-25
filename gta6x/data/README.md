@@ -25,6 +25,8 @@ identifications and supplied program labels; exact edits may remain unknown.
 Premixed stations can also include standalone recordings. Exports keep them in
 a separate folder and playlist from broadcast chapters. Acoustic recording
 credits remain provisional and require the exact source hash and channel.
+An optional recording-credit `composer` keeps composer metadata separate from
+the matched performer and is included in tags and song searches.
 Bonus groups use `context_type` to distinguish public playlists from station
 groups. Backend credit disagreements remain explicit in recording alternatives.
 Config-hash identifications use a separate method and remain provisional;

@@ -568,7 +568,6 @@
         5395660800,
         5399302144,
         5402677248,
-        5406109696,
         5409394688,
         5412773888,
         8321175552,
@@ -640,7 +639,8 @@
         8464896000,
         8465747968,
         8467906560,
-        8468459520
+        8468459520,
+        5406109696
       ]
     },
     {
@@ -749,7 +749,6 @@
         5527015424,
         5531172864,
         5535129600,
-        5538656256,
         5542891520,
         5547147264,
         5551226880,
@@ -833,7 +832,8 @@
         8463777792,
         8464400384,
         8467165184,
-        8468459520
+        8468459520,
+        5538656256
       ]
     },
     {
@@ -1150,7 +1150,6 @@
         6427385856,
         6430666752,
         6434705408,
-        6439538688,
         6442889216,
         6447149056,
         6450393088,
@@ -1224,7 +1223,8 @@
         8465747968,
         8467165184,
         8467906560,
-        8469078016
+        8469078016,
+        6439538688
       ]
     },
     {
@@ -1315,7 +1315,6 @@
         6542323712,
         6546145280,
         6549368832,
-        6552154112,
         6555074560,
         6559318016,
         6562463744,
@@ -1344,7 +1343,8 @@
         8450506752,
         8460267520,
         8463777792,
-        8464400384
+        8464400384,
+        6552154112
       ]
     },
     {
@@ -1354,8 +1354,6 @@
       "members": [
         6754336768,
         6758825984,
-        6764036096,
-        6768504832,
         6772973568,
         6776713216,
         6780772352,
@@ -1364,10 +1362,7 @@
         6792990720,
         6796394496,
         6824243200,
-        6828204032,
-        6833545216,
         6838886400,
-        6843064320,
         6846398464,
         6850265088,
         6854516736,
@@ -1507,8 +1502,6 @@
         7029133312,
         7032651776,
         7036383232,
-        7040626688,
-        7045079040,
         7049605120,
         7054524416,
         7058489344,
@@ -1592,7 +1585,11 @@
         8458248192,
         8461062144,
         8464400384,
-        8468459520
+        8468459520,
+        6764036096,
+        6828204032,
+        6843064320,
+        7040626688
       ]
     },
     {
@@ -2194,7 +2191,6 @@
         8684711936,
         8684888064,
         8685031424,
-        8685150208,
         8695992320,
         8701575168,
         8708308992,
@@ -2202,10 +2198,11 @@
         8725020672,
         8732299264,
         8743112704,
-        8755122176,
         8763969536,
         8777101312,
-        8783110144
+        8783110144,
+        8685150208,
+        8755122176
       ]
     },
     {
@@ -2265,7 +2262,6 @@
         8799510528,
         8813543424,
         8818044928,
-        8824061952,
         8829059072,
         8835125248,
         8839266304,
@@ -2311,7 +2307,8 @@
         8901165056,
         8901406720,
         8901771264,
-        8906166272
+        8906166272,
+        8824061952
       ]
     },
     {
@@ -2592,7 +2589,6 @@
         9183379456,
         9186525184,
         9189789696,
-        9208848384,
         9212239872,
         9217503232,
         9221079040,
@@ -2623,7 +2619,6 @@
         9319849984,
         9324212224,
         9327509504,
-        9331113984,
         9334841344,
         9339252736,
         9343766528,
@@ -2715,7 +2710,9 @@
         9474859008,
         9477734400,
         9482125312,
-        9485316096
+        9485316096,
+        9208848384,
+        9331113984
       ]
     },
     {
@@ -2803,7 +2800,6 @@
         9567707136,
         9571524608,
         9574006784,
-        9577308160,
         9580429312,
         9583812608,
         9820680192,
@@ -2815,7 +2811,6 @@
         9601646592,
         9604493312,
         9606930432,
-        9609138176,
         9611522048,
         9613754368,
         9615663104,
@@ -2960,7 +2955,9 @@
         9837981696,
         9846484992,
         9650245632,
-        9828319232
+        9828319232,
+        9577308160,
+        9609138176
       ]
     },
     {
@@ -3521,7 +3518,8 @@
         5275791360,
         5907828736,
         9832923136,
-        9835085824
+        9835085824,
+        7045079040
       ]
     }
   ],
@@ -6375,9 +6373,39 @@
     {
       "archive": "audio.rpf",
       "offset": 5406109696,
-      "role": "non-song",
-      "native_name": "",
-      "duration_hint_s": 190.86
+      "role": "music",
+      "native_name": "X",
+      "duration_hint_s": 190.81966666666668,
+      "hash_b": "0x9303a5e5",
+      "recording_credit": {
+        "source_sha256": "8c52fd8ae21ce0b4e8bce5ceb68466ca74ba94a97462a174d4c354e18ac62c8e",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 319006181,
+        "title": "X",
+        "artist": "Jhayco",
+        "source": "https://music.apple.com/us/album/x/6812476961?i=6812477297&uo=4",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "evidence": "Disjoint public-reference fingerprints agree with this native source; exact edition remains provisional."
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "8c52fd8ae21ce0b4e8bce5ceb68466ca74ba94a97462a174d4c354e18ac62c8e",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 4037,
+          "start_frames": 0,
+          "end_frames": 9159344,
+          "title": "X",
+          "artist": "Jhayco",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "local_fingerprint",
+          "source": "https://music.apple.com/us/album/x/6812476961?i=6812477297&uo=4",
+          "evidence": "Source-bound recording credit; native TRACKID and frame bounds retained; exact edition provisional."
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -7124,9 +7152,39 @@
     {
       "archive": "audio.rpf",
       "offset": 5538656256,
-      "role": "non-song",
-      "native_name": "",
-      "duration_hint_s": 247.06
+      "role": "music",
+      "native_name": "Lemonade",
+      "duration_hint_s": 247.01658333333333,
+      "hash_b": "0xed56e8b8",
+      "recording_credit": {
+        "source_sha256": "5f85e903b0a118e1691c3c475dd6b94e6042b85f7cb4559f515652ccedbe01b9",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 223799480,
+        "title": "Lemonade",
+        "artist": "Gucci Mane",
+        "source": "https://music.apple.com/us/album/lemonade/342392469?i=342392487&uo=4",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "evidence": "Disjoint public-reference fingerprints agree with this native source; exact edition remains provisional."
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "5f85e903b0a118e1691c3c475dd6b94e6042b85f7cb4559f515652ccedbe01b9",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 5019,
+          "start_frames": 0,
+          "end_frames": 11856796,
+          "title": "Lemonade",
+          "artist": "Gucci Mane",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "local_fingerprint",
+          "source": "https://music.apple.com/us/album/lemonade/342392469?i=342392487&uo=4",
+          "evidence": "Source-bound recording credit; native TRACKID and frame bounds retained; exact edition provisional."
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -9223,9 +9281,39 @@
     {
       "archive": "audio.rpf",
       "offset": 6439538688,
-      "role": "non-song",
-      "native_name": "",
-      "duration_hint_s": 195.48
+      "role": "music",
+      "native_name": "powertrip",
+      "duration_hint_s": 195.42245833333334,
+      "hash_b": "0xe137b33b",
+      "recording_credit": {
+        "source_sha256": "c41cf956c682f61f40c947ebe35c193e332f10cba0af4b64447ac2cb393d0063",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 20427579,
+        "title": "Power Trip",
+        "artist": "JENNIE",
+        "source": "https://music.apple.com/us/album/power-trip/6812476961?i=6812477311&uo=4",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "evidence": "Disjoint public-reference fingerprints agree with this native source; exact edition remains provisional."
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "c41cf956c682f61f40c947ebe35c193e332f10cba0af4b64447ac2cb393d0063",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 7043,
+          "start_frames": 0,
+          "end_frames": 9380278,
+          "title": "Power Trip",
+          "artist": "JENNIE",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "local_fingerprint",
+          "source": "https://music.apple.com/us/album/power-trip/6812476961?i=6812477311&uo=4",
+          "evidence": "Source-bound recording credit; native TRACKID and frame bounds retained; exact edition provisional."
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -9859,9 +9947,51 @@
     {
       "archive": "audio.rpf",
       "offset": 6552154112,
-      "role": "non-song",
-      "native_name": "",
-      "duration_hint_s": 170.26
+      "role": "music",
+      "native_name": "me_and_my_chauffeur",
+      "duration_hint_s": 170.20133333333334,
+      "hash_b": "0x7a84e8fd",
+      "recording_credit": {
+        "source_sha256": "07ed7032c115756f9115fbeec0a0ab419e495077a10b7cd719162051352a7d54",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 444918013,
+        "title": "Me and My Chauffeur Blues",
+        "artist": "Little Walter",
+        "source": "https://www.rockstargames.com/VI/credits",
+        "method": "native_config_hash",
+        "status": "provisional",
+        "evidence": "Full config name hash, native channel and duration agree; separate provider lookup supports the label; exact edition provisional.",
+        "config_id": 47071,
+        "config_hash32": "0x7a84e8fd",
+        "duration_ms": 170201,
+        "credit_conflicts": true,
+        "alternatives": [
+          {
+            "title": "Me and My Chauffeur Blues",
+            "artist": "Little Walter, Memphis Minnie",
+            "source": "https://www.rockstargames.com/VI/credits",
+            "credit_context": "Gloriana Blues Radio"
+          }
+        ]
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "07ed7032c115756f9115fbeec0a0ab419e495077a10b7cd719162051352a7d54",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 2038,
+          "start_frames": 0,
+          "end_frames": 8169664,
+          "title": "Me and My Chauffeur Blues",
+          "artist": "Little Walter",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "backend_fingerprint",
+          "source": "https://www.rockstargames.com/VI/credits",
+          "evidence": "Full config/source identity and a provider fingerprint support this label; native bounds retained; exact edition provisional."
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -9930,16 +10060,75 @@
     {
       "archive": "audio.rpf",
       "offset": 6764036096,
-      "role": "non-song",
-      "native_name": "",
-      "duration_hint_s": 260.46
+      "role": "music",
+      "native_name": "bad_girl",
+      "duration_hint_s": 260.4164375,
+      "hash_b": "0xa7ae704a",
+      "recording_credit": {
+        "source_sha256": "3c98b9cebd77b675b5efc19bbf80b7d5f140a3bfffe71c6fb6a59ef466e3d25d",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 128872522,
+        "title": "Bad Girl",
+        "artist": "Usher",
+        "source": "https://music.apple.com/us/album/bad-girl/386153476?i=386153692&uo=4",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "evidence": "Disjoint public-reference fingerprints agree with this native source; exact edition remains provisional."
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "3c98b9cebd77b675b5efc19bbf80b7d5f140a3bfffe71c6fb6a59ef466e3d25d",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 9058,
+          "start_frames": 0,
+          "end_frames": 12499989,
+          "title": "Bad Girl",
+          "artist": "Usher",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "local_fingerprint",
+          "source": "https://music.apple.com/us/album/bad-girl/386153476?i=386153692&uo=4",
+          "evidence": "Source-bound recording credit; native TRACKID and frame bounds retained; exact edition provisional."
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
       "offset": 6768504832,
-      "role": "non-song",
+      "role": "music",
       "native_name": "",
-      "duration_hint_s": 260.46
+      "duration_hint_s": 260.4164375,
+      "recording_credit": {
+        "source_sha256": "63c114c5fe3b28a5f1c91b692beca656a983b11390c27774857ecaf3e09497e7",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 149929403,
+        "title": "Bad Girl",
+        "artist": "Usher",
+        "source": "https://music.apple.com/us/album/bad-girl/386153476?i=386153692&uo=4",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "evidence": "Encoded audio and timing are identical to source 0x1932b0000; duplicate carrier retained as metadata."
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "63c114c5fe3b28a5f1c91b692beca656a983b11390c27774857ecaf3e09497e7",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 9058,
+          "start_frames": 0,
+          "end_frames": 12499989,
+          "title": "Bad Girl",
+          "artist": "Usher",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "local_fingerprint",
+          "source": "https://music.apple.com/us/album/bad-girl/386153476?i=386153692&uo=4",
+          "evidence": "Source-bound recording credit; native TRACKID and frame bounds retained; exact edition provisional."
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -10008,16 +10197,75 @@
     {
       "archive": "audio.rpf",
       "offset": 6828204032,
-      "role": "non-song",
-      "native_name": "",
-      "duration_hint_s": 311.54
+      "role": "music",
+      "native_name": "feenin",
+      "duration_hint_s": 311.5,
+      "hash_b": "0x9ab50390",
+      "recording_credit": {
+        "source_sha256": "4613022ed66173d14daf33198b49910752ecadd8308c67927be261c2ee3a4091",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 448070544,
+        "title": "Feenin’",
+        "artist": "Jodeci",
+        "source": "https://music.apple.com/us/album/feenin/1440637554?i=1440637558&uo=4",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "evidence": "Disjoint public-reference fingerprints agree with this native source; exact edition remains provisional."
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "4613022ed66173d14daf33198b49910752ecadd8308c67927be261c2ee3a4091",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 9055,
+          "start_frames": 0,
+          "end_frames": 14952000,
+          "title": "Feenin’",
+          "artist": "Jodeci",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "local_fingerprint",
+          "source": "https://music.apple.com/us/album/feenin/1440637554?i=1440637558&uo=4",
+          "evidence": "Source-bound recording credit; native TRACKID and frame bounds retained; exact edition provisional."
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
       "offset": 6833545216,
-      "role": "non-song",
+      "role": "music",
       "native_name": "",
-      "duration_hint_s": 311.54
+      "duration_hint_s": 311.5,
+      "recording_credit": {
+        "source_sha256": "21eebb9eb098a87fa6b2e3391d58d56500c65f068cdc3bc6b5ad01d7019f063c",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 272468622,
+        "title": "Feenin’",
+        "artist": "Jodeci",
+        "source": "https://music.apple.com/us/album/feenin/1440637554?i=1440637558&uo=4",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "evidence": "Encoded audio and timing are identical to source 0x196fe2000; duplicate carrier retained as metadata."
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "21eebb9eb098a87fa6b2e3391d58d56500c65f068cdc3bc6b5ad01d7019f063c",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 9055,
+          "start_frames": 0,
+          "end_frames": 14952000,
+          "title": "Feenin’",
+          "artist": "Jodeci",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "local_fingerprint",
+          "source": "https://music.apple.com/us/album/feenin/1440637554?i=1440637558&uo=4",
+          "evidence": "Source-bound recording credit; native TRACKID and frame bounds retained; exact edition provisional."
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -10030,9 +10278,38 @@
     {
       "archive": "audio.rpf",
       "offset": 6843064320,
-      "role": "non-song",
+      "role": "music",
       "native_name": "",
-      "duration_hint_s": 195.28
+      "duration_hint_s": 195.2320625,
+      "recording_credit": {
+        "source_sha256": "00079f55789e70b69ce8ab6f62eb2873700cca8775140834725cc574e10806de",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 502804670,
+        "title": "Get Your Number",
+        "artist": "Mariah Carey, Jermaine Dupri",
+        "source": "https://music.apple.com/us/album/get-your-number-feat-jermaine-dupri/1476731879?i=1476731966&uo=4",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "evidence": "Disjoint public-reference fingerprints agree with this native source; exact edition remains provisional."
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "00079f55789e70b69ce8ab6f62eb2873700cca8775140834725cc574e10806de",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 9023,
+          "start_frames": 0,
+          "end_frames": 9371139,
+          "title": "Get Your Number",
+          "artist": "Mariah Carey, Jermaine Dupri",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "local_fingerprint",
+          "source": "https://music.apple.com/us/album/get-your-number-feat-jermaine-dupri/1476731879?i=1476731966&uo=4",
+          "evidence": "Source-bound recording credit; native TRACKID and frame bounds retained; exact edition provisional."
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -11032,16 +11309,74 @@
     {
       "archive": "audio.rpf",
       "offset": 7040626688,
-      "role": "non-song",
+      "role": "music",
       "native_name": "",
-      "duration_hint_s": 259.32
+      "duration_hint_s": 259.26295833333336,
+      "recording_credit": {
+        "source_sha256": "c8c8e605a31f33f541dc6c75a1b7a9339126ef9fd61774499ec1aba07c84e59a",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 71006799,
+        "title": "Freak Me",
+        "artist": "Silk",
+        "source": "https://music.apple.com/us/album/freak-me/18166627?i=18166770&uo=4",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "evidence": "Disjoint public-reference fingerprints agree with this native source; exact edition remains provisional."
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "c8c8e605a31f33f541dc6c75a1b7a9339126ef9fd61774499ec1aba07c84e59a",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 9042,
+          "start_frames": 0,
+          "end_frames": 12444622,
+          "title": "Freak Me",
+          "artist": "Silk",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "local_fingerprint",
+          "source": "https://music.apple.com/us/album/freak-me/18166627?i=18166770&uo=4",
+          "evidence": "Source-bound recording credit; native TRACKID and frame bounds retained; exact edition provisional."
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
       "offset": 7045079040,
-      "role": "non-song",
+      "role": "music",
       "native_name": "",
-      "duration_hint_s": 263.74
+      "duration_hint_s": 263.68983333333335,
+      "recording_credit": {
+        "source_sha256": "edcdf4274e7533a7960b3d74986033f44319f08b1cd7808a9bef01abf67e9c09",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 523432967,
+        "title": "Freak Me (alternate recording)",
+        "artist": "Silk",
+        "source": "https://music.apple.com/us/album/freak-me/18166627?i=18166770&uo=4",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "evidence": "Disjoint public-reference fingerprints agree with this native source; exact edition remains provisional."
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "edcdf4274e7533a7960b3d74986033f44319f08b1cd7808a9bef01abf67e9c09",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 9042,
+          "start_frames": 0,
+          "end_frames": 12657112,
+          "title": "Freak Me (alternate recording)",
+          "artist": "Silk",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "local_fingerprint",
+          "source": "https://music.apple.com/us/album/freak-me/18166627?i=18166770&uo=4",
+          "evidence": "Source-bound recording credit; native TRACKID and frame bounds retained; exact edition provisional."
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -16034,9 +16369,39 @@
     {
       "archive": "audio.rpf",
       "offset": 8685150208,
-      "role": "non-song",
+      "role": "music",
       "native_name": "",
-      "duration_hint_s": 630.2
+      "duration_hint_s": 630.1595,
+      "recording_credit": {
+        "source_sha256": "8a1e5ac7d3cf33b8242465b7c1eb7f9a78928858845f7dae8b6423dc8506e897",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 244716482,
+        "title": "Symphony No. 5 in D Minor, Op. 47: IV. Allegro non troppo",
+        "artist": "Brussels Philharmonic, Ali Rahbari",
+        "source": "https://www.youtube.com/watch?v=JQJNv7Pe8iU",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "evidence": "Disjoint public-reference fingerprints agree with this native source; exact edition remains provisional.",
+        "composer": "Dmitri Shostakovich"
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "8a1e5ac7d3cf33b8242465b7c1eb7f9a78928858845f7dae8b6423dc8506e897",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 1307,
+          "start_frames": 0,
+          "end_frames": 30247656,
+          "title": "Symphony No. 5 in D Minor, Op. 47: IV. Allegro non troppo",
+          "artist": "Brussels Philharmonic, Ali Rahbari",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "local_fingerprint",
+          "source": "https://www.youtube.com/watch?v=JQJNv7Pe8iU",
+          "evidence": "Source-bound recording credit; native TRACKID and frame bounds retained; exact edition provisional."
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -16097,9 +16462,39 @@
     {
       "archive": "audio.rpf",
       "offset": 8755122176,
-      "role": "non-song",
+      "role": "music",
       "native_name": "",
-      "duration_hint_s": 514.28
+      "duration_hint_s": 514.2260833333333,
+      "recording_credit": {
+        "source_sha256": "ec1f646c1f36b945cc67a111642b1ae8b0bc512b254725e6a7dd3da917d215ac",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 89816115,
+        "title": "Symphony No. 5 in E-Flat Major Op. 82: III. Allegro molto",
+        "artist": "Oslo Philharmonic Orchestra, Mariss Jansons",
+        "source": "https://www.youtube.com/watch?v=svJ-5gVAkPk",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "evidence": "Disjoint public-reference fingerprints agree with this native source; exact edition remains provisional.",
+        "composer": "Jean Sibelius"
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "ec1f646c1f36b945cc67a111642b1ae8b0bc512b254725e6a7dd3da917d215ac",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 1316,
+          "start_frames": 0,
+          "end_frames": 24682852,
+          "title": "Symphony No. 5 in E-Flat Major Op. 82: III. Allegro molto",
+          "artist": "Oslo Philharmonic Orchestra, Mariss Jansons",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "local_fingerprint",
+          "source": "https://www.youtube.com/watch?v=svJ-5gVAkPk",
+          "evidence": "Source-bound recording credit; native TRACKID and frame bounds retained; exact edition provisional."
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -16301,9 +16696,39 @@
     {
       "archive": "audio.rpf",
       "offset": 8824061952,
-      "role": "non-song",
-      "native_name": "",
-      "duration_hint_s": 291.34
+      "role": "music",
+      "native_name": "i",
+      "duration_hint_s": 291.294125,
+      "hash_b": "0x5dc63b6f",
+      "recording_credit": {
+        "source_sha256": "4a76a6acf4e2f1d2f1fca948e5a46622fdebebaeac2f15cc7a19ae71d9dbfec3",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 499530607,
+        "title": "I",
+        "artist": "Black Sabbath",
+        "source": "https://music.apple.com/us/album/i/252725583?i=252726302&uo=4",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "evidence": "Disjoint public-reference fingerprints agree with this native source; exact edition remains provisional."
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "4a76a6acf4e2f1d2f1fca948e5a46622fdebebaeac2f15cc7a19ae71d9dbfec3",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 1418,
+          "start_frames": 0,
+          "end_frames": 13982118,
+          "title": "I",
+          "artist": "Black Sabbath",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "local_fingerprint",
+          "source": "https://music.apple.com/us/album/i/252725583?i=252726302&uo=4",
+          "evidence": "Source-bound recording credit; native TRACKID and frame bounds retained; exact edition provisional."
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -17863,9 +18288,39 @@
     {
       "archive": "audio.rpf",
       "offset": 9208848384,
-      "role": "non-song",
-      "native_name": "",
-      "duration_hint_s": 197.92
+      "role": "music",
+      "native_name": "driven_to_tears",
+      "duration_hint_s": 197.8644375,
+      "hash_b": "0x0f40056d",
+      "recording_credit": {
+        "source_sha256": "5b19e2ef274e7b6deee4cfcd01d4985d614f377c15f9fb55ceddf535843fd717",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 255853933,
+        "title": "Driven To Tears",
+        "artist": "The Police",
+        "source": "https://music.apple.com/us/album/driven-to-tears-remastered-2003/1440637146?i=1440637318&uo=4",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "evidence": "Disjoint public-reference fingerprints agree with this native source; exact edition remains provisional."
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "5b19e2ef274e7b6deee4cfcd01d4985d614f377c15f9fb55ceddf535843fd717",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 1656,
+          "start_frames": 0,
+          "end_frames": 9497493,
+          "title": "Driven To Tears",
+          "artist": "The Police",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "local_fingerprint",
+          "source": "https://music.apple.com/us/album/driven-to-tears-remastered-2003/1440637146?i=1440637318&uo=4",
+          "evidence": "Source-bound recording credit; native TRACKID and frame bounds retained; exact edition provisional."
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -18110,9 +18565,39 @@
     {
       "archive": "audio.rpf",
       "offset": 9331113984,
-      "role": "non-song",
-      "native_name": "",
-      "duration_hint_s": 216.66
+      "role": "music",
+      "native_name": "rockin_into_the_night",
+      "duration_hint_s": 216.61141666666666,
+      "hash_b": "0x62979abb",
+      "recording_credit": {
+        "source_sha256": "5d0c7e7910fa29be5f584f44ae471a8effa3798b4aa8094776f1cefe1d884264",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 43489979,
+        "title": "Rockin’ Into The Night",
+        "artist": "38 Special",
+        "source": "https://music.apple.com/us/album/rockin-into-the-night/1443384762?i=1443384764&uo=4",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "evidence": "Disjoint public-reference fingerprints agree with this native source; exact edition remains provisional."
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "5d0c7e7910fa29be5f584f44ae471a8effa3798b4aa8094776f1cefe1d884264",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 2302,
+          "start_frames": 0,
+          "end_frames": 10397348,
+          "title": "Rockin’ Into The Night",
+          "artist": "38 Special",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "local_fingerprint",
+          "source": "https://music.apple.com/us/album/rockin-into-the-night/1443384762?i=1443384764&uo=4",
+          "evidence": "Source-bound recording credit; native TRACKID and frame bounds retained; exact edition provisional."
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -19000,9 +19485,42 @@
     {
       "archive": "audio.rpf",
       "offset": 9577308160,
-      "role": "non-song",
-      "native_name": "",
-      "duration_hint_s": 182.06
+      "role": "music",
+      "native_name": "fla_flow",
+      "duration_hint_s": 182.00529166666666,
+      "hash_b": "0xe4cd504e",
+      "recording_credit": {
+        "source_sha256": "bdfa434726d3df11bbaea46df7e5cadc834773455a7b16bd4dfea893ece7217f",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 80564302,
+        "title": "FLA Flow",
+        "artist": "Denzel Curry ft. 454",
+        "source": "https://www.rockstargames.com/VI/credits",
+        "method": "native_config_hash",
+        "status": "provisional",
+        "evidence": "Full config name hash, native channel and duration agree; separate provider lookup supports the label; exact edition provisional.",
+        "config_id": 48524,
+        "config_hash32": "0xe4cd504e",
+        "duration_ms": 182005
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "bdfa434726d3df11bbaea46df7e5cadc834773455a7b16bd4dfea893ece7217f",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 15100,
+          "start_frames": 0,
+          "end_frames": 8736254,
+          "title": "FLA Flow",
+          "artist": "Denzel Curry ft. 454",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "backend_fingerprint",
+          "source": "https://www.rockstargames.com/VI/credits",
+          "evidence": "Full config/source identity and a provider fingerprint support this label; native bounds retained; exact edition provisional."
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -19064,8 +19582,45 @@
       "offset": 9593352192,
       "role": "music",
       "native_name": "GO_SHORTY",
-      "duration_hint_s": 147.1,
-      "hash_b": "0x550a06b8"
+      "duration_hint_s": 147.05458333333334,
+      "hash_b": "0x550a06b8",
+      "recording_credit": {
+        "source_sha256": "9c79fe933430c015293b55962392d2ab0090f6567a58e22e74bfd69e2401f1aa",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 352978616,
+        "title": "50 Bands",
+        "artist": "Latto ft. Flo Milli",
+        "source": "https://www.youtube.com/watch?v=i5WHHH05LYk",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "evidence": "Disjoint public-reference fingerprints agree with this native source; exact edition remains provisional.",
+        "alternatives": [
+          {
+            "title": "Go Shorty",
+            "artist": "Latto ft. Flo Milli",
+            "source": "https://www.gamespot.com/articles/all-gta-6-radio-stations-and-songs/",
+            "credit_context": "VCRR"
+          }
+        ]
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "9c79fe933430c015293b55962392d2ab0090f6567a58e22e74bfd69e2401f1aa",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 1587,
+          "start_frames": 0,
+          "end_frames": 7058620,
+          "title": "50 Bands",
+          "artist": "Latto ft. Flo Milli",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "local_fingerprint",
+          "source": "https://www.youtube.com/watch?v=i5WHHH05LYk",
+          "evidence": "Source-bound recording credit; native TRACKID and frame bounds retained; exact edition provisional."
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -19121,9 +19676,39 @@
     {
       "archive": "audio.rpf",
       "offset": 9609138176,
-      "role": "non-song",
-      "native_name": "",
-      "duration_hint_s": 139.74
+      "role": "music",
+      "native_name": "ikyfl",
+      "duration_hint_s": 139.68558333333334,
+      "hash_b": "0x9e3f0d7c",
+      "recording_credit": {
+        "source_sha256": "0af7b6452d8b5f8d02b219b666d2a8688ca2f80e0a00f74606124e1cab8dd8a4",
+        "stream_index": 0,
+        "channel_index": 0,
+        "channel_id": 507448700,
+        "title": "IKYFL",
+        "artist": "Tee Grizzley",
+        "source": "https://www.youtube.com/watch?v=h8LiDavY05s",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "evidence": "Disjoint public-reference fingerprints agree with this native source; exact edition remains provisional."
+      },
+      "chapter_credits": [
+        {
+          "source_sha256": "0af7b6452d8b5f8d02b219b666d2a8688ca2f80e0a00f74606124e1cab8dd8a4",
+          "stream_index": 0,
+          "channel_index": 0,
+          "index": 0,
+          "track_id": 15102,
+          "start_frames": 0,
+          "end_frames": 6704908,
+          "title": "IKYFL",
+          "artist": "Tee Grizzley",
+          "method": "audio_fingerprint",
+          "reference_credit_method": "local_fingerprint",
+          "source": "https://www.youtube.com/watch?v=h8LiDavY05s",
+          "evidence": "Source-bound recording credit; native TRACKID and frame bounds retained; exact edition provisional."
+        }
+      ]
     },
     {
       "archive": "audio.rpf",
@@ -32182,11 +32767,13 @@
       "text": "go_shorty",
       "hash32": "0x550a06b8",
       "hash29": "0x150a06b8",
-      "kind": "credit_song_name",
-      "title": "Go Shorty",
+      "kind": "research_title_alias",
+      "title": "50 Bands",
       "artist": "Latto ft. Flo Milli",
       "credit_context": "VCRR",
-      "source": "https://www.gamespot.com/articles/all-gta-6-radio-stations-and-songs/"
+      "source": "https://www.youtube.com/watch?v=i5WHHH05LYk",
+      "status": "provisional",
+      "evidence": "The native GO_SHORTY recording matches the official 50 Bands release; exact edit provisional."
     },
     {
       "text": "GO_SHORTY",

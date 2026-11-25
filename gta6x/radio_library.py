@@ -593,6 +593,8 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
                             GTA6X_SKIP_POLICY='supplied audio timeline' if source.get('supplied_audio') else skip_policy)
                         if recording.get('provisional'):
                             tags['GTA6X_CREDIT_PROVISIONAL'] = '1'
+                        if recording.get('composer'):
+                            tags['composer'] = recording['composer']
                         if observations:
                             tags['GTA6X_IDENTIFICATION_INDEX'] = 'fingerprint samples; not native song boundaries'
                         if recording.get('credit_conflicts'):

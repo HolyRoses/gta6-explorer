@@ -125,6 +125,8 @@ def parse(data):
             for key in ('title', 'artist', 'source', 'evidence'):
                 _text(credit.get(key), 'recording credit ' + key,
                       2048 if key in ('source', 'evidence') else 512)
+            if 'composer' in credit:
+                _text(credit['composer'], 'recording credit composer', 512)
             if not isinstance(credit.get('source_sha256'), str) or not re.fullmatch('[0-9a-f]{64}', credit['source_sha256']):
                 raise ValueError('invalid radio recording credit source hash')
             if credit['method'] == 'native_config_hash':
@@ -381,6 +383,8 @@ def label(catalog, recording, station=None):
                       evidence=observation['evidence'])
         result['credit_conflicts'] |= observation.get('credit_conflicts', False)
         result['credit_alternatives'] = bucket + observation.get('alternatives', [])
+        if 'composer' in observation:
+            result.update(composer=observation['composer'], artist_role='credited performer')
     return result
 
 
@@ -478,7 +482,7 @@ def select(catalog, stations=(), *, include_imaging=False, include_unassigned=Fa
                     if row['credit_status'] == 'ambiguous_credits'
                     or row.get('recording_credit') and row['credit_conflicts']
                     or _artist_key(c['artist']) == _artist_key(row['artist'])]
-                text = ' '.join([row['title'], row['artist'], row['native_name'], row.get('hash_b', '')]
+                text = ' '.join([row['title'], row['artist'], row.get('composer', ''), row['native_name'], row.get('hash_b', '')]
                     + [v for c in alternatives for v in (c['title'], c['artist'])]
                     + [v for c in row.get('broadcast_cuts', []) for v in (c['title'], c['artist'])]).casefold()
                 if any(q in text for q in song_queries):

@@ -115,6 +115,8 @@ packet boundaries;
 Talk stations are included; `--include-imaging` adds station beds and imaging.
 Named bonus playlists are listed separately from station groups. Conflicting
 fingerprint credits remain available as alternatives to the selected display metadata.
+Matched classical recordings can carry separate performer and composer tags;
+`--song` also searches those composer credits.
 Bonus Tracks collects identified recordings whose original station or use is unknown.
 `--audio-dir DIR` reuses addressed Opus extractions; source-bound recording and
 chapter credits require native archive input. Matching files and sidecar hashes permit
