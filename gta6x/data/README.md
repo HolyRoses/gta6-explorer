@@ -43,6 +43,21 @@ order. Program credits do not identify speakers. Normal exports use the bundled
 labels and need no transcription model or speech-recognition service.
 Public lists retain source-specific title and artist variants. Matching credits
 can carry `additional_sources`; a list entry alone does not identify audio.
+A premixed station can set `default_playlist: standalone` to prefer standalone
+files in its normal station and All Stations playlists. Broadcast-derived chapters
+then carry `(DJ broadcast)` labels and have a separate playlist; explicit
+`--premixed continuous` still selects the full broadcast. This is an export
+preference, not native playback metadata. Sniper, Worldwide FM and Radio On-U use this
+preference after listening review. `default_playlist: standalone_and_cuts` combines standalone
+recordings followed by estimated broadcast song cuts, with consecutive track tags,
+in both the default station and All Stations playlists. Bodega and DJ Stevie J use
+this inclusive view; whole programs and identification excerpts remain separate. Both preferences
+place standalone files in the normal station folder and retire the redundant
+standalone playlist alias. Source-scoped chapter credits may set `segment_type: dj_talk`
+to keep spoken titles plain in the DJ view. This is a supplied classification, never
+inferred from a TRACKID. Other stations retain their existing views.
+Stations may list member offsets in `master_exclusions` to retain those recordings
+in their station playlist while omitting them from both All Stations views.
 `acoustic_matches` supplies provisional listening samples for programs without
 native song boundaries. Each sample requires its exact source hash, channel and
 bounded audio window. Separate identified-excerpt files and playlists preserve

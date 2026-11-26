@@ -149,6 +149,8 @@ def credited_chapters(recording, source):
             credit_status=('audio_fingerprint_match' if credit['method'] == 'audio_fingerprint'
                            else credit['method']), credit_source=credit['source'],
             credit_evidence=credit['evidence'], provisional=True)
+        if 'segment_type' in credit:
+            matches[0]['segment_type'] = credit['segment_type']
         if 'credit_conflicts' in credit:
             matches[0]['credit_conflicts'] = credit['credit_conflicts']
         if 'alternatives' in credit:
@@ -484,7 +486,7 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
     if root.exists() and not root.is_dir():
         raise ValueError('radio --out must be a directory')
     protected = [p for p in (archive, catalog_path or radio_catalog.DEFAULT_CATALOG) if p]
-    folders, playlist_names = set(), {'all stations'}
+    folders, playlist_names = set(), {'all stations', 'all stations with talk shows'}
     if any(r.get('broadcast_cuts') for s in selected for r in s['recordings']):
         playlist_names.add('broadcast song cuts')
     for station in selected:
@@ -500,7 +502,10 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
             labels.append(station['name'] + ' (broadcast song cuts)')
         if any(r['role'] == 'premixed' for r in station['recordings']):
             labels += [station['name'] + ' (continuous)', station['name'] + ' (chapter navigation)']
-        if station['kind'] == 'premixed' and any(r['role'] != 'premixed' for r in station['recordings']):
+            if station.get('default_playlist') == 'standalone' and premixed != 'continuous':
+                labels.append(station['name'] + ' (DJ broadcast)')
+        if (station['kind'] == 'premixed' and any(r['role'] != 'premixed' for r in station['recordings'])
+                and (not station.get('default_playlist') or premixed == 'continuous')):
             labels.append(station['name'] + ' (standalone tracks)')
         for label in labels:
             key = safe_name(label, 200).casefold()
@@ -529,7 +534,7 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
         else:
             _atomic(path, data)
 
-    master, banks, naming, broadcast_master = [], {}, [], []
+    master, master_with_talk, banks, naming, broadcast_master = [], [], {}, [], []
     # Reserve manifest paths before any media output. All output paths are derived
     # afresh from validated catalog text, never from an imported export report.
     for name in ('radio-library.json', 'radio-catalog.json', 'radio-names.json',
@@ -537,9 +542,16 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
         _target(root, name, protected)
     for station in selected:
         initial_failures = len(report['failures'])
+        standalone_default = station.get('default_playlist') == 'standalone'
+        combined_default = station.get('default_playlist') == 'standalone_and_cuts'
+        preferred_default = standalone_default or combined_default
         station_report = dict(key=station['key'], name=station['name'], kind=station['kind'],
                               context_type=station.get('context_type', 'station'),
                               requested=len(station['recordings']), files=[], playlists=[])
+        if preferred_default:
+            station_report['default_playlist'] = station['default_playlist']
+        if station.get('master_exclusions'):
+            station_report['master_exclusions'] = list(station['master_exclusions'])
         report['stations'].append(station_report)
         playlist, continuous, virtual, standalone, identification_entries = [], [], [], [], []
         identification_locations = []
@@ -548,7 +560,8 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
         # Named cuts join the playlist after ordinary tracks, irrespective of
         # requested source order. Process their spoken parents last so tags agree.
         recordings = sorted(station['recordings'], key=lambda r:
-            r['role'] == 'non-song' and bool(r.get('broadcast_cuts')))
+            (r['role'] == 'non-song' and bool(r.get('broadcast_cuts'))) or
+            (combined_default and r['role'] == 'premixed'))
         for ordinal, recording in enumerate(recordings, 1):
             offset = recording['offset']
             is_mix = recording['role'] == 'premixed'
@@ -581,7 +594,7 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
                         stem = safe_name(title if recording.get('program_credit') else
                                          station['name'] + ' - ' + (artist + ' - ' if artist else '') + title)
                         directory = Path('stations') / safe_name(station['name'])
-                        if is_standalone:
+                        if is_standalone and not preferred_default:
                             directory /= 'standalone'
                         relative = directory / f'{stem} [{ident}].{FORMATS[format][0]}'
                         target = _target(root, relative, originals)
@@ -696,6 +709,8 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
                         if song_cuts and premixed != 'continuous':
                             for song in song_cuts:
                                 number = len(broadcast_entries) + 1
+                                if combined_default:
+                                    number += len(standalone)
                                 if recording['role'] == 'non-song':
                                     number += len(playlist)
                                 boundary_source = ('transcription-guided estimate; not native song boundaries'
@@ -764,16 +779,31 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
                                     stage='chapter', chapter=i, reason='zero-length marker interval'))
                                 continue
                             label = chapter_title(chapter)
+                            dj_song = standalone_default and chapter.get('segment_type') != 'dj_talk'
+                            variant = 'dj_talk' if chapter.get('segment_type') == 'dj_talk' else 'dj_broadcast'
+                            if dj_song:
+                                label += ' (DJ broadcast)'
                             chapter_artist = chapter.get('artist', artist)
                             virtual.append(dict(entry, title=label, artist=chapter_artist, start_frames=start, end_frames=end,
                                                 duration_s=(end-start)/RATE))
                             if premixed == 'continuous':
                                 continue
-                            chapter_rel = relative.parent / 'chapters' / f"{safe_name(f'{i:03} - '+station['name']+' - '+chapter_display(chapter))} [{ident}].{FORMATS[format][0]}"
+                            chapter_folder = 'DJ broadcast' if standalone_default else 'chapters'
+                            display = ((chapter_artist + ' - ' if chapter_artist else '') + label
+                                       if standalone_default else chapter_display(chapter))
+                            chapter_stem = f'{i:03} - ' + station['name'] + ' - ' + display
+                            if dj_song:
+                                suffix = ' (DJ broadcast)'
+                                chapter_stem = safe_name(chapter_stem[:-len(suffix)], 150-len(suffix)) + suffix
+                            else:
+                                chapter_stem = safe_name(chapter_stem)
+                            chapter_rel = relative.parent / chapter_folder / f"{chapter_stem} [{ident}].{FORMATS[format][0]}"
                             chapter_target = _target(root, chapter_rel, originals)
                             chapter_tags = dict(tags, title=label, artist=chapter_artist, track=str(len(playlist) + 1), GTA6X_INTERVAL=f'{start}:{end}',
                                 GTA6X_TRACKID=str(chapter.get('track_id', 'unknown')),
                                 GTA6X_CUT_MODE='packet-copy' if format == 'opus' and not exact_chapters else 'decoded')
+                            if standalone_default:
+                                chapter_tags.update(GTA6X_LIBRARY_VIEW='dj_broadcast', GTA6X_RECORDING_VARIANT=variant)
                             if chapter.get('credit_status'):
                                 # A broadcast program credit does not describe a named track.
                                 chapter_tags.pop('GTA6X_ARTIST_ROLE', None)
@@ -798,6 +828,8 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
                                 timing_precision='packet-boundary copy' if format == 'opus' and not exact_chapters else 'decoded interval',
                                 requested_duration_s=(end-start)/RATE,
                                 duration_delta_s=cut['duration_s']-(end-start)/RATE)
+                            if standalone_default:
+                                cut_detail.update(title=label, source_title=chapter_title(chapter), recording_variant=variant)
                             _json(str(chapter_target)+'.json', cut_detail)
                             detail.setdefault('chapter_outputs', []).append(cut_detail)
                             playlist.append(dict(path=str(chapter_target), station=station['name'], title=label,
@@ -810,7 +842,17 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
         if station['kind'] == 'premixed' and premixed == 'continuous':
             playlist = continuous
         playlist = playlist + broadcast_entries
+        dj_playlist = None
+        if standalone_default and premixed != 'continuous':
+            dj_playlist, playlist = playlist, standalone
+            if not standalone:
+                station_report.setdefault('notes', []).append('No standalone recordings exported; default playlist left empty.')
+        elif combined_default and premixed != 'continuous':
+            # Whole programs and fingerprint excerpts remain in their own views.
+            playlist = standalone + broadcast_entries
         groups = [(station['name'], playlist)]
+        if dj_playlist:
+            groups.append((station['name'] + ' (DJ broadcast)', dj_playlist))
         if identification_entries:
             groups.append((station['name'] + ' (identified excerpts)', identification_entries))
         if broadcast_entries:
@@ -821,7 +863,7 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
             groups.append((station['name'] + ' (continuous)', continuous))
         if virtual:
             groups.append((station['name'] + ' (chapter navigation)', virtual))
-        if standalone_ordinal:
+        if standalone_ordinal and (not preferred_default or premixed == 'continuous'):
             groups.append((station['name'] + ' (standalone tracks)', standalone))
         for label, entries in groups:
             for extension in ('.m3u8', '.m3u'):
@@ -830,12 +872,21 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
                 publish(path, playlist_text(label, entries, path.parent).encode('utf-8'),
                         failed=len(report['failures']) > initial_failures)
                 station_report['playlists'].append(relative.as_posix())
-        master.extend(playlist)
-        master.extend(standalone)
+        station_entries = playlist + ([] if preferred_default else standalone)
+        excluded_offsets = set(station.get('master_exclusions', []))
+        if excluded_offsets:
+            excluded_paths = {(root / detail['output']['path']).resolve()
+                for recording in station_report['files'] if recording['offset'] in excluded_offsets
+                for detail in [recording] + recording.get('chapter_outputs', []) + recording.get('broadcast_cut_outputs', [])}
+            station_entries = [entry for entry in station_entries if Path(entry['path']).resolve() not in excluded_paths]
+        master_with_talk.extend(station_entries)
+        if station['kind'] != 'talk':
+            master.extend(station_entries)
         broadcast_master.extend(broadcast_entries)
     for extension in ('.m3u8', '.m3u'):
-        path = _target(root, 'playlists/All Stations' + extension, protected)
-        publish(path, playlist_text('All Stations', master, path.parent).encode('utf-8'), failed=bool(report['failures']))
+        for title, entries in (('All Stations', master), ('All Stations with Talk Shows', master_with_talk)):
+            path = _target(root, 'playlists/' + title + extension, protected)
+            publish(path, playlist_text(title, entries, path.parent).encode('utf-8'), failed=bool(report['failures']))
         if broadcast_master:
             path = _target(root, 'playlists/Broadcast Song Cuts' + extension, protected)
             publish(path, playlist_text('Broadcast Song Cuts', broadcast_master, path.parent).encode('utf-8'),
@@ -847,7 +898,7 @@ def export(catalog, selected, output, *, archive=None, audio_dir=None, format='o
     report['summary'] = dict(stations=len(selected), recordings=sum(s['requested'] for s in report['stations']),
         recording_exports=len(files), chapter_exports=len(cuts), exported_files=len(files)+len(cuts)+len(excerpts)+len(broadcast),
         reused_files=sum(f['output']['status'] == 'reused' for f in files+cuts+excerpts+broadcast),
-        playlist_entries=len(master), failures=len(report['failures']))
+        playlist_entries=len(master), playlist_entries_with_talk=len(master_with_talk), failures=len(report['failures']))
     if excerpts:
         report['summary']['identification_exports'] = len(excerpts)
     if broadcast:

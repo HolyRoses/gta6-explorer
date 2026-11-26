@@ -109,6 +109,8 @@ def parse(data):
                 raise ValueError('invalid radio chapter credit interval')
             for key in ('title', 'artist', 'source', 'evidence'):
                 _text(credit.get(key), 'chapter credit ' + key, 4096 if key == 'evidence' else 2048 if key == 'source' else 512)
+            if 'segment_type' in credit and credit['segment_type'] != 'dj_talk':
+                raise ValueError('unsupported radio chapter segment type')
             if not isinstance(credit.get('source_sha256'), str) or not re.fullmatch('[0-9a-f]{64}', credit['source_sha256']):
                 raise ValueError('invalid radio chapter credit source hash')
             _credit_alternatives(credit)
@@ -255,6 +257,9 @@ def parse(data):
         keys.add(key.casefold()); display_names.add(name.casefold())
         if station.get('kind') not in ('music', 'talk', 'premixed', 'unassigned'):
             raise ValueError('unsupported radio station kind')
+        if ('default_playlist' in station and
+                (station['default_playlist'] not in ('standalone', 'standalone_and_cuts') or station['kind'] != 'premixed')):
+            raise ValueError('standalone playlist preference requires a premixed station')
         if station.get('context_type', 'station') not in ('station', 'public_show', 'public_playlist', 'collection'):
             raise ValueError('unsupported radio context type')
         members = station.get('members')
@@ -264,8 +269,18 @@ def parse(data):
             _uint(offset, 'station member')
             if offset not in by_offset:
                 raise ValueError('radio station references missing recording')
-        if len(set(members)) != len(members):
+        member_offsets = set(members)
+        if len(member_offsets) != len(members):
             raise ValueError('duplicate radio station member')
+        exclusions = station.get('master_exclusions', [])
+        if not isinstance(exclusions, list) or len(exclusions) > len(members):
+            raise ValueError('invalid radio master exclusions')
+        for offset in exclusions:
+            _uint(offset, 'master exclusion')
+            if offset not in member_offsets:
+                raise ValueError('radio master exclusion must be a station member')
+        if len(set(exclusions)) != len(exclusions):
+            raise ValueError('duplicate radio master exclusion')
     for row in recordings:
         if row.get('program_credit') and not any(
                 s.get('context_type') == 'collection' and s['kind'] == 'talk'

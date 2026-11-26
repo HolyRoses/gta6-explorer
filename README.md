@@ -97,6 +97,9 @@ python3 -m gta6x radio --names-out ./radio-names.json
 ```
 
 Open `playlists/All Stations.m3u8` or an individual station playlist in VLC.
+All Stations leaves out talk stations. `All Stations with Talk Shows.m3u8`
+includes The Wipe, WKTT and Weazel News alongside the music.
+Both aggregate views omit selected Bonus alternates, which remain in Bonus Tracks.
 Default Opus exports preserve compressed audio; `--format flac`, `mp3`, `m4a`
 or `wav` converts explicitly. Broadcasts include native marker/seek metadata;
 native intervals support chapter files, embedded Opus chapters and CUE. Shows
@@ -105,8 +108,14 @@ identification excerpts. Mapped broadcast song cuts provide longer song sections
 in the main station and All Stations playlists, as well as separate song-cut
 playlists, retaining DJ transitions and provisional boundary labels.
 Identified-location playlists jump into the program and continue playback. Bundled
-standalone recordings for premixed stations have their own `standalone/` folder
-and `(standalone tracks)` playlist, separate from broadcast chapters. Bundled
+standalone recordings for premixed stations are kept separate from broadcast chapters.
+Sniper, Worldwide FM and Radio On-U default to standalone tracks and normal station files;
+DJ song versions are labelled `(DJ broadcast)` in separate playlists; spoken DJ segments
+keep their talk titles. Continuous broadcasts and chapter navigation remain available.
+Bodega and DJ Stevie J combine standalone songs and labelled broadcast song cuts
+in their default playlists. All Stations uses those same selections, with full
+broadcasts kept separate. Other premixed stations retain
+their `standalone/` folders and `(standalone tracks)` playlists. Bundled
 acoustic and user-supplied credits name supported Vault, Worldwide, Radio
 On-U and Sniper chapter occurrences, including artist tags and explicit `Song A → Song B (transition)` labels for
 audited overlaps. Unmatched intervals retain their TRACKIDs. Copy cuts follow
