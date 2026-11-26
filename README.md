@@ -78,7 +78,20 @@ python3 -m gta6x movies --archive movies --limit 64 --out ./exports/movies
 For supported PCM WAV export, install a compatible **libopus** system library
 and use `--wav-out` or `--music-wav-out`. Raw and Ogg export need no audio library.
 Use `music --config` for audio-config browsing and `awc --radio` for native
-markers and TRACKID chapters.
+markers and TRACKID chapters. Add `--parameters` to config browsing for checked
+stored scalar values; `--name '^Radio\.DjSpeech\.'` filters the display to DJ
+settings. Runtime effects and clip-to-song relationships remain unconfirmed.
+`--slot-hierarchy` adds stored config hash trees and exact slot/key candidates
+to JSON exports; it does not assign stations or songs.
+`--keyed-maps` exposes sorted config key/value maps; `--map-key HASH` selects
+maps containing an exact key. Add `--references` to trace relocation-listed
+values through checked directories to available local records. Station and song
+roles remain unconfirmed. `--target-profiles` adds supported local target layouts
+and groups unresolved flag-2/flag-4 symbols. Add `--symbol-uses` to locate their
+other listed uses in the same resource, or `--kind27-links` to trace supported
+cross-family key candidates and checked native names. With that view,
+`--downstream-symbols` adds checked downstream reference fields and symbol uses.
+These views do not assign song metadata or station membership.
 
 ### Radio libraries and VLC playlists
 

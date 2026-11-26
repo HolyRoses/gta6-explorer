@@ -2584,6 +2584,36 @@ def cmd_music(args) -> int:
     if args.index_sections and not args.config:
         eprint("--index-sections requires --config")
         return 1
+    if args.parameters and not args.config:
+        eprint("--parameters requires --config")
+        return 1
+    if args.slot_hierarchy and not args.config:
+        eprint("--slot-hierarchy requires --config")
+        return 1
+    if args.keyed_maps and not args.config:
+        eprint("--keyed-maps requires --config")
+        return 1
+    if args.map_key is not None and (not args.keyed_maps or not 0 <= args.map_key <= 0xffffffff):
+        eprint("--map-key requires --keyed-maps and an unsigned 32-bit word")
+        return 1
+    if args.references and not (args.config and args.keyed_maps):
+        eprint("--references requires --config and --keyed-maps")
+        return 1
+    if args.target_profiles and not args.references:
+        eprint("--target-profiles requires --references")
+        return 1
+    if args.symbol_uses and not args.target_profiles:
+        eprint("--symbol-uses requires --target-profiles")
+        return 1
+    if args.kind27_links and not args.target_profiles:
+        eprint("--kind27-links requires --target-profiles")
+        return 1
+    if args.downstream_symbols and not args.kind27_links:
+        eprint("--downstream-symbols requires --kind27-links")
+        return 1
+    if args.max_aux_entries is not None and (not args.references or not 1 <= args.max_aux_entries <= 1000000):
+        eprint("--max-aux-entries requires --references and a limit from 1 to 1000000")
+        return 1
     catalog = None
     awc_banks = None
     if args.trackids:
@@ -2710,7 +2740,31 @@ def cmd_music(args) -> int:
 def _cmd_music_config(args, targets) -> int:
     """Browse indexed config metadata without assigning radio semantics."""
     from . import audio_config
-    if args.index_sections:
+    reader_options = {}
+    if args.references:
+        from . import audio_config_references as config_reader
+        reader_options = dict(slot_hierarchy=args.slot_hierarchy, parameters=args.parameters,
+            key_hash=args.map_key, max_aux_entries=args.max_aux_entries if args.max_aux_entries is not None else 1000000)
+        if args.target_profiles:
+            from . import audio_config_providers
+            reader_options['_profile_hook'] = audio_config_providers.enrich
+            if args.symbol_uses:
+                from . import audio_config_symbols
+                reader_options['_profile_hook'] = audio_config_symbols.enrich
+            if args.kind27_links:
+                from . import audio_config_kind27 as config_reader
+                if args.downstream_symbols:
+                    from . import audio_config_downstream as config_reader
+    elif args.keyed_maps:
+        from . import audio_config_maps as config_reader
+        reader_options = dict(slot_hierarchy=args.slot_hierarchy, parameters=args.parameters, key_hash=args.map_key)
+    elif args.slot_hierarchy:
+        from . import audio_config_hierarchy as config_reader
+        reader_options = dict(parameters=args.parameters, index_sections=args.index_sections)
+    elif args.parameters:
+        from . import audio_config_parameters as config_reader
+        reader_options = dict(index_sections=args.index_sections)
+    elif args.index_sections:
         from . import audio_config_sections as config_reader
     else:
         config_reader = audio_config
@@ -2727,16 +2781,26 @@ def _cmd_music_config(args, targets) -> int:
         return 1
     archives, rows = [], []
     remaining = args.max_nodes
+    aux_remaining = args.max_aux_entries if args.max_aux_entries is not None else 1000000
     incomplete = False
     for path in targets:
         try:
             if remaining < 1:
                 raise audio_config.ConfigLimitError('audio-config report node budget exhausted')
+            if args.references:
+                if aux_remaining < 1:
+                    raise audio_config.ConfigLimitError('audio-config auxiliary entry budget exhausted')
+                reader_options['max_aux_entries'] = aux_remaining
             size = os.path.getsize(path)
             report = config_reader.inspect_file(path, start=args.start or None,
                 length=size if args.full else args.limit*1024*1024,
-                max_nodes=remaining, min_ms=args.min_ms, max_ms=args.max_ms)
+                max_nodes=remaining, min_ms=args.min_ms, max_ms=args.max_ms,
+                **reader_options)
             remaining -= report['summary']['nodes']
+            if args.references:
+                aux_remaining -= report['summary'].get('auxiliary_entries_charged', 0)
+                if report['summary'].get('reference_budget_exhausted'):
+                    remaining = aux_remaining = 0
         except (OSError, ValueError) as exc:
             report = dict(status='refused', reason=str(exc), resources=[])
             if isinstance(exc, audio_config.ConfigLimitError):
@@ -2744,13 +2808,16 @@ def _cmd_music_config(args, targets) -> int:
         incomplete |= report['status'] != 'indexed'
         archives.append(dict(archive=os.path.basename(path), **report))
         for resource in report['resources']:
+            scalars = {r['ordinal']: r['value']
+                       for r in resource.get('scalar_parameters', {}).get('records', [])}
             for record in resource['records']:
                 if expression and not expression.search(record['name'] or ''):
                     continue
                 if len(rows) < args.max:
                     rows.append([os.path.basename(path)[:22], str(resource['raw_family']),
                         record['name_hash'], record['name'] or '-',
-                        str(record['raw_kind_u8']), str(record['byte_length'])])
+                        str(record['raw_kind_u8']), str(record['byte_length'])] +
+                        ([str(scalars.get(record['ordinal'], '-'))] if args.parameters else []))
     result = dict(status='partial' if incomplete else 'indexed', archives=archives,
         radio_linkage=dict(status='unresolved', reason='station membership and playlist ordering are not established'))
     if args.out:
@@ -2764,7 +2831,9 @@ def _cmd_music_config(args, targets) -> int:
         print(json.dumps(result, indent=2))
     else:
         if rows:
-            print(table(rows, ['archive','family','record hash','name','kind','bounded bytes'],align='llllrr'))
+            print(table(rows, ['archive','family','record hash','name','kind','bounded bytes'] +
+                (['stored scalar'] if args.parameters else []),
+                align='llllrr' + ('r' if args.parameters else '')))
         for archive in archives:
             if archive['status'] == 'refused':
                 eprint(f"{archive['archive']}: {archive['reason']}")
@@ -2776,6 +2845,58 @@ def _cmd_music_config(args, targets) -> int:
                 if args.index_sections:
                     print(f"  {summary.get('raw_index_groups', 0):,} raw index groups / "
                           f"{summary.get('raw_index_values', 0):,} raw values; roles unresolved")
+                if args.parameters:
+                    print(f"  {summary.get('named_scalars', 0):,} stored named scalars; runtime use and units unconfirmed")
+                    for resource in archive['resources']:
+                        scalar_view = resource.get('scalar_parameters', {})
+                        if scalar_view.get('status') == 'refused':
+                            eprint(f"  named scalars: {scalar_view['reason']}")
+                if args.slot_hierarchy:
+                    print(f"  {summary.get('hash_hierarchies', 0):,} stored hash trees / "
+                          f"{summary.get('hierarchy_edges', 0):,} edges; "
+                          f"{summary.get('slots_with_hierarchy_candidates', 0):,} slot/key candidates; meanings unconfirmed")
+                    for resource in archive['resources']:
+                        for key in ('hash_hierarchy', 'slot_target_candidates'):
+                            view = resource.get(key, {})
+                            if view.get('status') == 'refused':
+                                eprint(f"  {key}: {view['reason']}")
+                if args.keyed_maps:
+                    print(f"  {summary.get('selected_keyed_maps', 0):,} selected / "
+                          f"{summary.get('keyed_maps', 0):,} checked keyed maps; integer values unresolved")
+                    for resource in archive['resources']:
+                        view = resource.get('keyed_maps', {})
+                        if view.get('status') == 'refused':
+                            eprint(f"  keyed maps: {view['reason']}")
+                if args.references:
+                    print(f"  {summary.get('listed_map_reference_words', 0):,} relocation-listed map words; "
+                          f"{summary.get('local_map_hash_bindings', 0):,} local hash bindings; roles unconfirmed")
+                    for resource in archive['resources']:
+                        view = resource.get('reference_trace', {})
+                        if view.get('status') == 'refused':eprint(f"  references: {view['reason']}")
+                        if args.target_profiles and 'target_profiles' in view:
+                            profiles=view['target_profiles']['summary']
+                            print(f"  {profiles['profiled_records']:,} target profiles; "
+                                  f"{profiles['unresolved_provider_symbols']:,} unresolved provider symbols")
+                            if profiles['refused_records']:
+                                eprint(f"  {profiles['refused_records']:,} target profiles refused")
+                            uses=view['target_profiles'].get('symbol_uses')
+                            if uses is not None:
+                                counts=uses['summary']
+                                print(f"  {counts['listed_reference_words']:,} same-namespace symbol uses in "
+                                      f"{counts['source_index_spans']:,} index spans; definitions unresolved")
+                if args.kind27_links:
+                    for resource in archive['resources']:
+                        view=resource.get('kind27_links', {})
+                        if view.get('status') == 'refused':
+                            eprint(f"  kind27 links: {view['reason']}")
+                        elif view:
+                            counts=view['summary']
+                            print(f"  {counts['profiled_kind27_records']:,} kind27 profiles; "
+                                  f"{counts['graph_reference_words']:,} cross-family reference words; audio roles unconfirmed")
+                            if 'downstream_symbols' in view:
+                                counts=view['downstream_symbols']['summary']
+                                print(f"  {counts['distinct_symbols']:,} downstream symbols / "
+                                      f"{counts['listed_symbol_uses']:,} listed uses; provider definitions unresolved")
                 for refusal in archive['refused']:
                     eprint(f"  {refusal['offset']:#x}: {refusal['reason']}")
         print("Radio station membership and playlists remain unresolved.")
@@ -6956,6 +7077,26 @@ def build_parser() -> argparse.ArgumentParser:
                    help="browse bounded indexed audio-config records and checked name/slot links")
     p.add_argument("--index-sections", action="store_true",
                    help="with --config, opt into discovery length-section indexes; raw groups are not playlists")
+    p.add_argument("--parameters", action="store_true",
+                   help="with --config, show checked named scalar values; runtime meanings and radio links remain unconfirmed")
+    p.add_argument("--slot-hierarchy", action="store_true",
+                   help="with --config, inspect stored hash trees and full32 slot target candidates; station/song links remain unconfirmed")
+    p.add_argument("--keyed-maps", action="store_true",
+                   help="with --config, inspect bounded sorted key/u32 maps; implies length-section indexes; integer targets stay unresolved")
+    p.add_argument("--map-key", type=lambda value:int(value,0), metavar='HASH',
+                   help="with --keyed-maps, select exported map records containing this exact full32 key; all maps are still validated")
+    p.add_argument("--references", action="store_true",
+                   help="with --config --keyed-maps, trace relocation-listed value indices through checked auxiliary directories")
+    p.add_argument("--target-profiles", action="store_true",
+                   help="with --references, inspect measured target/context profiles and unresolved flag-2/4 symbols")
+    p.add_argument("--symbol-uses", action="store_true",
+                   help="with --target-profiles, list all exact-hash/flag relocation uses in the same resource; definitions remain unresolved")
+    p.add_argument("--kind27-links", action="store_true",
+                   help="with --target-profiles, trace supported family61 kind27 records sharing flag-4 symbols; recording/station roles unconfirmed")
+    p.add_argument("--downstream-symbols", action="store_true",
+                   help="with --kind27-links, inspect supported downstream record fields and unresolved flag-2/3/4 uses")
+    p.add_argument("--max-aux-entries", type=int,
+                   help="with --references, separate aggregate dense-directory validation limit (default/max 1000000)")
     p.add_argument("--catalog", help="optional supplied music-credit JSON; full hash-B matches remain external hypotheses")
     p.add_argument("--trackids", help="join an awc --radio JSON report to record candidates; TRACKID conflicts and external credits stay explicit")
     p.add_argument("--start", type=int, default=0, help="compressed-byte start for --config (default: payload start)")
