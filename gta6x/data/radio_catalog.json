@@ -2959,7 +2959,10 @@
         9828319232,
         9577308160,
         9609138176,
-        9832923136
+        9832923136,
+        9839722496,
+        9844310016,
+        9842368512
       ]
     },
     {
@@ -3522,9 +3525,6 @@
         8308064256,
         8312528896,
         8317390848,
-        9839722496,
-        9842368512,
-        9844310016,
         12906684416,
         28209922048,
         9586610176,
@@ -28537,6 +28537,13 @@
         "config_id": 48695,
         "config_hash32": "0x38fb9c9a",
         "duration_ms": 154528
+      },
+      "station_assignment": {
+        "station_key": "radio_vcrr",
+        "source": "https://www.youtube.com/watch?v=AMON4UJlsds&t=7788s",
+        "method": "public_tracklist",
+        "status": "provisional",
+        "evidence": "Public VCRR playlist; native station membership unconfirmed."
       }
     },
     {
@@ -28560,6 +28567,13 @@
         "config_id": 48696,
         "config_hash32": "0xe86be9f4",
         "duration_ms": 113705
+      },
+      "station_assignment": {
+        "station_key": "radio_vcrr",
+        "source": "https://www.youtube.com/watch?v=AMON4UJlsds&t=11630s",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "evidence": "User-located VCRR audio match; native membership unconfirmed."
       }
     },
     {
@@ -28583,6 +28597,13 @@
         "config_id": 48697,
         "config_hash32": "0x707ed18f",
         "duration_ms": 127255
+      },
+      "station_assignment": {
+        "station_key": "radio_vcrr",
+        "source": "https://www.youtube.com/watch?v=AMON4UJlsds&t=10395s",
+        "method": "public_tracklist",
+        "status": "provisional",
+        "evidence": "Public VCRR playlist; native station membership unconfirmed."
       }
     },
     {
