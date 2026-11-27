@@ -60,7 +60,8 @@ python3 -m gta6x textures --pool vehicles --max 20 --out ./exports/textures --pn
 python3 -m gta6x textures --embedded --archive textures --max 20 --out ./exports/embedded --png
 ```
 
-Add `--bcpack` to attempt native BC1/BC3/BC4/BC5 BCPack decoding, or `--all` to
+Add `--bcpack` to attempt native BC1/BC3/BC4/BC5 and limited provisional BC7
+decoding, or `--all` to
 remove the texture-count limit. Filter with `--hash-prefix` or `--min-size`.
 `--png-mip`, `--png-slice` and `--png-z` select a supported preview subresource;
 DDS retains the supported texture layout. `textures.json` records exports and
@@ -333,7 +334,10 @@ necessarily cap extraction. Native world uses `--scan-mib` for scan size and
 - **Textures:** some formats and layouts remain unsupported, including native
   compressed or multi-mip volume export. BCPack coverage is partial: BC3/BC4/BC5
   reject unknown histories and warn on provisional entries; BC1 retains legacy
-  preset fallbacks. BC6H/BC7 BCPack is unsupported.
+  preset fallbacks. BC7 reconstruction has very limited provisional coverage;
+  exports warn and identify that status in their manifests. Original BC7 bytes
+  remain unconfirmed; comparisons use an untrusted pixel baseline. BC6H BCPack
+  supports entropy inspection only.
 - **Audio:** XMA2 decoding and some Opus timing/skip profiles are unsupported.
   Native song-title, station-membership and playlist links remain unresolved.
 - **Animation and world:** native inspection exposes metadata and checked

@@ -13,7 +13,8 @@ Layout as verified
     +0x000  "RDS5"
     +0x004  u32   entry count          (chunks + 2 sentinels, >= 3)
     +0x008  u64   size word            bits 0..55 virtual size, bits 56..63 = 22
-    +0x010  u32   bitmap word count    ceil(count / 32), +1 tolerated
+    +0x010  u32   ETPF offset / 256    also ceil(count / 32), +1 tolerated;
+                                       legacy API name: bitmap_words
     +0x014  u32   alignment word       bits 28..31 * 256 = source padding,
                                        bits 0..27 must be zero
     +0x018  8 * (count - 1) bytes      chunk table, last entry is a sentinel
@@ -24,7 +25,7 @@ Each 64-bit chunk-table entry packs a source range and a virtual range::
     bits  0..25   source offset / 256
     bits  26..29   codec (0 = stored, 8 = zlib)
     bits  30..51   virtual offset / 4096
-    bits  52..55   padding bytes before the next chunk's source offset
+    bits  52..63   padding bytes before the next chunk's source offset
 
 The sentinel repeats the source length and the virtual size, which is what lets
 a pool be validated without decoding a single texture.

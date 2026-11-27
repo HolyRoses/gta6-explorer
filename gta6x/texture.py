@@ -7,7 +7,7 @@ module turns those descriptors into:
 * a layout (:mod:`gta6x.gfx10`) that maps (mip, slice, x, y) to a byte offset in
   the pool's *virtual* space,
 * a virtual reader that reassembles a texture from the pool's stored/zlib
-  chunks (BC1/BC3/BC4/BC5 BCPack decode natively with ``decode_bcpack``),
+  chunks (BC1/BC3/BC4/BC5 and selected BC7 decode with ``decode_bcpack``),
 * a standard DDS file writer, so the result opens in any DDS viewer.
 
 Supported 2D/array/cubemap layouts handle 1/2/4/8/16-byte elements. Single-mip
@@ -189,8 +189,9 @@ def read_virtual(path, index: rds5.TtpIndex, virtual: int, length: int,
     """Assemble ``length`` bytes of virtual space.
 
     Returns ``(data, bcpack_bytes, uncovered_bytes)``. With ``decode_bcpack``
-    native BC1/3/4/5 BCPack chunks are expanded. Failed/unsupported chunks and
-    gaps are counted as missing; exporters refuse to write these ranges.
+    native BC1/3/4/5 and supported provisional BC7 chunks are expanded.
+    Failed/unsupported chunks and gaps are counted as missing; exporters
+    refuse to write these ranges.
     ``decode_errors`` optionally collects precise refusal reasons.
     """
     out = bytearray(length)
@@ -216,13 +217,19 @@ def read_virtual(path, index: rds5.TtpIndex, virtual: int, length: int,
             if hi <= lo:
                 continue
             if chunk.codec not in (rds5.CODEC_STORED, rds5.CODEC_ZLIB):
-                if decode_bcpack and chunk.codec in (1, 3, 4, 5):
+                if decode_bcpack and chunk.codec in (1, 3, 4, 5, 7):
                     from .bc import decode_bcpack as decode_chunk
                     fh.seek(chunk.source_offset)
                     packed = fh.read(chunk.packed_size)
                     try:
                         if len(packed) != chunk.packed_size:
                             raise ValueError("truncated packed range")
+                        padding = getattr(chunk, "padding", 0)
+                        tail = fh.read(padding)
+                        if len(tail) != padding:
+                            raise ValueError("truncated BCPack container padding")
+                        if any(tail):
+                            raise ValueError("non-zero BCPack container padding")
                         raw = decode_chunk(packed, chunk.codec, chunk.size)
                         if len(raw) != chunk.size:
                             raise ValueError("BCPack output size mismatch")
@@ -452,6 +459,19 @@ def _export_preview(result, texture, layout, data, out_dir, mip, slice_index, z_
     result['bytes'] += os.path.getsize(png_dest)
 
 
+def _note_bc7_evidence(result, index, virtual, length, starts):
+    positions = chunk_starts(index) if starts is None else starts
+    at = max(0, bisect.bisect_right(positions, virtual)-1)
+    for chunk in index.chunks[at:]:
+        if chunk.virtual_offset >= virtual+length:
+            break
+        if chunk.codec == 7 and chunk.virtual_offset+chunk.size > virtual:
+            result['bcpack_provisional'] = True
+            result['bcpack_evidence'] = ('BC7 provisional observations; original block bytes '
+                                        'unconfirmed; black-box PNG anchor behavior differs from stored BC7')
+            break
+
+
 def export_texture(path, index: rds5.TtpIndex, texture: rds5.TtpTexture,
                    out_dir: str, fh=None, starts: list[int] | None = None,
                    png: bool = False, decode_bcpack: bool = False,
@@ -474,6 +494,8 @@ def export_texture(path, index: rds5.TtpIndex, texture: rds5.TtpTexture,
         if vol.total > MAX_TEXTURE_BYTES:
             result['skipped'] = 'volume exceeds the 64 MiB export limit'
             return result
+        if decode_bcpack:
+            _note_bc7_evidence(result,index,texture.virtual_offset,vol.total,starts)
         data, bcpack, uncovered = read_virtual(
             path, index, texture.virtual_offset, vol.total, fh=fh, starts=starts,
             decode_bcpack=decode_bcpack, decode_errors=decode_errors)
@@ -500,6 +522,8 @@ def export_texture(path, index: rds5.TtpIndex, texture: rds5.TtpTexture,
     if layout.total > MAX_TEXTURE_BYTES:
         result["skipped"] = "texture exceeds the 64 MiB export limit"
         return result
+    if decode_bcpack:
+        _note_bc7_evidence(result,index,texture.virtual_offset,layout.total,starts)
     data, bcpack, uncovered = read_virtual(
         path, index, texture.virtual_offset, layout.total, fh=fh, starts=starts,
         decode_bcpack=decode_bcpack, decode_errors=decode_errors)

@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Native BCPack BC1/BC3/BC4/BC5 decoder (pure Python, stdlib only).
 
+BC6H supports entropy inspection. BC7 reconstruction uses sparse provisional
+control/index observations and refuses all unknown dependencies.
+
 BC1 and entropy ported from bcpack-rs (MIT OR Apache-2.0, Copyright (c) 2026 Ahmet Dedeler).
 The entropy layer is a port of Microsoft silicon-rans `mdu_minirans.v` (MIT).
 See LICENSES/bcpack-rs-*.txt. Slow (~0.1-0.3 MB/s); use for bounded exports,
@@ -147,11 +150,12 @@ def decode_lanes(data, alphabet_bits, targets, window=FEED_WINDOW, source=None,
     the interleave order (then `data` is ignored and the order is recorded).
     Returns dict(syms, consumed, cycles, lanes, order). Raises BCPackError
     unless every lane finished with a legal end state. ``strict`` additionally
-    checks fragment convergence and symbol bounds for the BC3/4/5 profile.
+    checks fragment convergence and symbol bounds for symbol-only profiles
+    and BC3/4/5 reconstruction.
     The legacy BC1 caller retains its original state handling.
     """
     n = len(alphabet_bits)
-    if (not 1 <= n <= 12 or len(targets) != n
+    if (not 1 <= n <= 16 or len(targets) != n
             or any(type(t) is not int or t <= 0 for t in targets)
             or any(type(ab) is not int or not 0 <= ab < len(BASE_TABLE)
                    for ab in alphabet_bits)
@@ -321,19 +325,21 @@ def decode_symbols(chunk, blocks):
 
 
 def decode_codec_symbols(chunk: bytes, codec: int, out_size: int):
-    """Decode the public BC3/4/5 entropy profile, without rebuilding blocks.
+    """Decode BC1/3/4/5/6H/7 entropy, without rebuilding blocks.
 
     Returns ``(symbols, diagnostics)``; the latter includes consumed bytes and
     each lane's byte count, fragment headers and terminal state. No history or
     index-codebook assumptions are made here.
     """
-    from .spec import CODECS, element_count
+    from .spec import ENTROPY_CODECS, validate_entropy_request
 
-    count = element_count(codec, out_size)
+    blocks = validate_entropy_request(codec, out_size)
     if not isinstance(chunk, bytes):
         raise BCPackError("chunk must be bytes")
-    widths = CODECS[codec]["default_widths"]
-    result = decode_lanes(chunk, tuple(w - 1 for w in widths), [count] * 12,
+    info = ENTROPY_CODECS[codec]
+    count = blocks * info["elements_per_block"]
+    widths = info["default_widths"]
+    result = decode_lanes(chunk, tuple(w - 1 for w in widths), [count] * info["lanes"],
                           strict=True)
     if any(chunk[result["consumed"]:]):
         raise BCPackError("non-zero bytes after the end of the stream (%d of %d consumed)"
@@ -342,13 +348,20 @@ def decode_codec_symbols(chunk: bytes, codec: int, out_size: int):
 
 
 def decode_chunk(chunk: bytes, codec: int, out_size: int) -> bytes:
-    """BC3/4/5 payload -> exact BCn blocks in stored Gfx10 tile order.
+    """BC3/4/5/7 payload -> BCn blocks in stored Gfx10 tile order.
 
     Malformed streams, unsupported profiles and unfitted entries raise
     ValueError; reconstruction never substitutes a default for missing data.
+    BC7 success warns about provisional evidence and documented pixel limits.
     """
+    if type(codec) is int and codec == 7:
+        from . import bc7
+        syms, _ = decode_codec_symbols(chunk, codec, out_size)
+        return bc7.assemble(syms, out_size)
     from .blocks import assemble
+    from .spec import validate_request
 
+    validate_request(codec, out_size)
     syms, _ = decode_codec_symbols(chunk, codec, out_size)
     return assemble(syms, codec, out_size)
 

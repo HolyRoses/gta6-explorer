@@ -7257,7 +7257,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--png-slice", type=int, help="preview this array layer or cube-face index (default 0)")
     p.add_argument("--png-z", type=int, help="preview this volume Z plane (default 0)")
     p.add_argument("--bcpack", action="store_true",
-                   help="decode BC1/BC3/BC4/BC5 BCPack natively (slow, pure Python)")
+                   help="decode BC1/BC3/BC4/BC5 and supported provisional BC7 BCPack natively (slow, pure Python)")
     p.add_argument("--bcpack-helper", default=os.environ.get("GTA6X_BCPACK"),
                    help="optional external TTPF exporter, also used after native BCPack refusals")
     p.add_argument("--hash-prefix", default="", help="only hashes starting with this")

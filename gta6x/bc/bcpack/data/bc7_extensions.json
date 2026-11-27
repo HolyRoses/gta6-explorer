@@ -1,0 +1,4291 @@
+{
+  "format": "gta6x-bcpack-bc7-extension-v1",
+  "base_sha256": "4b79711a3d8902b9ff8dd852f53aaf30ae04ae95744d9ee3010edb8d55870d2e",
+  "controls": {
+    "23": {
+      "value": [
+        4,
+        0,
+        0,
+        1
+      ],
+      "status": "pixel_palette_provisional"
+    },
+    "226": {
+      "value": [
+        4,
+        0,
+        3,
+        0
+      ],
+      "status": "pixel_palette_provisional"
+    },
+    "163": {
+      "value": [
+        4,
+        0,
+        2,
+        1
+      ],
+      "status": "pixel_palette_provisional"
+    },
+    "101": {
+      "value": [
+        4,
+        0,
+        2,
+        0
+      ],
+      "status": "pixel_palette_provisional"
+    }
+  },
+  "history": {
+    "36": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          3,
+          14,
+          4,
+          3,
+          1,
+          0,
+          0,
+          12,
+          1,
+          3,
+          4,
+          14,
+          3,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "31": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          5,
+          15,
+          2,
+          2,
+          11,
+          2,
+          4,
+          2,
+          11,
+          14,
+          2,
+          2,
+          4,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "48": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          4,
+          3,
+          2,
+          3,
+          3,
+          4,
+          13,
+          3,
+          14,
+          4,
+          12,
+          15,
+          13,
+          4
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "53": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          0,
+          12,
+          11,
+          0,
+          12,
+          1,
+          0,
+          14,
+          15,
+          1,
+          2,
+          11,
+          1,
+          2
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "65": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          1,
+          0,
+          4,
+          1,
+          2,
+          1,
+          5,
+          11,
+          0,
+          3,
+          5,
+          11,
+          3,
+          0,
+          0
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "67": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          3,
+          4,
+          2,
+          4,
+          3,
+          5,
+          2,
+          1,
+          13,
+          5,
+          3,
+          13,
+          4,
+          10
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "80": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          11,
+          11,
+          12,
+          0,
+          12,
+          11,
+          14,
+          2,
+          1,
+          5,
+          15,
+          2,
+          3,
+          4
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "85": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          2,
+          4,
+          12,
+          13,
+          14,
+          0,
+          12,
+          4,
+          12,
+          12,
+          12,
+          11,
+          13,
+          12,
+          0
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "86": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          3,
+          3,
+          3,
+          4,
+          4,
+          4,
+          4,
+          4,
+          11,
+          10,
+          4,
+          14,
+          13,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "91": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          1,
+          2,
+          4,
+          13,
+          12,
+          11,
+          0,
+          14,
+          1,
+          12,
+          14,
+          13,
+          12,
+          1,
+          14
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "93": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          15,
+          4,
+          3,
+          1,
+          0,
+          11,
+          15,
+          13,
+          14,
+          12,
+          1,
+          14,
+          3,
+          3
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "95": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          4,
+          14,
+          13,
+          4,
+          4,
+          11,
+          11,
+          4,
+          2,
+          4,
+          5,
+          4,
+          3,
+          4
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "97": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          5,
+          11,
+          13,
+          4,
+          4,
+          5,
+          4,
+          2,
+          3,
+          5,
+          4,
+          4,
+          4,
+          4
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "109": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          2,
+          0,
+          1,
+          13,
+          2,
+          2,
+          2,
+          5,
+          4,
+          11,
+          12,
+          11,
+          11,
+          12,
+          14
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "122": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          2,
+          4,
+          11,
+          12,
+          2,
+          3,
+          2,
+          4,
+          13,
+          4,
+          3,
+          3,
+          0,
+          3,
+          3
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "123": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          3,
+          4,
+          14,
+          1,
+          2,
+          4,
+          11,
+          2,
+          15,
+          5,
+          12,
+          3,
+          14,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "129": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          3,
+          4,
+          4,
+          1,
+          11,
+          4,
+          4,
+          3,
+          12,
+          3,
+          4,
+          4,
+          2,
+          4
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "134": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          1,
+          2,
+          3,
+          3,
+          5,
+          10,
+          10,
+          11,
+          11,
+          12,
+          13,
+          13,
+          13,
+          13,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "135": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          11,
+          13,
+          14,
+          13,
+          12,
+          15,
+          13,
+          2,
+          2,
+          3,
+          14,
+          3,
+          3,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "146": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          12,
+          13,
+          1,
+          14,
+          1,
+          14,
+          13,
+          13,
+          13,
+          3,
+          13,
+          13,
+          11,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "152": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          0,
+          0,
+          4,
+          3,
+          3,
+          2,
+          4,
+          11,
+          1,
+          2,
+          4,
+          12,
+          1,
+          3
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "157": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          2,
+          11,
+          13,
+          13,
+          14,
+          15,
+          12,
+          12,
+          12,
+          0,
+          13,
+          12,
+          12,
+          14,
+          14
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "158": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          2,
+          3,
+          1,
+          13,
+          4,
+          10,
+          1,
+          13,
+          11,
+          12,
+          0,
+          12,
+          12,
+          14
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "162": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          2,
+          2,
+          2,
+          13,
+          5,
+          4,
+          5,
+          10,
+          12,
+          12,
+          11,
+          12,
+          13,
+          13,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "164": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          14,
+          12,
+          2,
+          13,
+          1,
+          12,
+          4,
+          2,
+          3,
+          3,
+          0,
+          2,
+          2,
+          2
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "168": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          3,
+          2,
+          0,
+          13,
+          2,
+          15,
+          14,
+          3,
+          2,
+          4,
+          3,
+          14,
+          4,
+          2
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "172": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          1,
+          3,
+          5,
+          4,
+          4,
+          4,
+          3,
+          5,
+          3,
+          4,
+          2,
+          11,
+          4,
+          4
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "173": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          0,
+          0,
+          13,
+          2,
+          11,
+          12,
+          0,
+          14,
+          13,
+          3,
+          2,
+          11,
+          1,
+          0
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "174": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          13,
+          14,
+          4,
+          13,
+          11,
+          12,
+          0,
+          14,
+          0,
+          3,
+          1,
+          15,
+          13,
+          0
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "176": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          4,
+          0,
+          15,
+          11,
+          3,
+          3,
+          3,
+          14,
+          3,
+          2,
+          1,
+          14,
+          4,
+          2
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "178": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          1,
+          0,
+          13,
+          10,
+          0,
+          2,
+          11,
+          12,
+          12,
+          12,
+          12,
+          12,
+          14,
+          14
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "184": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          0,
+          12,
+          14,
+          0,
+          15,
+          3,
+          13,
+          14,
+          1,
+          2,
+          0,
+          12,
+          2,
+          15
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "186": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          2,
+          2,
+          2,
+          2,
+          13,
+          1,
+          1,
+          2,
+          4,
+          12,
+          1,
+          14,
+          3,
+          1
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "195": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          1,
+          4,
+          11,
+          14,
+          2,
+          4,
+          11,
+          12,
+          2,
+          2,
+          12,
+          15,
+          2,
+          11,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "200": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          15,
+          13,
+          3,
+          2,
+          2,
+          12,
+          4,
+          1,
+          2,
+          0,
+          1,
+          0,
+          4,
+          0
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "202": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          2,
+          3,
+          0,
+          2,
+          2,
+          11,
+          11,
+          3,
+          12,
+          12,
+          12,
+          11,
+          12,
+          13,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "203": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          4,
+          15,
+          15,
+          4,
+          15,
+          3,
+          2,
+          13,
+          14,
+          14,
+          15,
+          15,
+          15,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "215": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          0,
+          0,
+          2,
+          3,
+          13,
+          0,
+          12,
+          3,
+          14,
+          0,
+          13,
+          0,
+          1,
+          2
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "220": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          4,
+          4,
+          12,
+          14,
+          11,
+          11,
+          11,
+          11,
+          12,
+          12,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "223": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          3,
+          3,
+          4,
+          3,
+          4,
+          13,
+          14,
+          3,
+          13,
+          0,
+          0,
+          3,
+          3,
+          1
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "226": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          14,
+          14,
+          13,
+          4,
+          14,
+          1,
+          15,
+          12,
+          13,
+          1,
+          15,
+          15,
+          15,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "233": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          3,
+          3,
+          15,
+          3,
+          3,
+          3,
+          12,
+          1,
+          3,
+          3,
+          13,
+          14,
+          14,
+          2
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "234": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          4,
+          2,
+          1,
+          14,
+          0,
+          2,
+          1,
+          0,
+          2,
+          3,
+          3,
+          5,
+          4,
+          4
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "236": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          2,
+          1,
+          1,
+          0,
+          13,
+          3,
+          2,
+          3,
+          15,
+          14,
+          3,
+          13,
+          12,
+          13,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "251": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          1,
+          3,
+          12,
+          14,
+          2,
+          2,
+          14,
+          13,
+          1,
+          12,
+          13,
+          13,
+          1,
+          13,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "253": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          5,
+          3,
+          4,
+          4,
+          4,
+          4,
+          3,
+          4,
+          4,
+          5,
+          4,
+          5,
+          4,
+          4
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "254": {
+      "endpoints": null,
+      "indices": [
+        [
+          6,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          14,
+          14,
+          0,
+          14,
+          0,
+          0,
+          0,
+          14,
+          0
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "6": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          13,
+          12,
+          5,
+          2,
+          11,
+          12,
+          3,
+          4,
+          14,
+          13,
+          2,
+          14,
+          3,
+          15
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "9": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          6,
+          12,
+          15,
+          2,
+          5,
+          11,
+          5,
+          4,
+          5,
+          5,
+          4,
+          4,
+          5,
+          4,
+          4
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "22": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          2,
+          1,
+          12,
+          13,
+          1,
+          2,
+          13,
+          11,
+          4,
+          3,
+          12,
+          12,
+          12,
+          11
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "42": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          3,
+          2,
+          13,
+          5,
+          13,
+          3,
+          4,
+          10,
+          14,
+          5,
+          4,
+          15,
+          13,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "54": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          1,
+          3,
+          0,
+          1,
+          12,
+          2,
+          5,
+          15,
+          5,
+          2,
+          11,
+          13,
+          15,
+          0
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "60": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          15,
+          3,
+          3,
+          13,
+          11,
+          4,
+          12,
+          0,
+          3,
+          12,
+          15,
+          11,
+          14,
+          14
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "66": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          11,
+          13,
+          12,
+          3,
+          11,
+          13,
+          11,
+          2,
+          12,
+          11,
+          15,
+          2,
+          0,
+          5
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "68": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          15,
+          1,
+          14,
+          4,
+          13,
+          14,
+          12,
+          10,
+          3,
+          0,
+          0,
+          3,
+          4,
+          4
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "70": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          11,
+          11,
+          12,
+          4,
+          2,
+          2,
+          2,
+          3,
+          0,
+          12,
+          1,
+          0,
+          1,
+          1
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "76": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          2,
+          15,
+          4,
+          13,
+          5,
+          4,
+          5,
+          4,
+          1,
+          2,
+          2,
+          15,
+          15,
+          0
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "81": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          3,
+          3,
+          14,
+          11,
+          11,
+          0,
+          1,
+          11,
+          1,
+          15,
+          15,
+          3,
+          4,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "100": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          5,
+          14,
+          0,
+          13,
+          4,
+          1,
+          0,
+          12,
+          5,
+          3,
+          1,
+          0,
+          13,
+          5
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "106": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          11,
+          14,
+          15,
+          10,
+          15,
+          14,
+          13,
+          14,
+          14,
+          11,
+          11,
+          0,
+          14,
+          14
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "108": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          1,
+          11,
+          14,
+          13,
+          11,
+          13,
+          15,
+          14,
+          12,
+          13,
+          12,
+          0,
+          12,
+          15,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "113": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          1,
+          14,
+          15,
+          0,
+          1,
+          1,
+          1,
+          15,
+          0,
+          0,
+          12,
+          14,
+          12,
+          2,
+          3
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "116": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          3,
+          1,
+          14,
+          0,
+          3,
+          0,
+          4,
+          2,
+          3,
+          11,
+          1,
+          4,
+          13,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "125": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          2,
+          14,
+          0,
+          4,
+          14,
+          15,
+          12,
+          11,
+          12,
+          13,
+          13,
+          15,
+          2,
+          4
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "128": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          11,
+          12,
+          14,
+          3,
+          4,
+          3,
+          1,
+          1,
+          2,
+          3,
+          11,
+          3,
+          2,
+          14
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "130": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          3,
+          4,
+          3,
+          4,
+          11,
+          2,
+          4,
+          11,
+          12,
+          13,
+          2,
+          13,
+          13,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "140": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          2,
+          12,
+          12,
+          13,
+          14,
+          13,
+          14,
+          14,
+          3,
+          13,
+          14,
+          15,
+          4,
+          12,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "142": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          13,
+          13,
+          13,
+          4,
+          2,
+          12,
+          11,
+          3,
+          4,
+          15,
+          4,
+          3,
+          2,
+          3
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "143": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          1,
+          1,
+          1,
+          12,
+          4,
+          2,
+          2,
+          2,
+          12,
+          13,
+          3,
+          3,
+          13,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "144": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          1,
+          13,
+          14,
+          1,
+          14,
+          14,
+          14,
+          3,
+          1,
+          13,
+          14,
+          4,
+          1,
+          13,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "179": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          13,
+          13,
+          12,
+          1,
+          11,
+          12,
+          13,
+          4,
+          12,
+          0,
+          13,
+          12,
+          13,
+          14
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "187": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          13,
+          15,
+          0,
+          3,
+          2,
+          0,
+          0,
+          14,
+          12,
+          13,
+          1,
+          2,
+          13,
+          14
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "192": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          1,
+          1,
+          13,
+          12,
+          3,
+          2,
+          14,
+          13,
+          2,
+          1,
+          14,
+          4,
+          0,
+          3
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "204": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          12,
+          0,
+          13,
+          15,
+          12,
+          3,
+          15,
+          12,
+          13,
+          15,
+          13,
+          13,
+          12,
+          14
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "206": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          2,
+          4,
+          12,
+          3,
+          3,
+          4,
+          3,
+          4,
+          1,
+          1,
+          2,
+          4,
+          4,
+          3
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "214": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          1,
+          3,
+          1,
+          13,
+          2,
+          0,
+          13,
+          14,
+          2,
+          4,
+          13,
+          13,
+          3,
+          4,
+          3
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "218": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          0,
+          15,
+          13,
+          4,
+          14,
+          15,
+          1,
+          4,
+          14,
+          15,
+          1,
+          2,
+          2,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "229": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          0,
+          12,
+          13,
+          11,
+          0,
+          12,
+          11,
+          15,
+          12,
+          12,
+          12,
+          12,
+          14,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "230": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          2,
+          2,
+          3,
+          1,
+          2,
+          3,
+          4,
+          15,
+          3,
+          11,
+          10,
+          15,
+          15,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "241": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          4,
+          12,
+          2,
+          4,
+          1,
+          14,
+          2,
+          4,
+          3,
+          0,
+          12,
+          3,
+          4,
+          15
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "242": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          2,
+          0,
+          3,
+          14,
+          3,
+          2,
+          2,
+          11,
+          12,
+          14,
+          12,
+          13,
+          13,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "244": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          2,
+          2,
+          12,
+          3,
+          2,
+          3,
+          14,
+          2,
+          2,
+          11,
+          15,
+          13,
+          14,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "252": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          2,
+          14,
+          12,
+          14,
+          3,
+          14,
+          12,
+          14,
+          14,
+          1,
+          12,
+          13,
+          14,
+          15,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "225": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          3,
+          13,
+          14,
+          12,
+          11,
+          12,
+          13,
+          14,
+          12,
+          13,
+          1,
+          15,
+          1,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "235": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          2,
+          1,
+          3,
+          14,
+          3,
+          2,
+          2,
+          2,
+          4,
+          1,
+          4,
+          2,
+          13,
+          12,
+          0
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "34": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          4,
+          14,
+          2,
+          13,
+          12,
+          4,
+          3,
+          14,
+          11,
+          3,
+          2,
+          12,
+          5,
+          2
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "59": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          3,
+          10,
+          10,
+          2,
+          14,
+          14,
+          15,
+          11,
+          11,
+          0,
+          0,
+          2,
+          13,
+          15
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "69": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          12,
+          2,
+          15,
+          11,
+          12,
+          2,
+          0,
+          13,
+          4,
+          1,
+          1,
+          1,
+          11,
+          3
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "92": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          15,
+          15,
+          14,
+          3,
+          4,
+          13,
+          1,
+          3,
+          3,
+          15,
+          11,
+          3,
+          1,
+          15
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "96": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          12,
+          3,
+          1,
+          12,
+          15,
+          2,
+          3,
+          14,
+          0,
+          11,
+          0,
+          3,
+          3,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "98": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          14,
+          14,
+          5,
+          12,
+          4,
+          2,
+          12,
+          14,
+          1,
+          3,
+          3,
+          0,
+          1,
+          2
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "112": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          10,
+          3,
+          12,
+          1,
+          1,
+          2,
+          2,
+          15,
+          15,
+          1,
+          0,
+          0,
+          2,
+          2
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "114": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          3,
+          3,
+          4,
+          4,
+          3,
+          4,
+          13,
+          5,
+          4,
+          12,
+          12,
+          3,
+          5,
+          10
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "118": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          1,
+          1,
+          2,
+          2,
+          15,
+          1,
+          3,
+          3,
+          0,
+          15,
+          2,
+          2,
+          5,
+          10,
+          14
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "126": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          1,
+          2,
+          14,
+          11,
+          11,
+          3,
+          13,
+          15,
+          1,
+          2,
+          0,
+          15,
+          0,
+          3
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "148": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          11,
+          3,
+          4,
+          1,
+          4,
+          1,
+          12,
+          0,
+          1,
+          2,
+          1,
+          1,
+          3,
+          2
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "154": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          14,
+          1,
+          3,
+          12,
+          11,
+          2,
+          12,
+          12,
+          13,
+          12,
+          13,
+          13,
+          14,
+          0
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "155": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          14,
+          12,
+          13,
+          12,
+          13,
+          12,
+          13,
+          3,
+          2,
+          12,
+          13,
+          3,
+          1,
+          3
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "159": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          4,
+          4,
+          3,
+          4,
+          5,
+          4,
+          3,
+          2,
+          0,
+          13,
+          4,
+          12,
+          12,
+          11
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "169": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          13,
+          11,
+          12,
+          4,
+          10,
+          11,
+          11,
+          4,
+          11,
+          11,
+          11,
+          3,
+          10,
+          11
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "175": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          0,
+          2,
+          0,
+          4,
+          12,
+          14,
+          3,
+          0,
+          13,
+          1,
+          11,
+          2,
+          2,
+          15
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "232": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          2,
+          3,
+          4,
+          2,
+          2,
+          4,
+          13,
+          3,
+          4,
+          14,
+          15,
+          3,
+          12,
+          1
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "237": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          3,
+          2,
+          15,
+          0,
+          12,
+          11,
+          15,
+          12,
+          11,
+          13,
+          12,
+          1,
+          13,
+          14
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "243": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          0,
+          4,
+          4,
+          3,
+          3,
+          3,
+          4,
+          14,
+          3,
+          3,
+          14,
+          3,
+          3,
+          3
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "248": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          12,
+          14,
+          13,
+          2,
+          3,
+          12,
+          13,
+          2,
+          2,
+          4,
+          12,
+          1,
+          2,
+          3
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "14": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          11,
+          15,
+          13,
+          12,
+          10,
+          11,
+          1,
+          13,
+          13,
+          11,
+          11,
+          1,
+          11,
+          11
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "27": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          4,
+          11,
+          14,
+          4,
+          11,
+          12,
+          15,
+          12,
+          12,
+          15,
+          1,
+          11,
+          12,
+          15
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "37": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          12,
+          13,
+          2,
+          11,
+          11,
+          15,
+          3,
+          3,
+          2,
+          4,
+          1,
+          2,
+          3,
+          2
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "58": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          11,
+          13,
+          15,
+          12,
+          15,
+          13,
+          15,
+          4,
+          2,
+          14,
+          10,
+          13,
+          11,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "77": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          12,
+          12,
+          12,
+          3,
+          12,
+          12,
+          13,
+          14,
+          13,
+          12,
+          12,
+          3,
+          3,
+          4
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "78": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          15,
+          13,
+          13,
+          11,
+          15,
+          12,
+          2,
+          12,
+          12,
+          3,
+          3,
+          2,
+          3,
+          2
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "79": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          4,
+          3,
+          12,
+          2,
+          2,
+          15,
+          2,
+          13,
+          3,
+          4,
+          14,
+          1,
+          3,
+          11
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "87": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          13,
+          13,
+          15,
+          2,
+          1,
+          3,
+          2,
+          4,
+          3,
+          4,
+          3,
+          0,
+          11,
+          11
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "88": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          13,
+          12,
+          4,
+          3,
+          2,
+          13,
+          15,
+          0,
+          3,
+          4,
+          13,
+          15,
+          13,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "90": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          3,
+          4,
+          14,
+          2,
+          0,
+          3,
+          3,
+          11,
+          3,
+          2,
+          1,
+          12,
+          4,
+          3
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "119": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          4,
+          0,
+          3,
+          2,
+          14,
+          15,
+          13,
+          15,
+          13,
+          1,
+          13,
+          2,
+          3,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "196": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          3,
+          4,
+          4,
+          3,
+          0,
+          3,
+          3,
+          15,
+          4,
+          2,
+          3,
+          12,
+          11,
+          15
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "198": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          11,
+          13,
+          15,
+          2,
+          4,
+          13,
+          13,
+          1,
+          4,
+          11,
+          13,
+          1,
+          3,
+          1
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "201": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          3,
+          2,
+          2,
+          12,
+          4,
+          3,
+          3,
+          12,
+          3,
+          4,
+          3,
+          15,
+          13,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "213": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          3,
+          4,
+          12,
+          14,
+          3,
+          2,
+          13,
+          2,
+          3,
+          14,
+          0,
+          3,
+          14,
+          1
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "216": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          0,
+          13,
+          14,
+          13,
+          13,
+          13,
+          14,
+          12,
+          14,
+          13,
+          13,
+          15,
+          2,
+          2
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "238": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          13,
+          14,
+          12,
+          2,
+          0,
+          2,
+          13,
+          2,
+          3,
+          2,
+          3,
+          0,
+          15,
+          1
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "240": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          2,
+          2,
+          2,
+          12,
+          3,
+          3,
+          2,
+          12,
+          12,
+          14,
+          4,
+          13,
+          13,
+          14
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "249": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          1,
+          3,
+          4,
+          13,
+          2,
+          4,
+          13,
+          14,
+          3,
+          15,
+          12,
+          13,
+          2,
+          14,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "18": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          2,
+          15,
+          4,
+          14,
+          14,
+          3,
+          1,
+          12,
+          11,
+          2,
+          14,
+          13,
+          4,
+          3,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "24": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          12,
+          14,
+          2,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          15,
+          5,
+          4
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "26": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          13,
+          12,
+          12,
+          2,
+          13,
+          11,
+          3,
+          14,
+          13,
+          11,
+          12,
+          12,
+          12,
+          2
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "40": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          12,
+          10,
+          2,
+          12,
+          12,
+          11,
+          12,
+          11,
+          12,
+          15,
+          13,
+          12,
+          11,
+          1
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "72": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          12,
+          4,
+          3,
+          1,
+          13,
+          12,
+          2,
+          2,
+          3,
+          3,
+          2,
+          4,
+          13,
+          3
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "83": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          1,
+          15,
+          0,
+          11,
+          15,
+          13,
+          13,
+          1,
+          2,
+          15,
+          14,
+          13,
+          1,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "107": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          15,
+          13,
+          15,
+          3,
+          5,
+          12,
+          0,
+          15,
+          3,
+          4,
+          0,
+          12,
+          15,
+          3
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "115": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          3,
+          14,
+          2,
+          13,
+          13,
+          13,
+          13,
+          3,
+          13,
+          1,
+          0,
+          3,
+          3,
+          3
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "124": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          3,
+          2,
+          4,
+          1,
+          4,
+          4,
+          4,
+          14,
+          2,
+          14,
+          4,
+          0,
+          3,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "151": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          14,
+          12,
+          1,
+          11,
+          13,
+          15,
+          15,
+          12,
+          0,
+          1,
+          1,
+          12,
+          12,
+          14
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "163": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          13,
+          0,
+          12,
+          3,
+          2,
+          15,
+          13,
+          2,
+          3,
+          1,
+          14,
+          14,
+          3,
+          11
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "30": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          2,
+          11,
+          14,
+          1,
+          12,
+          15,
+          1,
+          0,
+          11,
+          12,
+          2,
+          2,
+          3,
+          10,
+          1
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "38": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          15,
+          4,
+          4,
+          4,
+          2,
+          5,
+          4,
+          13,
+          4,
+          15,
+          4,
+          4,
+          2,
+          11
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "52": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          15,
+          11,
+          1,
+          2,
+          4,
+          11,
+          2,
+          12,
+          11,
+          12,
+          12,
+          1,
+          11,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "64": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          1,
+          3,
+          13,
+          0,
+          4,
+          1,
+          2,
+          2,
+          14,
+          3,
+          2,
+          13,
+          2,
+          11,
+          1
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "71": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          1,
+          2,
+          1,
+          15,
+          11,
+          10,
+          13,
+          14,
+          11,
+          10,
+          11,
+          11,
+          0,
+          15,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "89": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          12,
+          12,
+          14,
+          10,
+          15,
+          12,
+          14,
+          13,
+          11,
+          14,
+          14,
+          1,
+          2,
+          3
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "99": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          13,
+          13,
+          14,
+          1,
+          3,
+          4,
+          13,
+          0,
+          4,
+          3,
+          12,
+          2,
+          4,
+          4
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "104": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          1,
+          4,
+          0,
+          2,
+          1,
+          12,
+          12,
+          3,
+          3,
+          12,
+          13,
+          14,
+          3,
+          11
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "193": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          4,
+          10,
+          0,
+          3,
+          4,
+          11,
+          12,
+          3,
+          3,
+          3,
+          13,
+          2,
+          2,
+          4
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "228": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          13,
+          15,
+          1,
+          3,
+          0,
+          3,
+          2,
+          3,
+          3,
+          15,
+          13,
+          15,
+          15,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "15": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          1,
+          1,
+          1,
+          4,
+          3,
+          0,
+          3,
+          1,
+          1,
+          4,
+          11,
+          13,
+          10,
+          11,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "16": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          12,
+          12,
+          1,
+          4,
+          11,
+          14,
+          15,
+          4,
+          3,
+          4,
+          12,
+          1,
+          1,
+          2
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "41": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          4,
+          15,
+          2,
+          13,
+          14,
+          0,
+          14,
+          0,
+          0,
+          11,
+          3,
+          0,
+          4,
+          2
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "45": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          14,
+          14,
+          1,
+          13,
+          12,
+          14,
+          13,
+          13,
+          15,
+          3,
+          14,
+          10,
+          5,
+          13
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "84": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          3,
+          1,
+          11,
+          3,
+          3,
+          3,
+          4,
+          1,
+          4,
+          11,
+          11,
+          3,
+          2,
+          11
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "170": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          2,
+          14,
+          11,
+          13,
+          1,
+          4,
+          13,
+          14,
+          3,
+          14,
+          15,
+          2,
+          12,
+          14,
+          14
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "209": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          14,
+          1,
+          3,
+          13,
+          12,
+          3,
+          3,
+          13,
+          15,
+          1,
+          0,
+          0,
+          13,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "217": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          4,
+          1,
+          2,
+          3,
+          3,
+          4,
+          14,
+          3,
+          1,
+          13,
+          2,
+          4,
+          1,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "141": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          4,
+          4,
+          1,
+          2,
+          14,
+          15,
+          12,
+          2,
+          13,
+          12,
+          12,
+          4,
+          14,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "161": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          5,
+          3,
+          2,
+          2,
+          15,
+          3,
+          14,
+          2,
+          14,
+          15,
+          4,
+          4,
+          0,
+          13,
+          14
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "166": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          3,
+          2,
+          3,
+          2,
+          3,
+          3,
+          14,
+          14,
+          14,
+          3,
+          12,
+          12,
+          11,
+          13,
+          14
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "191": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          1,
+          1,
+          15,
+          2,
+          11,
+          12,
+          13,
+          11,
+          2,
+          15,
+          15,
+          0,
+          0,
+          15,
+          0
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "205": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          14,
+          13,
+          12,
+          2,
+          13,
+          14,
+          12,
+          0,
+          12,
+          12,
+          2,
+          0,
+          11,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "12": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          3,
+          3,
+          3,
+          2,
+          3,
+          1,
+          11,
+          11,
+          4,
+          12,
+          12,
+          14,
+          0,
+          0
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "57": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          1,
+          14,
+          3,
+          15,
+          0,
+          0,
+          0,
+          13,
+          2,
+          1,
+          4,
+          13,
+          10,
+          14,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "74": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          11,
+          1,
+          2,
+          12,
+          12,
+          14,
+          13,
+          12,
+          3,
+          1,
+          2,
+          12,
+          14,
+          15
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "101": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          12,
+          12,
+          12,
+          13,
+          15,
+          12,
+          1,
+          13,
+          3,
+          1,
+          3,
+          14,
+          12,
+          14
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "132": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          2,
+          5,
+          10,
+          12,
+          1,
+          5,
+          11,
+          13,
+          15,
+          5,
+          11,
+          13,
+          15,
+          5,
+          12
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    },
+    "183": {
+      "endpoints": null,
+      "indices": [
+        [
+          4,
+          4,
+          2,
+          12,
+          12,
+          2,
+          2,
+          1,
+          13,
+          2,
+          12,
+          2,
+          15,
+          3,
+          3,
+          14
+        ],
+        null
+      ],
+      "status": "sixng_pixel_provisional"
+    }
+  },
+  "provenance": {
+    "method": "Natural training-only palette membership eliminates mode4 index selectors; modulo16 pixel-domain intersections across nine new training PNG sources extend first-index-plane presets. Opaque SixNG 0.7.0 is an untrusted baseline, never source or table input.",
+    "confirmed_controls": 0,
+    "confirmed_history_entries": 0,
+    "new_control_observations": [
+      {
+        "code": 23,
+        "pool": "ttdb_maps_5_7.ttpf",
+        "chunk": 26498,
+        "block": 0,
+        "texture": "8aec5d8c4b21bc0d",
+        "mip": 2,
+        "png_sha256": "fdce5fbb0e23911edf1716ca4da8ffbeaa42fdc9f1f26a6b5d962146ab830265",
+        "status": "pixel_palette_provisional",
+        "evidence": "Natural inherited training pixels from opaque untrusted SixNG; no control tables copied."
+      },
+      {
+        "code": 226,
+        "pool": "ttdb_props_1_3.ttpf",
+        "chunk": 23938,
+        "block": 0,
+        "texture": "b880396c379f66d1",
+        "mip": 2,
+        "png_sha256": "34e9b34581420ed41630c0da8ac2ec9af3b61c88ac79485db831536dd3dc1d75",
+        "status": "pixel_palette_provisional",
+        "evidence": "Natural inherited training pixels from opaque untrusted SixNG; no control tables copied."
+      },
+      {
+        "code": 163,
+        "pool": "weapon_liveries.ttpf",
+        "chunk": 429,
+        "block": 0,
+        "texture": "12b8b7d13af8cd1f",
+        "mip": 0,
+        "png_sha256": "b8848145ad7ea307b8c9979e93947f0fbfc132d7f4d2f6b546f59804e76996ef",
+        "status": "pixel_palette_provisional",
+        "evidence": "Natural inherited training pixels from opaque untrusted SixNG; no control tables copied."
+      },
+      {
+        "code": 101,
+        "pool": "weapon_liveries.ttpf",
+        "chunk": 429,
+        "block": 6,
+        "texture": "12b8b7d13af8cd1f",
+        "mip": 0,
+        "png_sha256": "b8848145ad7ea307b8c9979e93947f0fbfc132d7f4d2f6b546f59804e76996ef",
+        "status": "pixel_palette_provisional",
+        "evidence": "Natural inherited training pixels from opaque untrusted SixNG; no control tables copied."
+      }
+    ],
+    "new_index_sources": [
+      {
+        "pool": "ttdb_peds_0_3.ttpf",
+        "chunk": 12586,
+        "texture": "8deed4fcdb3228f4",
+        "mip": 2,
+        "width": 128,
+        "height": 128,
+        "chunk_sha256": "6b70418ca6f9b2362036bc442f02910b0833f93f38ca17f2b1a507a388ba3d40",
+        "png_sha256": "0a48e4d64e00a624be4490dea078f01e6fb8e95d58521f92207ad92a10f2ac75",
+        "rgba_sha256": "8ea117f1d5e7efcbdec7f21d098bc18ada09aec477631ee703587c1815de6a0a",
+        "evidence": "Natural inherited-training PNG from opaque SixNG 0.7.0; provisional pixel constraints only."
+      },
+      {
+        "pool": "ttdb_peds_0_3.ttpf",
+        "chunk": 1712,
+        "texture": "12f137621adbf458",
+        "mip": 2,
+        "chunk_sha256": "0dd419a3df754ebc5a0dfcb16c34b291f23bb76fe7b24a16224b308e1b1206d1",
+        "png_sha256": "5006d1daeb871664b39964c6bfbe50c2e8208597f2f2ba99e915f14e5d76b4ec",
+        "status": "untrusted SixNG pixel provisional"
+      },
+      {
+        "pool": "ttdb_peds_0_3.ttpf",
+        "chunk": 14208,
+        "texture": "a0847e8b797f0a9c",
+        "mip": 0,
+        "chunk_sha256": "e912a5ee10a57ab554d6bccff01a1c2b0f0ba728c1975fbd447e84d855d4755b",
+        "png_sha256": "4976351ee99da235b6bc4780f4b154b60382b07085d6764f557999bf7070ba06",
+        "status": "untrusted SixNG pixel provisional"
+      },
+      {
+        "pool": "ttdb_peds_0_3.ttpf",
+        "chunk": 4121,
+        "texture": "2d77639c5d830e20",
+        "mip": 2,
+        "chunk_sha256": "8ae3147e50d9a02fd2deb34996e72a45d7883185a07b86ae077f7a4eb4d7226a",
+        "png_sha256": "27af4279ffa5fec10a23b6b1cb2dee0ba78daabac050ac343e7f69abdde4f3f9",
+        "status": "untrusted SixNG pixel provisional"
+      },
+      {
+        "pool": "ttdb_peds_0_3.ttpf",
+        "chunk": 11660,
+        "texture": "837589df58d3cb78",
+        "mip": 2,
+        "chunk_sha256": "46d177eb04d8d7f1761de4439b4d77ed33501382e8be6700b48ba895c5a00624",
+        "png_sha256": "70ffbff66dff11d41dfc7d2e25eb6401789662376f7374a5e5f0770e99e19dd1",
+        "status": "untrusted SixNG pixel provisional"
+      },
+      {
+        "pool": "ttdb_peds_0_3.ttpf",
+        "chunk": 11907,
+        "texture": "8676725bdaea1dc0",
+        "mip": 2,
+        "chunk_sha256": "3b1fd4b909cff40da9218906eb80a3bbdaaf3f69082fab6007a8abd844967f66",
+        "png_sha256": "77590bda2c3f2ecd0cae299a81b9435b08a450680a82ed933ec6343aa3111314",
+        "status": "untrusted SixNG pixel provisional"
+      },
+      {
+        "pool": "ttdb_peds_0_3.ttpf",
+        "chunk": 16413,
+        "texture": "b98a4e03db58fe10",
+        "mip": 2,
+        "chunk_sha256": "837dc6cae5cbc77c11c85e6829e090b26e67f4e69ca446d08683f2fd866460cf",
+        "png_sha256": "5562fdd215683f058808428c782e0f7e3399a34ad7bd98db5ed28b843f9aa5fe",
+        "status": "untrusted SixNG pixel provisional"
+      },
+      {
+        "pool": "ttdb_peds_0_3.ttpf",
+        "chunk": 610,
+        "texture": "06ee33a58f872da4",
+        "mip": 2,
+        "chunk_sha256": "dc3859758e19092c894cfc4f26a12dfb97c727368436d933046afca298f8b095",
+        "png_sha256": "bbc17c6863d7131a60e3cdcb8e1e41b16a85804ec15b9444e9d77ef424d4662f",
+        "status": "untrusted SixNG pixel provisional"
+      },
+      {
+        "pool": "ttdb_peds_0_3.ttpf",
+        "chunk": 21696,
+        "texture": "f9a4153f850cfb70",
+        "mip": 0,
+        "chunk_sha256": "554ab7bae5fb303c0304ac9f3e1ace1cdd15757645943d41a03ae6cdcd30d02f",
+        "png_sha256": "8791be5592650363aade5e8299ffa32a1ad1e1e7ef330878f60f8af64740a7c2",
+        "status": "untrusted SixNG pixel provisional"
+      }
+    ],
+    "added_controls": 4,
+    "added_index_planes": 164,
+    "total_index_planes": 209,
+    "partial_unfitted_index_planes": [
+      "13",
+      "171"
+    ],
+    "anchor_boundary": "Authored plain BC7 controls agree across decoders; SixNG BCPack PNG retains the full anchor index while stored BC7 omits its high bit. No endpoint normalization is inferred.",
+    "initial_frozen_tables_unchanged": true,
+    "merge_report_sha256": "a6a065270a4e284c6cc1870e726e79ff4c8727ee1e2ba25ae957b2493e9bf349"
+  }
+}
