@@ -2958,7 +2958,8 @@
         9650245632,
         9828319232,
         9577308160,
-        9609138176
+        9609138176,
+        9832923136
       ]
     },
     {
@@ -3531,7 +3532,6 @@
         5205917696,
         5275791360,
         5907828736,
-        9832923136,
         9835085824,
         7040626688,
         6464028672,
@@ -21295,12 +21295,12 @@
         "stream_index": 0,
         "channel_index": 0,
         "channel_id": 457953711,
-        "title": "FTH",
+        "title": "Fuck These Hoes",
         "artist": "Real Dimez",
-        "source": "https://www.youtube.com/watch?v=4j9zQcuC9ps",
+        "source": "https://www.youtube.com/watch?v=qlOWMNLwTwQ",
         "method": "audio_fingerprint",
         "status": "provisional",
-        "evidence": "Two public references match disjoint windows; original FTH family, exact edition and use unconfirmed."
+        "evidence": "Public VCRR display and local audio match; exact edit provisional."
       },
       "chapter_credits": [
         {
@@ -21311,14 +21311,21 @@
           "track_id": 1510,
           "start_frames": 0,
           "end_frames": 6068334,
-          "title": "FTH",
+          "title": "Fuck These Hoes",
           "artist": "Real Dimez",
           "method": "audio_fingerprint",
           "reference_credit_method": "local_fingerprint",
-          "source": "https://www.youtube.com/watch?v=4j9zQcuC9ps",
-          "evidence": "Same source-bound FTH match; native TRACKID and bounds retained; exact edit provisional."
+          "source": "https://www.youtube.com/watch?v=qlOWMNLwTwQ",
+          "evidence": "Source-bound audio match; native TRACKID and frame bounds retained."
         }
-      ]
+      ],
+      "station_assignment": {
+        "station_key": "radio_vcrr",
+        "source": "https://www.youtube.com/watch?v=qlOWMNLwTwQ",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "evidence": "Public VCRR display and matching audio; native membership unconfirmed."
+      }
     },
     {
       "archive": "audio.rpf",
