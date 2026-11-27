@@ -23,6 +23,8 @@ class Preset:
     """Independently observed halves; None always means unknown, never zero."""
     endpoints: tuple | None = None
     indices: tuple = (None, None)
+    endpoint_masks: tuple | None = None
+    index_masks: tuple = (None, None)
 
     def __post_init__(self):
         if self.endpoints is not None:State(self.endpoints,ZERO.indices)
@@ -30,6 +32,79 @@ class Preset:
                 or any(row is not None and (not isinstance(row,tuple) or len(row)!=16
                     or any(type(v) is not int or not 0<=v<16 for v in row)) for row in self.indices)):
             raise ValueError('invalid BC7 preset index observation')
+        if self.endpoint_masks is not None:
+            if (self.endpoints is None or not isinstance(self.endpoint_masks,tuple)
+                    or len(self.endpoint_masks)!=len(self.endpoints)
+                    or any(not isinstance(row,tuple) or len(row)!=8 for row in self.endpoint_masks)):
+                raise ValueError('invalid BC7 endpoint observation masks')
+            for values,masks in zip(self.endpoints,self.endpoint_masks):
+                if any(type(m) is not int or not 0<=m<=255 or v&~m for v,m in zip(values,masks)):
+                    raise ValueError('invalid BC7 endpoint observation masks')
+        if not isinstance(self.index_masks,tuple) or len(self.index_masks)!=2:
+            raise ValueError('invalid BC7 index observation masks')
+        for values,masks in zip(self.indices,self.index_masks):
+            if masks is None:continue
+            if (values is None or not isinstance(masks,tuple) or len(masks)!=16
+                    or any(type(m) is not int or not 0<=m<16 or v&~m for v,m in zip(values,masks))):
+                raise ValueError('invalid BC7 index observation masks')
+
+    def project_endpoint(self, control):
+        if self.endpoints is None:raise ValueError('unfitted endpoint fields')
+        if SUBSETS[control.mode]>len(self.endpoints):
+            raise ValueError('unfitted endpoint subsets')
+        widths=precisions(control)
+        for subset in range(SUBSETS[control.mode]):
+            source=subset if subset<len(self.endpoints) else 0
+            masks=(255,)*8 if self.endpoint_masks is None else self.endpoint_masks[source]
+            for channel,width in enumerate(widths):
+                required=((1<<width)-1)<<(8-width)
+                if any(masks[2*channel+p]&required!=required for p in (0,1)):
+                    raise ValueError('unfitted endpoint precision')
+        return State(self.endpoints,ZERO.indices)
+
+    def project_indices(self, control):
+        rows=[]
+        for plane,width in enumerate(INDEX_BITS[control.mode]):
+            if not width:rows.append((0,)*16);continue
+            row=self.indices[plane]
+            if row is None:raise ValueError(f'unfitted index plane {plane}')
+            masks=(15,)*16 if self.index_masks[plane] is None else self.index_masks[plane]
+            required=((1<<width)-1)<<(4-width)
+            if any(mask&required!=required for mask in masks):
+                raise ValueError(f'unfitted index precision in plane {plane}')
+            rows.append(row)
+        return State(ZERO.endpoints,tuple(rows))
+
+
+def merge_presets(old, new):
+    """Add observed bits without replacing frozen knowledge or filling gaps."""
+    if not isinstance(old,Preset) or not isinstance(new,Preset):
+        raise ValueError('invalid BC7 preset merge')
+    def merge_rows(a,am,b,bm,full):
+        if a is None:return b,bm
+        if b is None:return a,am
+        if len(a)!=len(b):raise ValueError('incompatible BC7 preset observation shape')
+        am=(full,)*len(a) if am is None else am
+        bm=(full,)*len(b) if bm is None else bm
+        if any((av^bv)&ma&mb for av,bv,ma,mb in zip(a,b,am,bm)):
+            raise ValueError('BC7 extension changes observed preset bits')
+        values=tuple(av|bv for av,bv in zip(a,b));masks=tuple(ma|mb for ma,mb in zip(am,bm))
+        return values,None if all(m==full for m in masks) else masks
+    endpoints=old.endpoints;em=old.endpoint_masks
+    if endpoints is None:endpoints,em=new.endpoints,new.endpoint_masks
+    elif new.endpoints is not None:
+        if len(endpoints)!=len(new.endpoints):raise ValueError('incompatible BC7 endpoint subsets')
+        pairs=[merge_rows(a,None if em is None else em[i],b,
+                         None if new.endpoint_masks is None else new.endpoint_masks[i],255)
+               for i,(a,b) in enumerate(zip(endpoints,new.endpoints))]
+        endpoints=tuple(p[0] for p in pairs)
+        em=None if all(p[1] is None for p in pairs) else tuple(p[1] or (255,)*8 for p in pairs)
+    indices=[];im=[]
+    for plane in (0,1):
+        row,mask=merge_rows(old.indices[plane],old.index_masks[plane],
+                           new.indices[plane],new.index_masks[plane],15)
+        indices.append(row);im.append(mask)
+    return Preset(endpoints,tuple(indices),em,tuple(im))
 
 
 def unzigzag(value):
@@ -90,14 +165,21 @@ def rebuild(control, symbols, block, endpoint_predictor=ZERO, index_predictor=ZE
     return state
 
 
-@lru_cache(maxsize=2,typed=True)
-def load_tables(extended=True):
+@lru_cache(maxsize=64,typed=True)
+def load_tables(extended=True, refined=True, latest=True, corrected=True, observed=True, bulk=True):
     """Load the immutable initial observations and an optional checked overlay.
 
-    ``extended=False`` replays the original profile without altering its sealed
-    file. Extensions cannot replace any previously observed field or control.
+    ``extended=False`` replays the original profile; ``refined=False`` replays
+    the first extension. Additive observations cannot replace frozen knowledge.
+    ``latest=False`` replays the precision profile before slot32 was completed.
+    ``corrected=False`` replays the completed profile's original observations.
+    ``observed=False`` replays the profile before adding histories35/7.
+    ``bulk=False`` replays the profile before bulk control/endpoint fitting.
+    Corrections require a separate parent-bound record and an exact old-bit
+    precondition. Additive overlays still cannot replace known bits.
+    Precision masks preserve unobserved bits and refuse unsupported requests.
     """
-    if type(extended) is not bool:
+    if any(type(flag) is not bool for flag in (extended,refined,latest,corrected,observed,bulk)):
         raise ValueError('invalid BC7 table profile')
     path=Path(__file__).with_name('data')/'bc7_tables.json'
     base_text=path.read_text()
@@ -140,6 +222,104 @@ def load_tables(extended=True):
                 or more.get('base_sha256')!=hashlib.sha256(path.read_bytes()).hexdigest()):
             raise ValueError('BC7 extension base identity mismatch')
         add_records(more,{'pixel_palette_provisional'})
+    def add_precision(extra):
+        def rows(value):
+            if value is None:return None
+            if not isinstance(value,list) or any(not isinstance(row,list) for row in value):
+                raise ValueError('invalid BC7 precision rows')
+            return tuple(map(tuple,value))
+        for key,entry in extra['history'].items():
+            if (not isinstance(key,str) or not key.isdecimal() or str(int(key))!=key
+                    or not 1<=int(key)<=255 or not isinstance(entry,dict)
+                    or entry.get('status')!='sixng_pixel_provisional'):
+                raise ValueError('invalid BC7 precision observation')
+            fields=[]
+            for name in ('indices','index_masks'):
+                field=entry.get(name)
+                if not isinstance(field,list) or len(field)!=2:
+                    raise ValueError('invalid BC7 precision index rows')
+                fields.append(tuple(None if row is None else rows([row])[0] for row in field))
+            observed=Preset(rows(entry.get('endpoints')),fields[0],
+                            rows(entry.get('endpoint_masks')),fields[1])
+            slot=int(key);history[slot]=merge_presets(history.get(slot,Preset()),observed)
+    refinement=path.with_name('bc7_precision.json')
+    if extended and refined and refinement.exists():
+        extra=json.loads(refinement.read_text())
+        if (not isinstance(extra,dict) or extra.get('format')!='gta6x-bcpack-bc7-precision-v1'
+                or extra.get('base_sha256')!=hashlib.sha256(path.read_bytes()).hexdigest()
+                or not extension.exists()
+                or extra.get('extension_sha256')!=hashlib.sha256(extension.read_bytes()).hexdigest()
+                or not isinstance(extra.get('history'),dict)):
+            raise ValueError('BC7 precision overlay identity mismatch')
+        add_precision(extra)
+    completed=path.with_name('bc7_history_completion.json')
+    if extended and refined and latest and completed.exists():
+        extra=json.loads(completed.read_text())
+        if (not isinstance(extra,dict) or extra.get('format')!='gta6x-bcpack-bc7-history-extension-v1'
+                or not refinement.exists()
+                or extra.get('parent_sha256')!=hashlib.sha256(refinement.read_bytes()).hexdigest()
+                or not isinstance(extra.get('history'),dict)):
+            raise ValueError('BC7 history extension identity mismatch')
+        add_precision(extra)
+    corrections=path.with_name('bc7_corrections.json')
+    if extended and refined and latest and corrected and corrections.exists():
+        document=json.loads(corrections.read_text())
+        if (not isinstance(document,dict)
+                or document.get('format')!='gta6x-bcpack-bc7-corrections-v1'
+                or not completed.exists()
+                or document.get('parent_sha256')!=hashlib.sha256(completed.read_bytes()).hexdigest()
+                or not isinstance(document.get('corrections'),list)
+                or not 1<=len(document['corrections'])<=512):
+            raise ValueError('BC7 correction profile identity mismatch')
+        seen=set()
+        for entry in document['corrections']:
+            if not isinstance(entry,dict) or entry.get('status')!='natural_pixel_correction_provisional':
+                raise ValueError('invalid BC7 correction status')
+            slot,plane,pixel,mask,previous,value=(entry.get(k) for k in
+                ('slot','plane','pixel','mask','previous','value'))
+            if (any(type(v) is not int for v in (slot,plane,pixel,mask,previous,value))
+                    or not 1<=slot<=255 or not 0<=plane<2 or not 0<=pixel<16
+                    or not 1<=mask<=15 or not 0<=previous<=15 or not 0<=value<=15
+                    or previous&~mask or value&~mask or previous==value):
+                raise ValueError('invalid BC7 correction field')
+            field=(slot,plane,pixel)
+            if field in seen:raise ValueError('duplicate BC7 correction field')
+            seen.add(field);old=history.get(slot)
+            if old is None or old.indices[plane] is None:
+                raise ValueError('BC7 correction requires an observed index field')
+            known=15 if old.index_masks[plane] is None else old.index_masks[plane][pixel]
+            if known&mask!=mask or old.indices[plane][pixel]&mask!=previous:
+                raise ValueError('BC7 correction old-bit precondition failed')
+            rows=list(old.indices);row=list(rows[plane]);row[pixel]=(row[pixel]&~mask)|value
+            rows[plane]=tuple(row)
+            history[slot]=Preset(old.endpoints,tuple(rows),old.endpoint_masks,old.index_masks)
+    observations=path.with_name('bc7_observations.json')
+    if extended and refined and latest and corrected and observed and observations.exists():
+        extra=json.loads(observations.read_text())
+        if (not isinstance(extra,dict) or extra.get('format')!='gta6x-bcpack-bc7-observations-v1'
+                or not corrections.exists()
+                or extra.get('parent_sha256')!=hashlib.sha256(corrections.read_bytes()).hexdigest()
+                or not isinstance(extra.get('history'),dict)):
+            raise ValueError('BC7 observation profile identity mismatch')
+        add_precision(extra)
+    bulk_path=path.with_name('bc7_bulk.json')
+    if extended and refined and latest and corrected and observed and bulk and bulk_path.exists():
+        extra=json.loads(bulk_path.read_text())
+        if (not isinstance(extra,dict) or extra.get('format')!='gta6x-bcpack-bc7-bulk-v1'
+                or not observations.exists()
+                or extra.get('parent_sha256')!=hashlib.sha256(observations.read_bytes()).hexdigest()
+                or not isinstance(extra.get('controls'),dict) or not isinstance(extra.get('history'),dict)):
+            raise ValueError('BC7 bulk profile identity mismatch')
+        evidence=extra.get('evidence',{})
+        baseline=evidence.get('baseline_sha256') if isinstance(evidence,dict) else None
+        if (not isinstance(evidence,dict) or evidence.get('status')!='provisional'
+                or type(evidence.get('confirmed_controls')) is not int or evidence['confirmed_controls']!=0
+                or type(evidence.get('confirmed_history')) is not int or evidence['confirmed_history']!=0
+                or not isinstance(baseline,str) or len(baseline)!=64
+                or any(c not in '0123456789abcdef' for c in baseline)):
+            raise ValueError('invalid BC7 bulk provenance')
+        add_records(dict(controls=extra['controls'],history={}),{'pixel_palette_provisional'})
+        add_precision(extra)
     return controls,history
 
 
@@ -171,6 +351,7 @@ def assemble(symbols, out_size, *, controls=None, history=None):
             or not isinstance(v, (State,Preset)) for k,v in presets.items())):
         raise ValueError('invalid BC7 preset observations')
     ring = [None]*256
+    ring_controls = [None]*256
     output = bytearray()
     def predictor(distance, block, component, control):
         if not distance:return ZERO
@@ -179,27 +360,30 @@ def assemble(symbols, out_size, *, controls=None, history=None):
         if slot not in presets:raise ValueError(f'BC7 unfitted history entry {slot} at block {block}')
         value=presets[slot]
         if isinstance(value,State):return value
-        if component=='endpoint':
-            if value.endpoints is None:raise ValueError(f'BC7 unfitted endpoint history entry {slot} at block {block}')
-            return State(value.endpoints,ZERO.indices)
-        rows=[]
-        for plane,width in enumerate(INDEX_BITS[control.mode]):
-            if width and value.indices[plane] is None:
-                raise ValueError(f'BC7 unfitted index history entry {slot} plane {plane} at block {block}')
-            rows.append(value.indices[plane] if width else (0,)*16)
-        return State(ZERO.endpoints,tuple(rows))
+        try:
+            return value.project_endpoint(control) if component=='endpoint' else value.project_indices(control)
+        except ValueError as error:
+            raise ValueError(f'BC7 {error} in history entry {slot} at block {block}') from None
     for block in range(count):
         code = control_code(symbols,block)
         control = controls.get(code)
         if control is None:raise ValueError(f'BC7 unfitted control {code} at block {block}')
         ep, ix = references(symbols,block)
+        # Version-paired probes and plain lower mips support mode6's cleared
+        # secondary prediction. Other cross-control dual transitions remain
+        # unsupported by the bundled observations.
+        if (provisional and INDEX_BITS[control.mode][1] and 0<ix<=block
+                and ring_controls[(block-ix)&255]!=control
+                and ring_controls[(block-ix)&255].mode!=6):
+            raise ValueError(f'BC7 unresolved dual-plane index transition at block {block}')
         state = rebuild(control,symbols,block,predictor(ep,block,'endpoint',control),
                         predictor(ix,block,'index',control))
         output += pack(control,state,omit_anchor_msb=True)
         ring[block&255] = state
+        ring_controls[block&255] = control
     if len(output)!=out_size:raise ValueError('BC7 output size mismatch')
     if provisional:
-        warnings.warn('BCPack BC7: provisional control and pixel-derived index observations; '
+        warnings.warn('BCPack BC7: provisional control and pixel-derived endpoint/index observations; '
                       'original block bytes are unconfirmed and pixel differences are documented',
                       BCPackProvisionalWarning,stacklevel=2)
     return bytes(output)

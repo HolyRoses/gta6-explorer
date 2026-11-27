@@ -1,0 +1,77 @@
+{
+  "format": "gta6x-bcpack-bc7-corrections-v1",
+  "parent_sha256": "71ac37d4e078906f2d66e1bca393d45012aba95fbbc2a42cff82ddd122364e7b",
+  "evidence": {
+    "status": "provisional",
+    "confirmed_entries": 0,
+    "method": "Unseeded single-field domains: both new endpoint-independent training observations uniquely imply13 with opaque SixNG0.11.0 and12 with0.7.0. Nearest plain lower mips favor13 for both new textures; the earlier weapons comparison favors12. This is provisional model selection, not original-byte confirmation.",
+    "field": [
+      17,
+      0,
+      3
+    ],
+    "candidate_values": [
+      12,
+      13
+    ],
+    "selected": 13,
+    "training_sources": [
+      {
+        "pool": "ttdb_peds_0_3.ttpf",
+        "chunk": 12296,
+        "chunk_sha256": "03fef835990138dfe6ae2c13c71abc6c71a28993333ca1245ad436d85ad2f15f",
+        "source": {
+          "texture": "8ac69611cbabfba0",
+          "mip": 2,
+          "width": 128,
+          "height": 64
+        },
+        "old_rgba_sha256": "ddaf97d512edf0bd41691af7893276f7088a161be9af987478fbbc0a6d9996ca",
+        "new_rgba_sha256": "450179bd25ce0254c3a53b8a9515ad1de27908d5ae87ef257e5926e297126b69",
+        "observed_pixels": 2,
+        "lineages": 1,
+        "endpoint_presets": []
+      },
+      {
+        "pool": "ttdb_peds_0_3.ttpf",
+        "chunk": 17152,
+        "chunk_sha256": "871c44bd25c87a7fbea6c695e1fa3c103926faaed4e004dee417902928cda99a",
+        "source": {
+          "texture": "c25f0b894b9b103c",
+          "mip": 2,
+          "width": 128,
+          "height": 128
+        },
+        "old_rgba_sha256": "e644c537606af49a62f204ad0ad021405d66e4ace490e0b389045638518862e3",
+        "new_rgba_sha256": "e32bacac644b2bf524d93dd65a1ee65d52a68d1297421fb1668592829c7e4c63",
+        "observed_pixels": 29,
+        "lineages": 1,
+        "endpoint_presets": []
+      }
+    ],
+    "observed_pixels": 31,
+    "lineages": 2,
+    "scope": "Two textures in the same inherited training pool; no frozen holdout pixels or refitting of prior files.",
+    "opaque_binaries": {
+      "v007": {
+        "version": "0.7.0",
+        "sha256": "77939bb24b4ff747b260acae8c6792d6f487da0c6b739350af34f594f64f02cb"
+      },
+      "v011": {
+        "version": "0.11.0",
+        "sha256": "6f6121ed96126ab4a302ac89c3c7f077a16c805a40c3d77915124761147a0359"
+      }
+    }
+  },
+  "corrections": [
+    {
+      "slot": 17,
+      "plane": 0,
+      "pixel": 3,
+      "mask": 1,
+      "previous": 0,
+      "value": 1,
+      "status": "natural_pixel_correction_provisional"
+    }
+  ]
+}

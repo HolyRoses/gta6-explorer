@@ -1,0 +1,268 @@
+{
+  "format": "gta6x-bcpack-bc7-observations-v1",
+  "parent_sha256": "fedd5bea6b77a9b087a6bb4fefe78eeabc397fcf785fe684426c7c3cb8d93f13",
+  "evidence": {
+    "status": "provisional",
+    "confirmed_entries": 0,
+    "method": "Unseeded mode6 pixel domains, no endpoint presets. Slot7 agrees in both versions; slot35 selects0.11 vector, supported by all tested plain lower mips and a sealed cross-pool check.",
+    "opaque_binaries": {
+      "v007": {
+        "sha256": "77939bb24b4ff747b260acae8c6792d6f487da0c6b739350af34f594f64f02cb"
+      },
+      "v011": {
+        "sha256": "6f6121ed96126ab4a302ac89c3c7f077a16c805a40c3d77915124761147a0359"
+      }
+    },
+    "fitting_sources": [
+      {
+        "pool": "ttdb_peds_0_3.ttpf",
+        "chunk": 12296,
+        "chunk_sha256": "03fef835990138dfe6ae2c13c71abc6c71a28993333ca1245ad436d85ad2f15f",
+        "source": {
+          "texture": "8ac69611cbabfba0",
+          "mip": 2,
+          "width": 128,
+          "height": 64
+        },
+        "version": "v007",
+        "rgba_sha256": "ddaf97d512edf0bd41691af7893276f7088a161be9af987478fbbc0a6d9996ca",
+        "targets": {
+          "35": {
+            "field_observations": 128,
+            "observed_blocks": 8,
+            "lineages": 1,
+            "endpoint_presets": []
+          }
+        }
+      },
+      {
+        "pool": "ttdb_peds_0_3.ttpf",
+        "chunk": 12296,
+        "chunk_sha256": "03fef835990138dfe6ae2c13c71abc6c71a28993333ca1245ad436d85ad2f15f",
+        "source": {
+          "texture": "8ac69611cbabfba0",
+          "mip": 2,
+          "width": 128,
+          "height": 64
+        },
+        "version": "v011",
+        "rgba_sha256": "450179bd25ce0254c3a53b8a9515ad1de27908d5ae87ef257e5926e297126b69",
+        "targets": {
+          "35": {
+            "field_observations": 128,
+            "observed_blocks": 8,
+            "lineages": 1,
+            "endpoint_presets": []
+          }
+        }
+      },
+      {
+        "pool": "ttdb_peds_0_3.ttpf",
+        "chunk": 17152,
+        "chunk_sha256": "871c44bd25c87a7fbea6c695e1fa3c103926faaed4e004dee417902928cda99a",
+        "source": {
+          "texture": "c25f0b894b9b103c",
+          "mip": 2,
+          "width": 128,
+          "height": 128
+        },
+        "version": "v007",
+        "rgba_sha256": "e644c537606af49a62f204ad0ad021405d66e4ace490e0b389045638518862e3",
+        "targets": {
+          "7": {
+            "field_observations": 512,
+            "observed_blocks": 32,
+            "lineages": 2,
+            "endpoint_presets": []
+          }
+        }
+      },
+      {
+        "pool": "ttdb_peds_0_3.ttpf",
+        "chunk": 17152,
+        "chunk_sha256": "871c44bd25c87a7fbea6c695e1fa3c103926faaed4e004dee417902928cda99a",
+        "source": {
+          "texture": "c25f0b894b9b103c",
+          "mip": 2,
+          "width": 128,
+          "height": 128
+        },
+        "version": "v011",
+        "rgba_sha256": "e32bacac644b2bf524d93dd65a1ee65d52a68d1297421fb1668592829c7e4c63",
+        "targets": {
+          "7": {
+            "field_observations": 512,
+            "observed_blocks": 32,
+            "lineages": 2,
+            "endpoint_presets": []
+          }
+        }
+      }
+    ],
+    "cross_pool_check": {
+      "pool": "ttdb_interiors_1_3.ttpf",
+      "chunk": 7371,
+      "source": {
+        "texture": "656c44cfca1fced9",
+        "mip": 2,
+        "width": 256,
+        "height": 256
+      },
+      "scope": "Previously unqueried cross-pool discovery check, candidate sealed before query, not original frozen-pool validation.",
+      "versions": {
+        "v007": {
+          "rgba_sha256": "ccaaeca7d7da0000f1cfe8e14397aa0412cacd1f8872a4c1a80d6ced74ebdb33",
+          "compatible": false,
+          "uniquely_determined_pixels": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ],
+          "observed_blocks": 216,
+          "lineages": 1,
+          "endpoint_presets": []
+        },
+        "v011": {
+          "rgba_sha256": "7464d11d8663b88455cef9cf2c2605608df7f64cee16fda874b0264762bd9334",
+          "compatible": true,
+          "uniquely_determined_pixels": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ],
+          "observed_blocks": 216,
+          "lineages": 1,
+          "endpoint_presets": []
+        }
+      }
+    },
+    "slot35_disputed_low_bits": [
+      3,
+      5,
+      6,
+      7,
+      8,
+      9,
+      11,
+      13,
+      15
+    ],
+    "slot35_nearest_plain_mip_sse": {
+      "v007": {
+        "factor": 2,
+        "changed_cells": 24,
+        "informative_cells": 24,
+        "paired_channel_samples": 24,
+        "sse_a": 181.25,
+        "sse_b": 12.4375,
+        "mse_a": 7.552083333333333,
+        "mse_b": 0.5182291666666666,
+        "closer": "b",
+        "status": "mip_consistency_only",
+        "confirmed": false
+      },
+      "v011": {
+        "factor": 2,
+        "changed_cells": 24,
+        "informative_cells": 24,
+        "paired_channel_samples": 24,
+        "sse_a": 181.25,
+        "sse_b": 12.4375,
+        "mse_a": 7.552083333333333,
+        "mse_b": 0.5182291666666666,
+        "closer": "b",
+        "status": "mip_consistency_only",
+        "confirmed": false
+      }
+    },
+    "scope": "Two reused fitting images, one new unfitted discovery check. No formal heldout score or original-byte truth."
+  },
+  "history": {
+    "35": {
+      "status": "sixng_pixel_provisional",
+      "endpoints": null,
+      "endpoint_masks": null,
+      "indices": [
+        [
+          4,
+          2,
+          14,
+          3,
+          2,
+          1,
+          13,
+          3,
+          3,
+          13,
+          12,
+          5,
+          4,
+          13,
+          12,
+          3
+        ],
+        null
+      ],
+      "index_masks": [
+        null,
+        null
+      ]
+    },
+    "7": {
+      "status": "sixng_pixel_provisional",
+      "endpoints": null,
+      "endpoint_masks": null,
+      "indices": [
+        [
+          4,
+          4,
+          12,
+          11,
+          4,
+          12,
+          12,
+          15,
+          0,
+          12,
+          2,
+          2,
+          15,
+          4,
+          4,
+          15
+        ],
+        null
+      ],
+      "index_masks": [
+        null,
+        null
+      ]
+    }
+  }
+}

@@ -61,8 +61,8 @@ python3 -m gta6x textures --embedded --archive textures --max 20 --out ./exports
 ```
 
 Add `--bcpack` to attempt native BC1/BC3/BC4/BC5 and limited provisional BC7
-decoding, or `--all` to
-remove the texture-count limit. Filter with `--hash-prefix` or `--min-size`.
+decoding. Supported DDS exports retain their mip chains. Use `--all` to remove
+the texture-count limit, or filter with `--hash-prefix` and `--min-size`.
 `--png-mip`, `--png-slice` and `--png-z` select a supported preview subresource;
 DDS retains the supported texture layout. `textures.json` records exports and
 skip reasons. Textures without recovered names retain their hash identifiers.
@@ -334,10 +334,14 @@ necessarily cap extraction. Native world uses `--scan-mib` for scan size and
 - **Textures:** some formats and layouts remain unsupported, including native
   compressed or multi-mip volume export. BCPack coverage is partial: BC3/BC4/BC5
   reject unknown histories and warn on provisional entries; BC1 retains legacy
-  preset fallbacks. BC7 reconstruction has very limited provisional coverage;
+  preset fallbacks. BC7 uses fitted controls and partial endpoint/index histories;
+  coverage remains limited, with native assembly available across all block modes.
   exports warn and identify that status in their manifests. Original BC7 bytes
-  remain unconfirmed; comparisons use an untrusted pixel baseline. BC6H BCPack
-  supports entropy inspection only.
+  remain unconfirmed; the untrusted pixel baseline has known discrepancies.
+  Unknown preset bits and unresolved dual-plane transitions are refused.
+  Bulk-fitted observations remain provisional; successful table fitting alone
+  does not establish complete texture coverage.
+  BC6H BCPack supports entropy inspection only.
 - **Audio:** XMA2 decoding and some Opus timing/skip profiles are unsupported.
   Native song-title, station-membership and playlist links remain unresolved.
 - **Animation and world:** native inspection exposes metadata and checked
