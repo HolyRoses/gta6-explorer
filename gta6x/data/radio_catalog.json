@@ -2962,7 +2962,8 @@
         9832923136,
         9839722496,
         9844310016,
-        9842368512
+        9842368512,
+        9835085824
       ]
     },
     {
@@ -3501,8 +3502,7 @@
         9743409152,
         12906684416,
         28209922048,
-        5275791360,
-        9835085824
+        5275791360
       ],
       "members": [
         4882612224,
@@ -3532,7 +3532,6 @@
         5205917696,
         5275791360,
         5907828736,
-        9835085824,
         7040626688,
         6464028672,
         7569670144
@@ -21295,12 +21294,12 @@
         "stream_index": 0,
         "channel_index": 0,
         "channel_id": 457953711,
-        "title": "Fuck These Hoes",
+        "title": "Fuck These Hoes (original hook)",
         "artist": "Real Dimez",
-        "source": "https://www.youtube.com/watch?v=qlOWMNLwTwQ",
+        "source": "https://www.youtube.com/watch?v=2ZogzsPfsmo&t=110s",
         "method": "audio_fingerprint",
         "status": "provisional",
-        "evidence": "Public VCRR display and local audio match; exact edit provisional."
+        "evidence": "User-located studio branch and local lyric comparison identify the original hook; exact edition provisional."
       },
       "chapter_credits": [
         {
@@ -21311,12 +21310,12 @@
           "track_id": 1510,
           "start_frames": 0,
           "end_frames": 6068334,
-          "title": "Fuck These Hoes",
+          "title": "Fuck These Hoes (original hook)",
           "artist": "Real Dimez",
           "method": "audio_fingerprint",
           "reference_credit_method": "local_fingerprint",
-          "source": "https://www.youtube.com/watch?v=qlOWMNLwTwQ",
-          "evidence": "Source-bound audio match; native TRACKID and frame bounds retained."
+          "source": "https://www.youtube.com/watch?v=2ZogzsPfsmo&t=110s",
+          "evidence": "Same source-bound original hook; native TRACKID and frame bounds retained."
         }
       ],
       "station_assignment": {
@@ -21338,12 +21337,12 @@
         "stream_index": 0,
         "channel_index": 0,
         "channel_id": 217505288,
-        "title": "FTH (alternate recording)",
+        "title": "Fuck These Hoes (raw hook)",
         "artist": "Real Dimez",
-        "source": "https://www.youtube.com/watch?v=4j9zQcuC9ps",
+        "source": "https://www.youtube.com/watch?v=2ZogzsPfsmo&t=47s",
         "method": "audio_fingerprint",
         "status": "provisional",
-        "evidence": "Two public references match disjoint windows; original FTH family, exact edition and use unconfirmed."
+        "evidence": "User-located studio branch and local lyric comparison identify the raw hook; exact edition provisional."
       },
       "chapter_credits": [
         {
@@ -21354,14 +21353,21 @@
           "track_id": 1510,
           "start_frames": 0,
           "end_frames": 6064798,
-          "title": "FTH (alternate recording)",
+          "title": "Fuck These Hoes (raw hook)",
           "artist": "Real Dimez",
           "method": "audio_fingerprint",
           "reference_credit_method": "local_fingerprint",
-          "source": "https://www.youtube.com/watch?v=4j9zQcuC9ps",
-          "evidence": "Same source-bound FTH match; native TRACKID and bounds retained; exact edit provisional."
+          "source": "https://www.youtube.com/watch?v=2ZogzsPfsmo&t=47s",
+          "evidence": "Same source-bound raw hook; native TRACKID and frame bounds retained."
         }
-      ]
+      ],
+      "station_assignment": {
+        "station_key": "radio_vcrr",
+        "source": "https://www.youtube.com/watch?v=2ZogzsPfsmo&t=47s",
+        "method": "audio_fingerprint",
+        "status": "provisional",
+        "evidence": "Raw-hook audio corroborated; user-selected VCRR placement, native membership unconfirmed."
+      }
     },
     {
       "archive": "audio.rpf",
